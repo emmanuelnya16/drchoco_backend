@@ -1,0 +1,3 @@
+# Fins de ligne uniformes (LF) dans le dépôt, quel que soit le poste de travail.
+* text=auto eol=lf
+*.pem binary

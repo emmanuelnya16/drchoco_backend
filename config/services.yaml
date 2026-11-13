@@ -1,0 +1,64 @@
+# Services de l'API DR Choco.
+parameters:
+    # Durées des sessions (voir App\Entity\RefreshToken) :
+    # client = 90 jours glissants ; admin = 12 h maximum après la connexion.
+    app.refresh.client_ttl_days: 90
+    app.refresh.admin_session_hours: 12
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $appEnv: '%kernel.environment%'
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # Cloudinary — identique au backend de référence : URL lue depuis .env.local
+    App\Service\Media\CloudinaryService:
+        arguments:
+            $cloudinaryUrl: '%env(CLOUDINARY_URL)%'
+
+    # Enrichissement du JWT — identique au backend de référence
+    App\EventListener\JwtCreatedListener:
+        tags:
+            - name: kernel.event_listener
+              event: lexik_jwt_authentication.on_jwt_created
+              method: onJwtCreated
+
+    # SMS Twilio — identique au backend de référence
+    App\Service\Notification\SmsService:
+        arguments:
+            $accountSid: '%env(TWILIO_ACCOUNT_SID)%'
+            $authToken: '%env(TWILIO_AUTH_TOKEN)%'
+            $fromNumber: '%env(TWILIO_FROM_NUMBER)%'
+            $adminPhone: '%env(ADMIN_PHONE_NUMBER)%'
+
+    # PawaPay — conservé mais désactivé par défaut (PAWAPAY_ENABLED=0)
+    App\Service\Payment\PawapayService:
+        arguments:
+            $baseUrl: '%env(PAWAPAY_BASE_URL)%'
+            $apiToken: '%env(PAWAPAY_API_TOKEN)%'
+            $enabled: '%env(bool:PAWAPAY_ENABLED)%'
+
+    App\Service\Auth\RefreshTokenService:
+        arguments:
+            $clientTtlDays: '%app.refresh.client_ttl_days%'
+            $adminSessionHours: '%app.refresh.admin_session_hours%'
+
+when@test:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+        App\Tests\Probe\:
+            resource: '../tests/Probe/'
+        # Accès direct aux services encore inutilisés par un contrôleur (tests uniquement).
+        test.refresh_token_service:
+            alias: App\Service\Auth\RefreshTokenService
+            public: true

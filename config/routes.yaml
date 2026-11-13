@@ -1,0 +1,14 @@
+# Toutes les routes de l'API sont servies sous /api (même domaine que l'application).
+# Les contrôleurs déclarent leurs chemins SANS ce préfixe (ex. #[Route('/health')] => /api/health).
+controllers:
+    resource: routing.controllers
+    prefix: /api
+
+# Routes de sonde, chargées uniquement pendant les tests automatisés.
+when@test:
+    test_probe:
+        resource:
+            path: ../tests/Probe/
+            namespace: App\Tests\Probe
+        type: attribute
+        prefix: /api

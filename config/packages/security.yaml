@@ -1,0 +1,75 @@
+# Sécurité de l'API DR Choco.
+# Même structure que le backend de référence (deux providers, pare-feux sans état, JWT lexik),
+# adaptée aux sessions DR Choco : client par code SMS (sans mot de passe) et équipe admin séparée.
+security:
+    password_hashers:
+        App\Entity\Admin:
+            algorithm: bcrypt
+            cost: 13
+
+    providers:
+        user_provider:
+            entity:
+                class: App\Entity\User
+                property: phone
+        admin_provider:
+            entity:
+                class: App\Entity\Admin
+                property: email
+
+    # owner et manager = super admins ; seller = vendeur rattaché à une ville.
+    role_hierarchy:
+        ROLE_OWNER: [ROLE_SUPER_ADMIN]
+        ROLE_MANAGER: [ROLE_SUPER_ADMIN]
+        ROLE_SUPER_ADMIN: [ROLE_ADMIN]
+        ROLE_SELLER: [ROLE_ADMIN]
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt)/
+            security: false
+
+        # Connexion, rafraîchissement et déconnexion : pilotés par le code SMS ou le cookie, jamais par le JWT.
+        api_auth:
+            pattern: ^/api/(auth/(otp/request|otp/verify|refresh|logout)|admin/auth/(login|refresh|logout))$
+            stateless: true
+            security: false
+
+        # Espace d'administration : JWT de l'équipe (owner, manager, seller).
+        api_admin:
+            pattern: ^/api/admin
+            stateless: true
+            provider: admin_provider
+            user_checker: App\Security\AccountStatusChecker
+            jwt: ~
+
+        # Reste de l'API : JWT client (connexion par code SMS).
+        api_user:
+            pattern: ^/api
+            stateless: true
+            provider: user_provider
+            user_checker: App\Security\AccountStatusChecker
+            jwt: ~
+
+    # Refus par défaut : toute route non listée comme publique exige une connexion.
+    # Sur une route publique, un jeton expiré ou invalide est ignoré (App\Security\PublicRouteAuthFailureListener).
+    # Un jeton doit porter la marque DR Choco et le bon type de compte (App\Security\JwtDecodedListener).
+    access_control:
+        - { path: ^/api/health$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/(otp/request|otp/verify|refresh|logout)$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/admin/auth/(login|refresh|logout)$, roles: PUBLIC_ACCESS }
+        # Catalogue et informations publiques, en lecture
+        - { path: ^/api/(categories|products|search|looks|settings/public|delivery|pages)(/|$), roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/cart/validate$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/client-errors$, roles: PUBLIC_ACCESS, methods: [POST] }
+        # Administration
+        - { path: ^/api/admin, roles: ROLE_ADMIN }
+        # Tout le reste : client connecté
+        - { path: ^/api, roles: ROLE_USER }
+
+when@test:
+    security:
+        password_hashers:
+            App\Entity\Admin:
+                algorithm: auto
+                cost: 4

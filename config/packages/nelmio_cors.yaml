@@ -1,0 +1,13 @@
+# Même principe que le backend de référence (cookies httpOnly => credentials).
+# En production, l'API est sur le même domaine (/api) : le CORS ne sert qu'au développement.
+nelmio_cors:
+    defaults:
+        origin_regex: true
+        allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
+        allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+        allow_headers: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Idempotency-Key']
+        expose_headers: ['Retry-After']
+        allow_credentials: true
+        max_age: 600
+    paths:
+        '^/api': ~

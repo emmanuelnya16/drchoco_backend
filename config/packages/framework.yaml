@@ -1,0 +1,16 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    # API sans état : aucune session PHP (les sessions passent par le JWT et le cookie de rafraîchissement).
+    session: false
+    http_method_override: false
+    handle_all_throwables: true
+
+    # Les erreurs HTTP attendues (404, 422, 401…) ne sont pas des pannes : journalisées en « notice »,
+    # elles ne déclenchent pas le journal d'erreurs de production. Les vraies pannes restent « critical ».
+    exceptions:
+        Symfony\Component\HttpKernel\Exception\HttpException:
+            log_level: notice
+
+when@test:
+    framework:
+        test: true
