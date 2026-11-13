@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\RefreshTokenRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 /**
  * Jeton de rafraîchissement (session longue), stocké haché.
@@ -33,6 +34,7 @@ class RefreshToken
 
     // On ne stocke JAMAIS le jeton en clair : seulement son empreinte SHA-256.
     #[ORM\Column(type: 'string', length: 128, unique: true)]
+    #[Ignore]
     private string $tokenHash;
 
     #[ORM\Column(type: 'string', length: 10)]
@@ -130,6 +132,8 @@ class RefreshToken
 
     public function getId(): ?int { return $this->id; }
 
+    // Empreinte du jeton de session : jamais renvoyée dans une réponse de l'API.
+    #[Ignore]
     public function getTokenHash(): string { return $this->tokenHash; }
     public function setTokenHash(string $v): static { $this->tokenHash = $v; return $this; }
 

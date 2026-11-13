@@ -6,6 +6,7 @@ use App\Repository\AdminRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -49,7 +50,9 @@ class Admin implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\Regex(pattern: '/^\+2376\d{8}$/', message: 'Numéro camerounais invalide.')]
     private ?string $phone = null;
 
+    // Mot de passe haché (bcrypt) : en écriture seule, JAMAIS renvoyé dans une réponse de l'API.
     #[ORM\Column(type: 'string')]
+    #[Ignore]
     private string $password;
 
     #[ORM\Column(type: 'string', length: 20)]
@@ -119,6 +122,11 @@ class Admin implements UserInterface, PasswordAuthenticatedUserInterface
     public function getPhone(): ?string { return $this->phone; }
     public function setPhone(?string $v): static { $this->phone = $v; return $this; }
 
+    /**
+     * Exigé par Symfony pour vérifier le mot de passe à la connexion.
+     * Exclu de toute sérialisation (#[Ignore]) : même un `$this->json($admin)` ne l'exposerait pas.
+     */
+    #[Ignore]
     public function getPassword(): string { return $this->password; }
     public function setPassword(string $v): static { $this->password = $v; return $this; }
 
