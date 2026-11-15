@@ -1,0 +1,73 @@
+{
+  "operators": [
+    {
+      "code": "orange",
+      "name": "Orange Money",
+      "merchantCode": "909935",
+      "ussdTemplate": "#150*14*{code}*640073363*{amount}#",
+      "accountName": "ETS DR CHOCO LINCOMPRIS",
+      "qrCodeUrl": "/mock/qr-orange.svg"
+    },
+    {
+      "code": "mtn",
+      "name": "MTN Mobile Money",
+      "merchantCode": "00267749",
+      "ussdTemplate": "*126*16*{code}*{amount}#",
+      "accountName": "DR CHOCO BOUTIQUE SARL",
+      "qrCodeUrl": "/mock/qr-mtn.svg"
+    }
+  ],
+  "payment": {
+    "operators": [
+      {
+        "id": "orange",
+        "label": "Orange Money",
+        "merchantName": "ETS DR CHOCO LINCOMPRIS",
+        "merchantCode": "909935",
+        "ussdTemplate": "#150*14*{code}*640073363*{amount}#",
+        "qrImageUrl": "/mock/qr-orange.svg",
+        "steps": [
+          "Appuyez sur « Composer le code de paiement » ou copiez le code USSD complet (le montant de votre facture y est déjà intégré automatiquement).",
+          "Code marchand : 909935 · Numéro de compte Orange Money : 640073363.",
+          "Vérifiez que le destinataire affiché est « ETS DR CHOCO LINCOMPRIS », puis validez avec OK et votre code secret Orange Money."
+        ],
+        "enabled": true
+      },
+      {
+        "id": "mtn",
+        "label": "MTN MoMo",
+        "merchantName": "DR CHOCO BOUTIQUE SARL",
+        "merchantCode": "00267749",
+        "ussdTemplate": "*126*16*{code}*{amount}#",
+        "qrImageUrl": "/mock/qr-mtn.svg",
+        "steps": [
+          "Appuyez sur « Composer le code de paiement » ou copiez le code USSD complet (le montant de votre facture y est déjà intégré automatiquement).",
+          "Identifiant de l’agent (Agent ID) : 00267749.",
+          "Vérifiez que le nom du marchand est « DR CHOCO BOUTIQUE SARL », puis validez avec votre code PIN MTN Mobile Money."
+        ],
+        "enabled": true
+      }
+    ],
+    "exactAmountRequired": true,
+    "validationDelayText": "en général en moins d’une heure, de 8 h à 20 h",
+    "proofMaxSizeMb": 10
+  },
+  "whatsappNumber": "+237690000000",
+  "reservationExpiryHours": 24,
+  "reservationHoldHours": 24,
+  "deliveryFeePayment": "upfront",
+  "shop": {
+    "name": "Boutique DR Choco L’Incompris",
+    "address": "Yaoundé — Boutique officielle DR Choco, immeuble anthracite rez-de-chaussée",
+    "city": "Yaoundé",
+    "openingHours": "Lun – Sam · 9 h 30 à 19 h 30",
+    "mapsUrl": "https://maps.google.com/?q=Yaounde+Cameroun"
+  },
+  "pickupAddress": {
+    "name": "Boutique DR Choco L’Incompris",
+    "city": "Yaoundé",
+    "quarter": "Yaoundé Centre",
+    "landmark": "Boutique officielle DR Choco, immeuble anthracite rez-de-chaussée",
+    "openingHours": "Lun – Sam · 9 h 30 à 19 h 30"
+  }
+}

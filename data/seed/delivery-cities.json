@@ -1,0 +1,122 @@
+[
+  {
+    "id": "city-yde",
+    "name": "Yaoundé",
+    "fee": 1500,
+    "isLocal": true,
+    "hasAgencies": false,
+    "estimatedDelay": "Aujourd’hui ou demain"
+  },
+  {
+    "id": "city-dla",
+    "name": "Douala",
+    "fee": 2500,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 2 jours"
+  },
+  {
+    "id": "city-baf",
+    "name": "Bafoussam",
+    "fee": 3000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 3 jours"
+  },
+  {
+    "id": "city-bam",
+    "name": "Bamenda",
+    "fee": 3500,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 3 jours"
+  },
+  {
+    "id": "city-ber",
+    "name": "Bertoua",
+    "fee": 3500,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 3 jours"
+  },
+  {
+    "id": "city-bue",
+    "name": "Buea",
+    "fee": 2000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 2 jours"
+  },
+  {
+    "id": "city-dsc",
+    "name": "Dschang",
+    "fee": 3000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 3 jours"
+  },
+  {
+    "id": "city-ebo",
+    "name": "Ebolowa",
+    "fee": 3000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 3 jours"
+  },
+  {
+    "id": "city-ede",
+    "name": "Edéa",
+    "fee": 2000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 2 jours"
+  },
+  {
+    "id": "city-gar",
+    "name": "Garoua",
+    "fee": 4500,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "2 à 3 jours"
+  },
+  {
+    "id": "city-kri",
+    "name": "Kribi",
+    "fee": 2500,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 2 jours"
+  },
+  {
+    "id": "city-lim",
+    "name": "Limbé",
+    "fee": 2000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 2 jours"
+  },
+  {
+    "id": "city-mar",
+    "name": "Maroua",
+    "fee": 5000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "2 à 3 jours"
+  },
+  {
+    "id": "city-nga",
+    "name": "Ngaoundéré",
+    "fee": 4000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "2 à 3 jours"
+  },
+  {
+    "id": "city-nko",
+    "name": "Nkongsamba",
+    "fee": 2000,
+    "isLocal": false,
+    "hasAgencies": true,
+    "estimatedDelay": "1 à 2 jours"
+  }
+]

@@ -1,0 +1,281 @@
+[
+  {
+    "id": "ag-dla-1",
+    "cityId": "city-dla",
+    "city": "Douala",
+    "name": "Agence Express Littoral — Akwa",
+    "address": "Akwa, Boulevard de la Liberté face station-service",
+    "phone": "+237 690 10 10 01",
+    "openingHours": "Tous les jours · 6 h 30 à 21 h"
+  },
+  {
+    "id": "ag-dla-2",
+    "cityId": "city-dla",
+    "city": "Douala",
+    "name": "Relais du Wouri — Bonabéri",
+    "address": "Bonabéri, Ancienne Route face marché",
+    "phone": "+237 677 10 10 02",
+    "openingHours": "Lun – Sam · 7 h à 20 h"
+  },
+  {
+    "id": "ag-yde-1",
+    "cityId": "city-yde",
+    "city": "Yaoundé",
+    "name": "Agence Express Centre",
+    "address": "Mvan, Avenue du Sud face station-service",
+    "phone": "+237 690 10 11 01",
+    "openingHours": "Tous les jours · 6 h 30 à 21 h"
+  },
+  {
+    "id": "ag-yde-2",
+    "cityId": "city-yde",
+    "city": "Yaoundé",
+    "name": "Relais des Sept Collines",
+    "address": "Biymassi, Carrefour Acacias",
+    "phone": "+237 677 10 11 02",
+    "openingHours": "Lun – Sam · 7 h à 20 h"
+  },
+  {
+    "id": "ag-yde-3",
+    "cityId": "city-yde",
+    "city": "Yaoundé",
+    "name": "Transports du Littoral — Terminus Mvan",
+    "address": "Mvan, Terminus principal porte B",
+    "phone": "+237 699 10 11 03",
+    "openingHours": "Tous les jours · 6 h à 22 h"
+  },
+  {
+    "id": "ag-baf-1",
+    "cityId": "city-baf",
+    "city": "Bafoussam",
+    "name": "Messagerie des Hauts-Plateaux",
+    "address": "Entrée de la ville, Route Nationale 4",
+    "phone": "+237 690 20 21 01",
+    "openingHours": "Tous les jours · 7 h à 20 h 30"
+  },
+  {
+    "id": "ag-baf-2",
+    "cityId": "city-baf",
+    "city": "Bafoussam",
+    "name": "Agence Express Ouest",
+    "address": "Carrefour Marché A, Immeuble Central",
+    "phone": "+237 677 20 21 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-bam-1",
+    "cityId": "city-bam",
+    "city": "Bamenda",
+    "name": "Relais Nord-Ouest Express",
+    "address": "Commercial Avenue, Secteur Central",
+    "phone": "+237 677 30 31 01",
+    "openingHours": "Lun – Sam · 7 h 30 à 18 h 30"
+  },
+  {
+    "id": "ag-bam-2",
+    "cityId": "city-bam",
+    "city": "Bamenda",
+    "name": "Messagerie des Collines",
+    "address": "City Chemist Roundabout",
+    "phone": "+237 690 30 31 02",
+    "openingHours": "Lun – Sam · 8 h à 18 h"
+  },
+  {
+    "id": "ag-bue-1",
+    "cityId": "city-bue",
+    "city": "Buea",
+    "name": "Navette du Mont-Cameroun",
+    "address": "Mile 17, Gare routière principale",
+    "phone": "+237 677 40 41 01",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-bue-2",
+    "cityId": "city-bue",
+    "city": "Buea",
+    "name": "Transports du Littoral — Molyko",
+    "address": "Molyko, face Stade Omnisports",
+    "phone": "+237 690 40 41 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-lim-1",
+    "cityId": "city-lim",
+    "city": "Limbé",
+    "name": "Rapide Atlantique Limbé",
+    "address": "Mile 4, Carrefour principal",
+    "phone": "+237 677 50 51 01",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-lim-2",
+    "cityId": "city-lim",
+    "city": "Limbé",
+    "name": "Navette Côtière Express",
+    "address": "Down Beach, Avenue du Port",
+    "phone": "+237 690 50 51 02",
+    "openingHours": "Lun – Sam · 8 h à 19 h"
+  },
+  {
+    "id": "ag-kri-1",
+    "cityId": "city-kri",
+    "city": "Kribi",
+    "name": "Rapide Atlantique Kribi",
+    "address": "Centre-ville, face Marché Central",
+    "phone": "+237 690 60 61 01",
+    "openingHours": "Tous les jours · 7 h à 20 h 30"
+  },
+  {
+    "id": "ag-kri-2",
+    "cityId": "city-kri",
+    "city": "Kribi",
+    "name": "Transports du Littoral — Océan",
+    "address": "Carrefour Afan-Mabé, Route de Douala",
+    "phone": "+237 677 60 61 02",
+    "openingHours": "Tous les jours · 7 h 30 à 20 h"
+  },
+  {
+    "id": "ag-ede-1",
+    "cityId": "city-ede",
+    "city": "Edéa",
+    "name": "Relais de la Sanaga",
+    "address": "Avenue des Banques, Centre commercial",
+    "phone": "+237 690 70 71 01",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-ede-2",
+    "cityId": "city-ede",
+    "city": "Edéa",
+    "name": "Transports du Littoral — Edéa",
+    "address": "Gare routière du Pont",
+    "phone": "+237 677 70 71 02",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-nko-1",
+    "cityId": "city-nko",
+    "city": "Nkongsamba",
+    "name": "Messagerie du Moungo",
+    "address": "Boulevard de la Gare, Centre-ville",
+    "phone": "+237 690 80 81 01",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-nko-2",
+    "cityId": "city-nko",
+    "city": "Nkongsamba",
+    "name": "Agence Express Moungo",
+    "address": "Carrefour Ekelé, Route Nationale 5",
+    "phone": "+237 677 80 81 02",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-dsc-1",
+    "cityId": "city-dsc",
+    "city": "Dschang",
+    "name": "Messagerie des Hauts-Plateaux — Dschang",
+    "address": "Foto, Route de l’Université",
+    "phone": "+237 690 90 91 01",
+    "openingHours": "Tous les jours · 7 h 30 à 20 h"
+  },
+  {
+    "id": "ag-dsc-2",
+    "cityId": "city-dsc",
+    "city": "Dschang",
+    "name": "Relais Menoua Express",
+    "address": "Marché B, Entrée principale",
+    "phone": "+237 677 90 91 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-nga-1",
+    "cityId": "city-nga",
+    "city": "Ngaoundéré",
+    "name": "Courrier du Septentrion — Adamaoua",
+    "address": "Quartier Baladji, Avenue de la Gare",
+    "phone": "+237 691 10 12 01",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-nga-2",
+    "cityId": "city-nga",
+    "city": "Ngaoundéré",
+    "name": "Agence Express Grand Nord",
+    "address": "Carrefour Petit Marché",
+    "phone": "+237 678 10 12 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-gar-1",
+    "cityId": "city-gar",
+    "city": "Garoua",
+    "name": "Courrier du Septentrion — Bénoué",
+    "address": "Plateau, Avenue du Port Fluvial",
+    "phone": "+237 691 20 22 01",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-gar-2",
+    "cityId": "city-gar",
+    "city": "Garoua",
+    "name": "Agence Express Grand Nord — Garoua",
+    "address": "Yelwa, Carrefour Central",
+    "phone": "+237 678 20 22 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-mar-1",
+    "cityId": "city-mar",
+    "city": "Maroua",
+    "name": "Courrier du Septentrion — Diamaré",
+    "address": "Domayo, Boulevard du Kaliao",
+    "phone": "+237 691 30 32 01",
+    "openingHours": "Tous les jours · 7 h à 19 h 30"
+  },
+  {
+    "id": "ag-mar-2",
+    "cityId": "city-mar",
+    "city": "Maroua",
+    "name": "Agence Express Grand Nord — Maroua",
+    "address": "Kakataré, face Grand Marché",
+    "phone": "+237 678 30 32 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h"
+  },
+  {
+    "id": "ag-ber-1",
+    "cityId": "city-ber",
+    "city": "Bertoua",
+    "name": "Messagerie du Soleil Levant",
+    "address": "Enia, Avenue Principale",
+    "phone": "+237 691 40 42 01",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-ber-2",
+    "cityId": "city-ber",
+    "city": "Bertoua",
+    "name": "Agence Express Est",
+    "address": "Mokolo I, Carrefour Central",
+    "phone": "+237 678 40 42 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  },
+  {
+    "id": "ag-ebo-1",
+    "cityId": "city-ebo",
+    "city": "Ebolowa",
+    "name": "Agence Express Sud",
+    "address": "Angalé, Route Nationale 2",
+    "phone": "+237 691 50 52 01",
+    "openingHours": "Tous les jours · 7 h à 20 h"
+  },
+  {
+    "id": "ag-ebo-2",
+    "cityId": "city-ebo",
+    "city": "Ebolowa",
+    "name": "Relais Méridional",
+    "address": "Centre commercial Nko’ovos",
+    "phone": "+237 678 50 52 02",
+    "openingHours": "Lun – Sam · 7 h 30 à 19 h 30"
+  }
+]

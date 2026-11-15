@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Catalog\ShopCity;
 use App\Repository\AdminRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -27,8 +28,8 @@ class Admin implements UserInterface, PasswordAuthenticatedUserInterface
 
     public const ROLES = [self::ROLE_OWNER, self::ROLE_MANAGER, self::ROLE_SELLER];
 
-    // Villes possibles pour un vendeur (référentiel complet en base à partir de P1/P3).
-    public const CITIES = ['Yaoundé', 'Douala'];
+    // Villes possibles pour un vendeur.
+    public const CITIES = ShopCity::ALL;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -127,8 +128,17 @@ class Admin implements UserInterface, PasswordAuthenticatedUserInterface
      * Exclu de toute sérialisation (#[Ignore]) : même un `$this->json($admin)` ne l'exposerait pas.
      */
     #[Ignore]
-    public function getPassword(): string { return $this->password; }
-    public function setPassword(string $v): static { $this->password = $v; return $this; }
+    public function getPassword(): string
+    {
+        return $this->password;
+    }
+
+    public function setPassword(string $v): static
+    {
+        $this->password = $v;
+
+        return $this;
+    }
 
     public function getRole(): string { return $this->role; }
     public function setRole(string $v): static { $this->role = $v; return $this; }

@@ -1,0 +1,4422 @@
+[
+  {
+    "id": "prod-01",
+    "slug": "hoodie-barbele-noir",
+    "name": "Hoodie Barbelé Noir",
+    "description": "Molleton lourd 480 g/m² à la coupe boxy et aux épaules tombantes. Sa broderie poitrine haute densité et sa capuche doublée sans cordon signent l’allure brute de L’Incompris. Conçu pour garder son volume lavage après lavage.",
+    "composition": "100 % coton peigné lourd, 480 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "hoodies",
+    "price": 45000,
+    "images": [
+      "/images/products/hoodie-barbele-noir-1.webp",
+      "/images/products/hoodie-barbele-noir-2.webp",
+      "/images/products/hoodie-barbele-noir-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg",
+      "/mock/product-pants.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/hoodie-barbele-noir-1.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "noir",
+        "alt": "Hoodie Barbelé Noir — Noir Charbon"
+      },
+      {
+        "url": "/images/products/hoodie-barbele-noir-2.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "gris",
+        "alt": "Hoodie Barbelé Noir — Gris Béton"
+      },
+      {
+        "url": "/images/products/hoodie-barbele-noir-3.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Hoodie Barbelé Noir — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-01-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-01-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 6
+      },
+      {
+        "id": "prod-01-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-01-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-01-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-01-gris-s",
+        "size": "S",
+        "colorCode": "gris",
+        "stock": 0
+      },
+      {
+        "id": "prod-01-gris-m",
+        "size": "M",
+        "colorCode": "gris",
+        "stock": 0
+      },
+      {
+        "id": "prod-01-gris-l",
+        "size": "L",
+        "colorCode": "gris",
+        "stock": 0
+      },
+      {
+        "id": "prod-01-gris-xl",
+        "size": "XL",
+        "colorCode": "gris",
+        "stock": 0
+      },
+      {
+        "id": "prod-01-gris-xxl",
+        "size": "XXL",
+        "colorCode": "gris",
+        "stock": 0
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 142,
+    "createdAt": "2026-10-28T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-02",
+    "slug": "tshirt-lincompris-oversize",
+    "name": "T-shirt L'Incompris Oversize",
+    "description": "Coton peigné 280 g/m² au tombé lourd et respirant, idéal sous le climat de Douala et Yaoundé. Son col côtelé épais de 3 cm ne se détend jamais. La sérigraphie dorsale grand format est cuite en atelier pour une tenue irréprochable.",
+    "composition": "100 % coton peigné, 280 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "t-shirts",
+    "price": 18000,
+    "images": [
+      "/images/products/tshirt-lincompris-oversize-1.webp",
+      "/images/products/tshirt-lincompris-oversize-2.webp",
+      "/images/products/tshirt-lincompris-oversize-3.webp",
+      "/images/products/tshirt-lincompris-oversize-4.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/tshirt-lincompris-oversize-1.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "T-shirt L'Incompris Oversize — Noir Charbon"
+      },
+      {
+        "url": "/images/products/tshirt-lincompris-oversize-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "blanc",
+        "alt": "T-shirt L'Incompris Oversize — Blanc Craie"
+      },
+      {
+        "url": "/images/products/tshirt-lincompris-oversize-3.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "rouge",
+        "alt": "T-shirt L'Incompris Oversize — Rouge Incompris"
+      },
+      {
+        "url": "/images/products/tshirt-lincompris-oversize-4.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "gris",
+        "alt": "T-shirt L'Incompris Oversize — Gris Béton"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      },
+      {
+        "code": "rouge",
+        "name": "Rouge Incompris",
+        "hex": "#E31E24"
+      },
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-02-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 8
+      },
+      {
+        "id": "prod-02-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-02-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-02-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-02-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-02-blanc-s",
+        "size": "S",
+        "colorCode": "blanc",
+        "stock": 4
+      },
+      {
+        "id": "prod-02-blanc-m",
+        "size": "M",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-02-blanc-l",
+        "size": "L",
+        "colorCode": "blanc",
+        "stock": 1
+      },
+      {
+        "id": "prod-02-blanc-xl",
+        "size": "XL",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-02-blanc-xxl",
+        "size": "XXL",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-02-rouge-s",
+        "size": "S",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-02-rouge-m",
+        "size": "M",
+        "colorCode": "rouge",
+        "stock": 2
+      },
+      {
+        "id": "prod-02-rouge-l",
+        "size": "L",
+        "colorCode": "rouge",
+        "stock": 1
+      },
+      {
+        "id": "prod-02-rouge-xl",
+        "size": "XL",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-02-rouge-xxl",
+        "size": "XXL",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-02-gris-s",
+        "size": "S",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-02-gris-m",
+        "size": "M",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-02-gris-l",
+        "size": "L",
+        "colorCode": "gris",
+        "stock": 0
+      },
+      {
+        "id": "prod-02-gris-xl",
+        "size": "XL",
+        "colorCode": "gris",
+        "stock": 1
+      },
+      {
+        "id": "prod-02-gris-xxl",
+        "size": "XXL",
+        "colorCode": "gris",
+        "stock": 0
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 128,
+    "createdAt": "2026-10-27T14:30:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-03",
+    "slug": "babouche-royale-akwa-cuir",
+    "name": "Babouche Royale Akwa Cuir",
+    "description": "Façonnée à la main dans un cuir de veau pleine fleur souple et résistant. Sa semelle intérieure ergonomique à mémoire de forme assure un maintien parfait du matin au soir. Elle accompagne aussi bien un ensemble traditionnel qu’un pantalon large contemporain.",
+    "composition": "100 % cuir de veau pleine fleur, semelle cuir et gomme antidérapante",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "babouches",
+    "subCategorySlug": "cuir-lisse",
+    "price": 35000,
+    "images": [
+      "/images/products/babouche-royale-akwa-cuir-1.webp",
+      "/images/products/babouche-royale-akwa-cuir-2.webp",
+      "/images/products/babouche-royale-akwa-cuir-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/babouche-royale-akwa-cuir-1.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Royale Akwa Cuir — Noir Charbon"
+      },
+      {
+        "url": "/images/products/babouche-royale-akwa-cuir-2.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "rouge",
+        "alt": "Babouche Royale Akwa Cuir — Rouge Incompris"
+      },
+      {
+        "url": "/images/products/babouche-royale-akwa-cuir-3.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Royale Akwa Cuir — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "rouge",
+        "name": "Rouge Incompris",
+        "hex": "#E31E24"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-03-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-03-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-03-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-03-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-03-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-03-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-03-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-03-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-03-rouge-39",
+        "size": "39",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-03-rouge-40",
+        "size": "40",
+        "colorCode": "rouge",
+        "stock": 1
+      },
+      {
+        "id": "prod-03-rouge-41",
+        "size": "41",
+        "colorCode": "rouge",
+        "stock": 2
+      },
+      {
+        "id": "prod-03-rouge-42",
+        "size": "42",
+        "colorCode": "rouge",
+        "stock": 2
+      },
+      {
+        "id": "prod-03-rouge-43",
+        "size": "43",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-03-rouge-44",
+        "size": "44",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-03-rouge-45",
+        "size": "45",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-03-rouge-46",
+        "size": "46",
+        "colorCode": "rouge",
+        "stock": 0
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 119,
+    "createdAt": "2026-10-26T09:15:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-04",
+    "slug": "sneaker-monolithe-v1",
+    "name": "Sneaker Monolithe V1",
+    "description": "Architecture urbaine massive associant cuir mat pleine fleur et empiècements en nubuck. Sa semelle sculptée de 4,5 cm offre un amorti franc et une adhérence tout-terrain. Une pièce signature produite en série très limitée.",
+    "composition": "Tige 80 % cuir pleine fleur, 20 % nubuck · Semelle caoutchouc haute densité",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "chaussures",
+    "subCategorySlug": "sneakers",
+    "price": 65000,
+    "images": [
+      "/images/products/sneaker-monolithe-v1-1.webp",
+      "/images/products/sneaker-monolithe-v1-2.webp",
+      "/images/products/sneaker-monolithe-v1-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/sneaker-monolithe-v1-1.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Sneaker Monolithe V1 — Noir Charbon"
+      },
+      {
+        "url": "/images/products/sneaker-monolithe-v1-2.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "blanc",
+        "alt": "Sneaker Monolithe V1 — Blanc Craie"
+      },
+      {
+        "url": "/images/products/sneaker-monolithe-v1-3.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Sneaker Monolithe V1 — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-04-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-04-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-39",
+        "size": "39",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-40",
+        "size": "40",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-41",
+        "size": "41",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-42",
+        "size": "42",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-43",
+        "size": "43",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-44",
+        "size": "44",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-45",
+        "size": "45",
+        "colorCode": "blanc",
+        "stock": 0
+      },
+      {
+        "id": "prod-04-blanc-46",
+        "size": "46",
+        "colorCode": "blanc",
+        "stock": 0
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 105,
+    "createdAt": "2026-10-25T16:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-05",
+    "slug": "cargo-tactique-bitume",
+    "name": "Cargo Tactique Bitume",
+    "description": "Taillé dans une toile ripstop de coton armuré indéchirable. Il dispose de six poches à soufflet sécurisées et de sangles de serrage aux chevilles pour ajuster le tombé sur vos sneakers ou vos boots. Pensé pour un usage quotidien intensif.",
+    "composition": "100 % coton ripstop armuré, 340 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "pantalons",
+    "price": 38000,
+    "images": [
+      "/images/products/cargo-tactique-bitume-1.webp",
+      "/images/products/cargo-tactique-bitume-2.webp",
+      "/images/products/cargo-tactique-bitume-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-pants.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-pants.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/cargo-tactique-bitume-1.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Cargo Tactique Bitume — Noir Charbon"
+      },
+      {
+        "url": "/images/products/cargo-tactique-bitume-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "gris",
+        "alt": "Cargo Tactique Bitume — Gris Béton"
+      },
+      {
+        "url": "/images/products/cargo-tactique-bitume-3.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Cargo Tactique Bitume — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-05-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-05-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-05-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-05-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-05-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-05-gris-s",
+        "size": "S",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-05-gris-m",
+        "size": "M",
+        "colorCode": "gris",
+        "stock": 5
+      },
+      {
+        "id": "prod-05-gris-l",
+        "size": "L",
+        "colorCode": "gris",
+        "stock": 4
+      },
+      {
+        "id": "prod-05-gris-xl",
+        "size": "XL",
+        "colorCode": "gris",
+        "stock": 2
+      },
+      {
+        "id": "prod-05-gris-xxl",
+        "size": "XXL",
+        "colorCode": "gris",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 96,
+    "createdAt": "2026-10-24T11:20:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-06",
+    "slug": "babouche-croco-nocturne",
+    "name": "Babouche Croco Nocturne",
+    "description": "Cuir embossé motif écailles de crocodile au relief franc et lumineux. Sa bride large est entièrement doublée de peau souple pour éviter tout frottement sur le cou-de-pied. Talon renforcé par une double surpiqûre sellier.",
+    "composition": "100 % cuir de bovin embossé croco, doublure chèvre souple",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "babouches",
+    "subCategorySlug": "croco-embosse",
+    "price": 42000,
+    "images": [
+      "/images/products/babouche-croco-nocturne-1.webp",
+      "/images/products/babouche-croco-nocturne-2.webp",
+      "/images/products/babouche-croco-nocturne-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/babouche-croco-nocturne-1.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Croco Nocturne — Noir Charbon"
+      },
+      {
+        "url": "/images/products/babouche-croco-nocturne-2.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Croco Nocturne — Vue 2"
+      },
+      {
+        "url": "/images/products/babouche-croco-nocturne-3.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Croco Nocturne — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-06-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-06-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-06-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-06-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-06-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-06-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-06-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-06-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 88,
+    "createdAt": "2026-10-23T08:45:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-07",
+    "slug": "tshirt-manifeste-237",
+    "name": "T-shirt Manifeste 237",
+    "description": "Hommage graphique à l’indicatif 237 avec une typographie condensée sur la poitrine. Sa coupe ample à manches descendues assure une silhouette nette et confortable. Le jersey de coton peigné résiste aux lavages répétés sans vriller.",
+    "composition": "100 % coton biologique peigné, 260 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "t-shirts",
+    "price": 15000,
+    "images": [
+      "/images/products/tshirt-manifeste-237-1.webp",
+      "/images/products/tshirt-manifeste-237-2.webp",
+      "/images/products/tshirt-manifeste-237-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/tshirt-manifeste-237-1.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "blanc",
+        "alt": "T-shirt Manifeste 237 — Blanc Craie"
+      },
+      {
+        "url": "/images/products/tshirt-manifeste-237-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "noir",
+        "alt": "T-shirt Manifeste 237 — Noir Charbon"
+      },
+      {
+        "url": "/images/products/tshirt-manifeste-237-3.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "blanc",
+        "alt": "T-shirt Manifeste 237 — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      },
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-07-blanc-s",
+        "size": "S",
+        "colorCode": "blanc",
+        "stock": 6
+      },
+      {
+        "id": "prod-07-blanc-m",
+        "size": "M",
+        "colorCode": "blanc",
+        "stock": 8
+      },
+      {
+        "id": "prod-07-blanc-l",
+        "size": "L",
+        "colorCode": "blanc",
+        "stock": 5
+      },
+      {
+        "id": "prod-07-blanc-xl",
+        "size": "XL",
+        "colorCode": "blanc",
+        "stock": 3
+      },
+      {
+        "id": "prod-07-blanc-xxl",
+        "size": "XXL",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-07-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 6
+      },
+      {
+        "id": "prod-07-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 8
+      },
+      {
+        "id": "prod-07-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-07-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-07-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 2
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 84,
+    "createdAt": "2026-10-22T12:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-08",
+    "slug": "derby-commando-douala",
+    "name": "Derby Commando Douala",
+    "description": "L’alliance d’une derby habillée en cuir glacé épais et d’une semelle commando crantée. La trépointe surpiquée protège de l’humidité tout en affirmant un caractère résolument urbain. Parfaite avec un pantalon à plis ou un cargo.",
+    "composition": "100 % cuir glacé pleine fleur, semelle gomme crantée cousue Blake",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "chaussures",
+    "subCategorySlug": "derbies",
+    "price": 58000,
+    "images": [
+      "/images/products/derby-commando-douala-1.webp",
+      "/images/products/derby-commando-douala-2.webp",
+      "/images/products/derby-commando-douala-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/derby-commando-douala-1.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Derby Commando Douala — Noir Charbon"
+      },
+      {
+        "url": "/images/products/derby-commando-douala-2.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Derby Commando Douala — Vue 2"
+      },
+      {
+        "url": "/images/products/derby-commando-douala-3.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Derby Commando Douala — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-08-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-08-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-08-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-08-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-08-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-08-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-08-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-08-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 79,
+    "createdAt": "2026-10-21T15:10:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-09",
+    "slug": "hoodie-sans-manches-forge",
+    "name": "Hoodie Sans Manches Forge",
+    "description": "Pièce de superposition taillée dans un french terry de 420 g/m² aux emmanchures à bords francs. Sa capuche structurée et sa poche kangourou profonde dessinent une carrure athlétique. Se porte seul par temps chaud ou sur un t-shirt manches longues.",
+    "composition": "100 % coton French Terry non gratté, 420 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "hoodies",
+    "price": 32000,
+    "images": [
+      "/images/products/hoodie-sans-manches-forge-1.webp",
+      "/images/products/hoodie-sans-manches-forge-2.webp",
+      "/images/products/hoodie-sans-manches-forge-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/hoodie-sans-manches-forge-1.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "noir",
+        "alt": "Hoodie Sans Manches Forge — Noir Charbon"
+      },
+      {
+        "url": "/images/products/hoodie-sans-manches-forge-2.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "rouge",
+        "alt": "Hoodie Sans Manches Forge — Rouge Incompris"
+      },
+      {
+        "url": "/images/products/hoodie-sans-manches-forge-3.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "noir",
+        "alt": "Hoodie Sans Manches Forge — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "rouge",
+        "name": "Rouge Incompris",
+        "hex": "#E31E24"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-09-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-rouge-s",
+        "size": "S",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-rouge-m",
+        "size": "M",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-rouge-l",
+        "size": "L",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-rouge-xl",
+        "size": "XL",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-09-rouge-xxl",
+        "size": "XXL",
+        "colorCode": "rouge",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 67,
+    "createdAt": "2026-10-20T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-10",
+    "slug": "babouche-minimal-sable",
+    "name": "Babouche Minimaliste",
+    "description": "Une empeigne d’une seule pièce sans couture apparente pour une pureté visuelle absolue. Le cuir souple épouse immédiatement la forme du pied dès le premier essayage. Sa semelle fine avec insert élastomère garantit un pas souple et silencieux.",
+    "composition": "100 % cuir nappa souple, semelle cuir et insert caoutchouc",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "babouches",
+    "subCategorySlug": "cuir-lisse",
+    "price": 28000,
+    "images": [
+      "/images/products/babouche-minimal-sable-1.webp",
+      "/images/products/babouche-minimal-sable-2.webp",
+      "/images/products/babouche-minimal-sable-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/babouche-minimal-sable-1.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Minimaliste — Noir Charbon"
+      },
+      {
+        "url": "/images/products/babouche-minimal-sable-2.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "gris",
+        "alt": "Babouche Minimaliste — Gris Béton"
+      },
+      {
+        "url": "/images/products/babouche-minimal-sable-3.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Minimaliste — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-10-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-10-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-10-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-10-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-10-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-10-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-10-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-10-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-10-gris-39",
+        "size": "39",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-10-gris-40",
+        "size": "40",
+        "colorCode": "gris",
+        "stock": 4
+      },
+      {
+        "id": "prod-10-gris-41",
+        "size": "41",
+        "colorCode": "gris",
+        "stock": 4
+      },
+      {
+        "id": "prod-10-gris-42",
+        "size": "42",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-10-gris-43",
+        "size": "43",
+        "colorCode": "gris",
+        "stock": 2
+      },
+      {
+        "id": "prod-10-gris-44",
+        "size": "44",
+        "colorCode": "gris",
+        "stock": 2
+      },
+      {
+        "id": "prod-10-gris-45",
+        "size": "45",
+        "colorCode": "gris",
+        "stock": 1
+      },
+      {
+        "id": "prod-10-gris-46",
+        "size": "46",
+        "colorCode": "gris",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 74,
+    "createdAt": "2026-10-19T10:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-11",
+    "slug": "pantalon-large-atelier",
+    "name": "Pantalon Large Atelier",
+    "description": "Sergé de coton lourd 360 g/m² doté de doubles plis profonds à la taille. Sa jambe large tombe avec aplomb sur la chaussure sans casser la silhouette. Équipé de poches italiennes profondes et d’une boucle de serrage au dos.",
+    "composition": "100 % sergé de coton lourd, 360 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "pantalons",
+    "price": 36000,
+    "images": [
+      "/images/products/pantalon-large-atelier-1.webp",
+      "/images/products/pantalon-large-atelier-2.webp",
+      "/images/products/pantalon-large-atelier-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-pants.svg",
+      "/mock/product-tee.svg",
+      "/mock/product-pants.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/pantalon-large-atelier-1.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Pantalon Large Atelier — Noir Charbon"
+      },
+      {
+        "url": "/images/products/pantalon-large-atelier-2.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "blanc",
+        "alt": "Pantalon Large Atelier — Blanc Craie"
+      },
+      {
+        "url": "/images/products/pantalon-large-atelier-3.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Pantalon Large Atelier — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-11-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-11-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-11-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-11-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-11-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-11-blanc-s",
+        "size": "S",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-11-blanc-m",
+        "size": "M",
+        "colorCode": "blanc",
+        "stock": 4
+      },
+      {
+        "id": "prod-11-blanc-l",
+        "size": "L",
+        "colorCode": "blanc",
+        "stock": 3
+      },
+      {
+        "id": "prod-11-blanc-xl",
+        "size": "XL",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-11-blanc-xxl",
+        "size": "XXL",
+        "colorCode": "blanc",
+        "stock": 1
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 62,
+    "createdAt": "2026-10-18T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-12",
+    "slug": "tshirt-essentiel-lourd",
+    "name": "T-shirt Essentiel Lourd",
+    "description": "Le pilier du vestiaire quotidien en jersey lourd indéformable. Finition minimaliste avec une étiquette tissée ton sur ton au bas du vêtement et des coutures épaules renforcées. Une coupe droite équilibrée qui traverse les saisons.",
+    "composition": "100 % coton cardé sec, 270 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "t-shirts",
+    "price": 12000,
+    "images": [
+      "/images/products/tshirt-essentiel-lourd-1.webp",
+      "/images/products/tshirt-essentiel-lourd-2.webp",
+      "/images/products/tshirt-essentiel-lourd-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/tshirt-essentiel-lourd-1.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "T-shirt Essentiel Lourd — Noir Charbon"
+      },
+      {
+        "url": "/images/products/tshirt-essentiel-lourd-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "blanc",
+        "alt": "T-shirt Essentiel Lourd — Blanc Craie"
+      },
+      {
+        "url": "/images/products/tshirt-essentiel-lourd-3.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "gris",
+        "alt": "T-shirt Essentiel Lourd — Gris Béton"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      },
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-12-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 10
+      },
+      {
+        "id": "prod-12-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 12
+      },
+      {
+        "id": "prod-12-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 8
+      },
+      {
+        "id": "prod-12-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 6
+      },
+      {
+        "id": "prod-12-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-12-blanc-s",
+        "size": "S",
+        "colorCode": "blanc",
+        "stock": 10
+      },
+      {
+        "id": "prod-12-blanc-m",
+        "size": "M",
+        "colorCode": "blanc",
+        "stock": 12
+      },
+      {
+        "id": "prod-12-blanc-l",
+        "size": "L",
+        "colorCode": "blanc",
+        "stock": 8
+      },
+      {
+        "id": "prod-12-blanc-xl",
+        "size": "XL",
+        "colorCode": "blanc",
+        "stock": 6
+      },
+      {
+        "id": "prod-12-blanc-xxl",
+        "size": "XXL",
+        "colorCode": "blanc",
+        "stock": 4
+      },
+      {
+        "id": "prod-12-gris-s",
+        "size": "S",
+        "colorCode": "gris",
+        "stock": 10
+      },
+      {
+        "id": "prod-12-gris-m",
+        "size": "M",
+        "colorCode": "gris",
+        "stock": 12
+      },
+      {
+        "id": "prod-12-gris-l",
+        "size": "L",
+        "colorCode": "gris",
+        "stock": 8
+      },
+      {
+        "id": "prod-12-gris-xl",
+        "size": "XL",
+        "colorCode": "gris",
+        "stock": 6
+      },
+      {
+        "id": "prod-12-gris-xxl",
+        "size": "XXL",
+        "colorCode": "gris",
+        "stock": 4
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 91,
+    "createdAt": "2026-10-17T10:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-13",
+    "slug": "sneaker-basse-asphalte",
+    "name": "Sneaker Basse Asphalte",
+    "description": "Inspirée des chaussures de skate des années 90, revisitée en cuir grainé pleine fleur. Sa languette généreusement matelassée et son col doublé maintiennent la cheville tout en douceur. Semelle cuvette cousue sur tout le pourtour.",
+    "composition": "Tige 100 % cuir grainé · Doublure textile respirant · Semelle gomme cousue",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "chaussures",
+    "subCategorySlug": "sneakers",
+    "price": 48000,
+    "images": [
+      "/images/products/sneaker-basse-asphalte-1.webp",
+      "/images/products/sneaker-basse-asphalte-2.webp",
+      "/images/products/sneaker-basse-asphalte-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/sneaker-basse-asphalte-1.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "blanc",
+        "alt": "Sneaker Basse Asphalte — Blanc Craie"
+      },
+      {
+        "url": "/images/products/sneaker-basse-asphalte-2.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Sneaker Basse Asphalte — Noir Charbon"
+      },
+      {
+        "url": "/images/products/sneaker-basse-asphalte-3.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "blanc",
+        "alt": "Sneaker Basse Asphalte — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      },
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-13-blanc-39",
+        "size": "39",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-13-blanc-40",
+        "size": "40",
+        "colorCode": "blanc",
+        "stock": 3
+      },
+      {
+        "id": "prod-13-blanc-41",
+        "size": "41",
+        "colorCode": "blanc",
+        "stock": 4
+      },
+      {
+        "id": "prod-13-blanc-42",
+        "size": "42",
+        "colorCode": "blanc",
+        "stock": 4
+      },
+      {
+        "id": "prod-13-blanc-43",
+        "size": "43",
+        "colorCode": "blanc",
+        "stock": 3
+      },
+      {
+        "id": "prod-13-blanc-44",
+        "size": "44",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-13-blanc-45",
+        "size": "45",
+        "colorCode": "blanc",
+        "stock": 1
+      },
+      {
+        "id": "prod-13-blanc-46",
+        "size": "46",
+        "colorCode": "blanc",
+        "stock": 1
+      },
+      {
+        "id": "prod-13-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-13-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-13-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-13-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-13-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-13-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-13-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-13-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 1
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 54,
+    "createdAt": "2026-10-16T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-14",
+    "slug": "hoodie-zip-armure",
+    "name": "Hoodie Zippé Armure",
+    "description": "Équipé d’une fermeture métallique lourde à double curseur permettant d’ajuster l’ouverture par le haut ou par le bas. Ses poches plaquées à rivets métalliques et son molleton dense en font une véritable veste d’extérieur.",
+    "composition": "100 % coton lourd brossé, 490 g/m² · Zip métallique YKK",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "hoodies",
+    "price": 49000,
+    "images": [
+      "/images/products/hoodie-zip-armure-1.webp",
+      "/images/products/hoodie-zip-armure-2.webp",
+      "/images/products/hoodie-zip-armure-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-hoodie.svg",
+      "/mock/product-pants.svg",
+      "/mock/product-hoodie.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/hoodie-zip-armure-1.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "noir",
+        "alt": "Hoodie Zippé Armure — Noir Charbon"
+      },
+      {
+        "url": "/images/products/hoodie-zip-armure-2.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Hoodie Zippé Armure — Vue 2"
+      },
+      {
+        "url": "/images/products/hoodie-zip-armure-3.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "noir",
+        "alt": "Hoodie Zippé Armure — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-14-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-14-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-14-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-14-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-14-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 0
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 71,
+    "createdAt": "2026-10-15T10:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-15",
+    "slug": "babouche-sultan-brodee",
+    "name": "Babouche Sultan Brodée",
+    "description": "Empeigne à bout légèrement relevé, soulignée d’une broderie géométrique en fil rouge contrasté. La doublure intégrale en cuir naturel régule la température du pied. Une création artisanale qui signe chaque tenue de cérémonie ou de sortie.",
+    "composition": "100 % cuir de veau lisse, broderie fil polyester haute ténacité",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "babouches",
+    "subCategorySlug": "cuir-lisse",
+    "price": 39000,
+    "images": [
+      "/images/products/babouche-sultan-brodee-1.webp",
+      "/images/products/babouche-sultan-brodee-2.webp",
+      "/images/products/babouche-sultan-brodee-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/babouche-sultan-brodee-1.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Sultan Brodée — Noir Charbon"
+      },
+      {
+        "url": "/images/products/babouche-sultan-brodee-2.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "rouge",
+        "alt": "Babouche Sultan Brodée — Rouge Incompris"
+      },
+      {
+        "url": "/images/products/babouche-sultan-brodee-3.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Sultan Brodée — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "rouge",
+        "name": "Rouge Incompris",
+        "hex": "#E31E24"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-15-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-15-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-rouge-39",
+        "size": "39",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-rouge-40",
+        "size": "40",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-rouge-41",
+        "size": "41",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-rouge-42",
+        "size": "42",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-rouge-43",
+        "size": "43",
+        "colorCode": "rouge",
+        "stock": 2
+      },
+      {
+        "id": "prod-15-rouge-44",
+        "size": "44",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-rouge-45",
+        "size": "45",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-15-rouge-46",
+        "size": "46",
+        "colorCode": "rouge",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 65,
+    "createdAt": "2026-10-14T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-16",
+    "slug": "short-cargo-beton",
+    "name": "Short Cargo Béton",
+    "description": "Coupe ample s’arrêtant juste sous le genou pour une allure streetwear maîtrisée. Deux larges poches latérales à rabat aimanté et une taille élastiquée à cordon tressé. Toile de coton lavée aux enzymes pour un toucher doux immédiat.",
+    "composition": "100 % sergé de coton lavé, 310 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "pantalons",
+    "price": 24000,
+    "images": [
+      "/images/products/short-cargo-beton-1.webp",
+      "/images/products/short-cargo-beton-2.webp",
+      "/images/products/short-cargo-beton-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-pants.svg",
+      "/mock/product-tee.svg",
+      "/mock/product-pants.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/short-cargo-beton-1.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "gris",
+        "alt": "Short Cargo Béton — Gris Béton"
+      },
+      {
+        "url": "/images/products/short-cargo-beton-2.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "Short Cargo Béton — Noir Charbon"
+      },
+      {
+        "url": "/images/products/short-cargo-beton-3.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "gris",
+        "alt": "Short Cargo Béton — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      },
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-16-gris-s",
+        "size": "S",
+        "colorCode": "gris",
+        "stock": 4
+      },
+      {
+        "id": "prod-16-gris-m",
+        "size": "M",
+        "colorCode": "gris",
+        "stock": 5
+      },
+      {
+        "id": "prod-16-gris-l",
+        "size": "L",
+        "colorCode": "gris",
+        "stock": 4
+      },
+      {
+        "id": "prod-16-gris-xl",
+        "size": "XL",
+        "colorCode": "gris",
+        "stock": 2
+      },
+      {
+        "id": "prod-16-gris-xxl",
+        "size": "XXL",
+        "colorCode": "gris",
+        "stock": 1
+      },
+      {
+        "id": "prod-16-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-16-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-16-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-16-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-16-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 1
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 49,
+    "createdAt": "2026-10-13T10:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-17",
+    "slug": "tshirt-archive-01",
+    "name": "T-shirt Archive N°01",
+    "description": "Réédition collector de la toute première série imprimée par DR Choco L’Incompris. Le lavage enzymatique confère au coton un aspect patiné unique et un toucher peau de pêche. Numéroté à l’intérieur de l’ourlet.",
+    "composition": "100 % coton peigné lavé aux enzymes, 290 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "t-shirts",
+    "price": 20000,
+    "images": [
+      "/images/products/tshirt-archive-01-1.webp",
+      "/images/products/tshirt-archive-01-2.webp",
+      "/images/products/tshirt-archive-01-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/tshirt-archive-01-1.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "T-shirt Archive N°01 — Noir Charbon"
+      },
+      {
+        "url": "/images/products/tshirt-archive-01-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "rouge",
+        "alt": "T-shirt Archive N°01 — Rouge Incompris"
+      },
+      {
+        "url": "/images/products/tshirt-archive-01-3.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "T-shirt Archive N°01 — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "rouge",
+        "name": "Rouge Incompris",
+        "hex": "#E31E24"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-17-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-rouge-s",
+        "size": "S",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-rouge-m",
+        "size": "M",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-rouge-l",
+        "size": "L",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-rouge-xl",
+        "size": "XL",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-17-rouge-xxl",
+        "size": "XXL",
+        "colorCode": "rouge",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 112,
+    "createdAt": "2026-10-12T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-18",
+    "slug": "boots-montantes-kotto",
+    "name": "Boots Montantes Kotto",
+    "description": "Tige montante à 7 œillets métalliques pensée pour affronter toutes les routes et la saison des pluies. Le cuir traité hydrofuge repousse l’eau tout en laissant le pied respirer. Zip latéral intérieur discret pour un chaussage rapide.",
+    "composition": "100 % cuir gras hydrofuge, semelle crantée caoutchouc vulcanisé",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "chaussures",
+    "subCategorySlug": "derbies",
+    "price": 62000,
+    "images": [
+      "/images/products/boots-montantes-kotto-1.webp",
+      "/images/products/boots-montantes-kotto-2.webp",
+      "/images/products/boots-montantes-kotto-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/boots-montantes-kotto-1.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Boots Montantes Kotto — Noir Charbon"
+      },
+      {
+        "url": "/images/products/boots-montantes-kotto-2.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Boots Montantes Kotto — Vue 2"
+      },
+      {
+        "url": "/images/products/boots-montantes-kotto-3.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Boots Montantes Kotto — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-18-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-18-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-18-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-18-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-18-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-18-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-18-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-18-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      }
+    ],
+    "isNew": true,
+    "reservationsCount": 58,
+    "createdAt": "2026-10-11T10:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-19",
+    "slug": "babouche-croco-imperiale",
+    "name": "Babouche Croco Impériale",
+    "description": "Édition prestige en cuir embossé profond montée sur une semelle double épaisseur cousue main. Le contraste entre la texture croco brillante et le passepoil mat souligne la finesse de la découpe. Livrée dans sa housse de protection en coton.",
+    "composition": "100 % cuir véritable embossé croco, semelle double cuir",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "babouches",
+    "subCategorySlug": "croco-embosse",
+    "price": 45000,
+    "images": [
+      "/images/products/babouche-croco-imperiale-1.webp",
+      "/images/products/babouche-croco-imperiale-2.webp",
+      "/images/products/babouche-croco-imperiale-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/babouche-croco-imperiale-1.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Croco Impériale — Noir Charbon"
+      },
+      {
+        "url": "/images/products/babouche-croco-imperiale-2.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "blanc",
+        "alt": "Babouche Croco Impériale — Blanc Craie"
+      },
+      {
+        "url": "/images/products/babouche-croco-imperiale-3.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Croco Impériale — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-19-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-19-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-19-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-19-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-19-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-19-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-19-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-19-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-19-blanc-39",
+        "size": "39",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-19-blanc-40",
+        "size": "40",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-19-blanc-41",
+        "size": "41",
+        "colorCode": "blanc",
+        "stock": 3
+      },
+      {
+        "id": "prod-19-blanc-42",
+        "size": "42",
+        "colorCode": "blanc",
+        "stock": 3
+      },
+      {
+        "id": "prod-19-blanc-43",
+        "size": "43",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-19-blanc-44",
+        "size": "44",
+        "colorCode": "blanc",
+        "stock": 1
+      },
+      {
+        "id": "prod-19-blanc-45",
+        "size": "45",
+        "colorCode": "blanc",
+        "stock": 1
+      },
+      {
+        "id": "prod-19-blanc-46",
+        "size": "46",
+        "colorCode": "blanc",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 61,
+    "createdAt": "2026-10-10T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-20",
+    "slug": "jogger-lourd-incompris",
+    "name": "Jogger Lourd Incompris",
+    "description": "Molleton 460 g/m² assorti au Hoodie Barbelé avec une coupe droite à ourlet ouvert en bas de jambe. Les coutures nervurées sur le devant allongent la ligne et maintiennent la tenue du vêtement. Poche arrière zippée invisible.",
+    "composition": "100 % coton peigné molletonné, 460 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "pantalons",
+    "price": 34000,
+    "images": [
+      "/images/products/jogger-lourd-incompris-1.webp",
+      "/images/products/jogger-lourd-incompris-2.webp",
+      "/images/products/jogger-lourd-incompris-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-pants.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-pants.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/jogger-lourd-incompris-1.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Jogger Lourd Incompris — Noir Charbon"
+      },
+      {
+        "url": "/images/products/jogger-lourd-incompris-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "gris",
+        "alt": "Jogger Lourd Incompris — Gris Béton"
+      },
+      {
+        "url": "/images/products/jogger-lourd-incompris-3.webp",
+        "fallbackUrl": "/mock/product-pants.svg",
+        "colorCode": "noir",
+        "alt": "Jogger Lourd Incompris — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-20-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-20-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-20-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-20-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-20-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-20-gris-s",
+        "size": "S",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-20-gris-m",
+        "size": "M",
+        "colorCode": "gris",
+        "stock": 4
+      },
+      {
+        "id": "prod-20-gris-l",
+        "size": "L",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-20-gris-xl",
+        "size": "XL",
+        "colorCode": "gris",
+        "stock": 2
+      },
+      {
+        "id": "prod-20-gris-xxl",
+        "size": "XXL",
+        "colorCode": "gris",
+        "stock": 1
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 44,
+    "createdAt": "2026-10-09T10:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-21",
+    "slug": "tshirt-manches-longues-brut",
+    "name": "Manches Longues Brut",
+    "description": "T-shirt à manches longues doté de poignets en bords-côtes serrés et d’une sérigraphie graphique le long des avant-bras. Le coton de 280 g/m² offre une tenue intermédiaire idéale entre le t-shirt et le sweatshirt léger.",
+    "composition": "100 % coton peigné, 280 g/m²",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "clothing",
+      "title": "Guide des tailles — Vêtements (coupe ample)",
+      "tip": "Entre deux tailles ? Prenez la plus grande pour un rendu oversize assumé, ou la plus petite pour un tombé plus ajusté.",
+      "headers": [
+        "Taille",
+        "Tour de poitrine (cm)",
+        "Longueur dos (cm)",
+        "Épaules (cm)"
+      ],
+      "rows": [
+        [
+          "S",
+          "104 – 108",
+          "69",
+          "52"
+        ],
+        [
+          "M",
+          "110 – 114",
+          "72",
+          "54"
+        ],
+        [
+          "L",
+          "116 – 120",
+          "74",
+          "56"
+        ],
+        [
+          "XL",
+          "122 – 126",
+          "77",
+          "58"
+        ],
+        [
+          "XXL",
+          "128 – 134",
+          "79",
+          "61"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "t-shirts",
+    "price": 22000,
+    "images": [
+      "/images/products/tshirt-manches-longues-brut-1.webp",
+      "/images/products/tshirt-manches-longues-brut-2.webp",
+      "/images/products/tshirt-manches-longues-brut-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/tshirt-manches-longues-brut-1.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "Manches Longues Brut — Noir Charbon"
+      },
+      {
+        "url": "/images/products/tshirt-manches-longues-brut-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "blanc",
+        "alt": "Manches Longues Brut — Blanc Craie"
+      },
+      {
+        "url": "/images/products/tshirt-manches-longues-brut-3.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "Manches Longues Brut — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "blanc",
+        "name": "Blanc Craie",
+        "hex": "#F4F4F3"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "variants": [
+      {
+        "id": "prod-21-noir-s",
+        "size": "S",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-21-noir-m",
+        "size": "M",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-21-noir-l",
+        "size": "L",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-21-noir-xl",
+        "size": "XL",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-21-noir-xxl",
+        "size": "XXL",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-21-blanc-s",
+        "size": "S",
+        "colorCode": "blanc",
+        "stock": 3
+      },
+      {
+        "id": "prod-21-blanc-m",
+        "size": "M",
+        "colorCode": "blanc",
+        "stock": 5
+      },
+      {
+        "id": "prod-21-blanc-l",
+        "size": "L",
+        "colorCode": "blanc",
+        "stock": 4
+      },
+      {
+        "id": "prod-21-blanc-xl",
+        "size": "XL",
+        "colorCode": "blanc",
+        "stock": 2
+      },
+      {
+        "id": "prod-21-blanc-xxl",
+        "size": "XXL",
+        "colorCode": "blanc",
+        "stock": 1
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 39,
+    "createdAt": "2026-10-08T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-22",
+    "slug": "sneaker-runner-bonapriso",
+    "name": "Runner Bonapriso",
+    "description": "Association dynamique de mesh alvéolé ultra-respirant et d’empiècements en suède anthracite. Sa semelle intermédiaire profilée absorbe les chocs pour un confort de marche exceptionnel toute la journée. Détails réfléchissants au talon.",
+    "composition": "Tige 55 % cuir suède, 45 % mesh technique · Semelle EVA et caoutchouc",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "chaussures",
+    "subCategorySlug": "sneakers",
+    "price": 54000,
+    "images": [
+      "/images/products/sneaker-runner-bonapriso-1.webp",
+      "/images/products/sneaker-runner-bonapriso-2.webp",
+      "/images/products/sneaker-runner-bonapriso-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/sneaker-runner-bonapriso-1.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Runner Bonapriso — Noir Charbon"
+      },
+      {
+        "url": "/images/products/sneaker-runner-bonapriso-2.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "gris",
+        "alt": "Runner Bonapriso — Gris Béton"
+      },
+      {
+        "url": "/images/products/sneaker-runner-bonapriso-3.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "rouge",
+        "alt": "Runner Bonapriso — Rouge Incompris"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "gris",
+        "name": "Gris Béton",
+        "hex": "#87888A"
+      },
+      {
+        "code": "rouge",
+        "name": "Rouge Incompris",
+        "hex": "#E31E24"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-22-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-22-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-22-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-22-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 3
+      },
+      {
+        "id": "prod-22-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-22-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-22-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-22-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      },
+      {
+        "id": "prod-22-gris-39",
+        "size": "39",
+        "colorCode": "gris",
+        "stock": 2
+      },
+      {
+        "id": "prod-22-gris-40",
+        "size": "40",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-22-gris-41",
+        "size": "41",
+        "colorCode": "gris",
+        "stock": 4
+      },
+      {
+        "id": "prod-22-gris-42",
+        "size": "42",
+        "colorCode": "gris",
+        "stock": 3
+      },
+      {
+        "id": "prod-22-gris-43",
+        "size": "43",
+        "colorCode": "gris",
+        "stock": 2
+      },
+      {
+        "id": "prod-22-gris-44",
+        "size": "44",
+        "colorCode": "gris",
+        "stock": 1
+      },
+      {
+        "id": "prod-22-gris-45",
+        "size": "45",
+        "colorCode": "gris",
+        "stock": 0
+      },
+      {
+        "id": "prod-22-gris-46",
+        "size": "46",
+        "colorCode": "gris",
+        "stock": 0
+      },
+      {
+        "id": "prod-22-rouge-39",
+        "size": "39",
+        "colorCode": "rouge",
+        "stock": 2
+      },
+      {
+        "id": "prod-22-rouge-40",
+        "size": "40",
+        "colorCode": "rouge",
+        "stock": 3
+      },
+      {
+        "id": "prod-22-rouge-41",
+        "size": "41",
+        "colorCode": "rouge",
+        "stock": 4
+      },
+      {
+        "id": "prod-22-rouge-42",
+        "size": "42",
+        "colorCode": "rouge",
+        "stock": 3
+      },
+      {
+        "id": "prod-22-rouge-43",
+        "size": "43",
+        "colorCode": "rouge",
+        "stock": 2
+      },
+      {
+        "id": "prod-22-rouge-44",
+        "size": "44",
+        "colorCode": "rouge",
+        "stock": 1
+      },
+      {
+        "id": "prod-22-rouge-45",
+        "size": "45",
+        "colorCode": "rouge",
+        "stock": 0
+      },
+      {
+        "id": "prod-22-rouge-46",
+        "size": "46",
+        "colorCode": "rouge",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 51,
+    "createdAt": "2026-10-07T10:00:00.000Z",
+    "city": "Douala"
+  },
+  {
+    "id": "prod-23",
+    "slug": "babouche-quotidienne-souple",
+    "name": "Babouche Souple Studio",
+    "description": "Modèle quotidien en cuir lisse léger au chaussant immédiat. Sa souplesse permet de la glisser facilement dans un sac de voyage sans jamais déformer l’empeigne. Un classique accessible façonné avec le même soin artisanal.",
+    "composition": "100 % cuir de chèvre souple, semelle élastomère cousue",
+    "careInstructions": [
+      "Dépoussiérer après chaque port avec un chiffon doux légèrement humide.",
+      "Nourrir le cuir une fois par mois avec un baume incolore ou cirage adapté.",
+      "Éviter l’exposition prolongée au soleil direct et conserver sur embauchoir."
+    ],
+    "sizeGuide": {
+      "type": "footwear",
+      "title": "Guide des pointures — Chaussures & Babouches",
+      "tip": "Nos babouches en cuir véritable s’assouplissent légèrement après deux jours de port. Prenez votre pointure habituelle.",
+      "headers": [
+        "Pointure EU",
+        "Longueur du pied (cm)"
+      ],
+      "rows": [
+        [
+          "39",
+          "24,8 cm"
+        ],
+        [
+          "40",
+          "25,4 cm"
+        ],
+        [
+          "41",
+          "26,1 cm"
+        ],
+        [
+          "42",
+          "26,7 cm"
+        ],
+        [
+          "43",
+          "27,4 cm"
+        ],
+        [
+          "44",
+          "28,0 cm"
+        ],
+        [
+          "45",
+          "28,7 cm"
+        ],
+        [
+          "46",
+          "29,4 cm"
+        ]
+      ]
+    },
+    "categorySlug": "babouches",
+    "subCategorySlug": "cuir-lisse",
+    "price": 19000,
+    "images": [
+      "/images/products/babouche-quotidienne-souple-1.webp",
+      "/images/products/babouche-quotidienne-souple-2.webp",
+      "/images/products/babouche-quotidienne-souple-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-babouches.svg",
+      "/mock/product-shoes.svg",
+      "/mock/product-babouches.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/babouche-quotidienne-souple-1.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Souple Studio — Noir Charbon"
+      },
+      {
+        "url": "/images/products/babouche-quotidienne-souple-2.webp",
+        "fallbackUrl": "/mock/product-shoes.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Souple Studio — Vue 2"
+      },
+      {
+        "url": "/images/products/babouche-quotidienne-souple-3.webp",
+        "fallbackUrl": "/mock/product-babouches.svg",
+        "colorCode": "noir",
+        "alt": "Babouche Souple Studio — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      }
+    ],
+    "sizes": [
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46"
+    ],
+    "variants": [
+      {
+        "id": "prod-23-noir-39",
+        "size": "39",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-23-noir-40",
+        "size": "40",
+        "colorCode": "noir",
+        "stock": 6
+      },
+      {
+        "id": "prod-23-noir-41",
+        "size": "41",
+        "colorCode": "noir",
+        "stock": 6
+      },
+      {
+        "id": "prod-23-noir-42",
+        "size": "42",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-23-noir-43",
+        "size": "43",
+        "colorCode": "noir",
+        "stock": 4
+      },
+      {
+        "id": "prod-23-noir-44",
+        "size": "44",
+        "colorCode": "noir",
+        "stock": 2
+      },
+      {
+        "id": "prod-23-noir-45",
+        "size": "45",
+        "colorCode": "noir",
+        "stock": 1
+      },
+      {
+        "id": "prod-23-noir-46",
+        "size": "46",
+        "colorCode": "noir",
+        "stock": 0
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 47,
+    "createdAt": "2026-10-06T10:00:00.000Z",
+    "city": "Yaoundé"
+  },
+  {
+    "id": "prod-24",
+    "slug": "bandana-pack-signature",
+    "name": "Pack T-shirt & Foulard Signature",
+    "description": "Coffret découverte associant un t-shirt coupe ample universelle et un grand foulard en coton imprimé au motif barbelé DR Choco. Idéal pour offrir ou compléter sa silhouette avec une touche graphique.",
+    "composition": "100 % coton peigné (t-shirt 270 g/m² + foulard popeline 120 g/m²)",
+    "careInstructions": [
+      "Lavage en machine à 30 °C sur l’envers avec des couleurs similaires.",
+      "Séchage à l’air libre à l’ombre pour préserver la densité du coton et de la sérigraphie.",
+      "Repassage doux sur l’envers uniquement, sans passer le fer sur les motifs."
+    ],
+    "sizeGuide": {
+      "type": "one-size",
+      "title": "Taille unique ajustable",
+      "tip": "Ce coffret est conçu en coupe universelle adaptable à toutes les morphologies masculines.",
+      "headers": [
+        "Format",
+        "Détail des dimensions"
+      ],
+      "rows": [
+        [
+          "Taille unique",
+          "Équivalent L/XL ample (poitrine 116 cm) + foulard 65 × 65 cm"
+        ]
+      ]
+    },
+    "categorySlug": "vetements",
+    "subCategorySlug": "t-shirts",
+    "price": 8000,
+    "images": [
+      "/images/products/bandana-pack-signature-1.webp",
+      "/images/products/bandana-pack-signature-2.webp",
+      "/images/products/bandana-pack-signature-3.webp"
+    ],
+    "fallbackImages": [
+      "/mock/product-tee.svg",
+      "/mock/product-hoodie.svg",
+      "/mock/product-tee.svg"
+    ],
+    "mediaGallery": [
+      {
+        "url": "/images/products/bandana-pack-signature-1.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "Pack T-shirt & Foulard Signature — Noir Charbon"
+      },
+      {
+        "url": "/images/products/bandana-pack-signature-2.webp",
+        "fallbackUrl": "/mock/product-hoodie.svg",
+        "colorCode": "rouge",
+        "alt": "Pack T-shirt & Foulard Signature — Rouge Incompris"
+      },
+      {
+        "url": "/images/products/bandana-pack-signature-3.webp",
+        "fallbackUrl": "/mock/product-tee.svg",
+        "colorCode": "noir",
+        "alt": "Pack T-shirt & Foulard Signature — Vue 3"
+      }
+    ],
+    "colors": [
+      {
+        "code": "noir",
+        "name": "Noir Charbon",
+        "hex": "#1A1A18"
+      },
+      {
+        "code": "rouge",
+        "name": "Rouge Incompris",
+        "hex": "#E31E24"
+      }
+    ],
+    "sizes": [
+      "Unique"
+    ],
+    "variants": [
+      {
+        "id": "prod-24-noir-unique",
+        "size": "Unique",
+        "colorCode": "noir",
+        "stock": 5
+      },
+      {
+        "id": "prod-24-rouge-unique",
+        "size": "Unique",
+        "colorCode": "rouge",
+        "stock": 5
+      }
+    ],
+    "isNew": false,
+    "reservationsCount": 33,
+    "createdAt": "2026-10-05T10:00:00.000Z",
+    "city": "Douala"
+  }
+]

@@ -1,0 +1,8 @@
+# Limites de débit de l'API (contrat §2.14). Compteurs gardés dans le cache de l'application (fichiers).
+framework:
+    rate_limiter:
+        # POST /client-errors : 20 envois par heure et par adresse IP.
+        client_errors:
+            policy: sliding_window
+            limit: 20
+            interval: '60 minutes'
