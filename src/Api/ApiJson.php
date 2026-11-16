@@ -44,6 +44,24 @@ final class ApiJson
         return $response;
     }
 
+    /**
+     * Lecture privée du client connecté (GET /me, /me/addresses, /favorites) : « private, no-cache »
+     * (proposition du contrat §2.7.2, question 1 du §17). Aucun intermédiaire ne la garde, le navigateur
+     * revalide à chaque appel, et le service worker peut garder la dernière copie pour le hors connexion
+     * (cache « api-user », vidé à la déconnexion).
+     *
+     * Volontairement SANS « Vary: Authorization » : le jeton d'accès change à chaque rafraîchissement (et
+     * manque au démarrage hors connexion) ; avec cet en-tête, le service worker ne retrouverait jamais sa copie.
+     * « private » suffit à empêcher tout cache partagé de garder la réponse.
+     */
+    public static function privateNoCache(mixed $data): JsonResponse
+    {
+        $response = self::create($data);
+        $response->headers->set('Cache-Control', 'private, no-cache');
+
+        return $response;
+    }
+
     private static function create(mixed $data, int $status = 200): JsonResponse
     {
         $response = new JsonResponse(null, $status);

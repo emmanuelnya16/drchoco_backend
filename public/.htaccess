@@ -28,3 +28,9 @@ DirectoryIndex index.php
         RedirectMatch 307 ^/$ /index.php/
     </IfModule>
 </IfModule>
+
+# Journal d'erreurs PHP (cPanel l'écrit parfois à côté du script, il peut contenir des numéros de téléphone) :
+# jamais servi au public.
+<Files "error_log">
+    Require all denied
+</Files>

@@ -1,12 +1,12 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **20 %** (P0 et P1 terminées)
+Avancement total : **30 %** (P0, P1 et P2 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
 | **P0** | Mise en place du projet (socle) | 1 | 8 % | ✅ Terminée |
 | **P1** | Catalogue public et référentiels | 11 + 1 | 12 % | ✅ Terminée |
-| **P2** | Comptes clients (code SMS) | 11 | 10 % | ⏳ À faire |
+| **P2** | Comptes clients (code SMS) | 11 + 2 | 10 % | ✅ Terminée |
 | **P3** | Socle admin, rôles et vendeurs | 10 | 8 % | ⏳ À faire |
 | **P4** | Catalogue admin et images Cloudinary | 14 | 12 % | ⏳ À faire |
 | **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ⏳ À faire |
@@ -72,11 +72,39 @@ Avancement total : **20 %** (P0 et P1 terminées)
 
 Écarts volontaires avec les mocks : recherche à plusieurs mots (chaque mot doit être présent, le nom passe en tête) ; articles associés de la même ville d'abord ; vendeur jamais exposé au public.
 
+## P2 — Comptes clients (code SMS) ✅
+
+- [x] Tables : `otp_codes`, `addresses`, `favorites` ; `users.last_login_at` (1 migration)
+- [x] `POST /api/auth/otp/request` : code à 6 chiffres par SMS (Twilio, service repris à l’identique), jamais stocké en clair (empreinte HMAC), valable 5 min
+  - renvoi après 60 s (une nouvelle demande plus tôt ne renvoie pas de SMS) ; un nouveau code annule le précédent ;
+  - 3 demandes en 10 min et 10 par jour par numéro ; 30 par heure par adresse IP (réseau /64 en IPv6) ;
+  - plafond de SMS par jour pour toute la boutique (`OTP_DAILY_SMS_LIMIT`, 300) : protection des coûts ;
+  - SMS court (alphabet de base, 1 seul SMS), ligne `@<domaine> #code` pour le remplissage automatique sur Android (`OTP_WEBOTP_HOST`)
+- [x] `POST /api/auth/otp/verify` : compte créé à la première connexion (`isNewUser`) ; 5 codes faux bloquent le numéro 10 min ; 30 codes faux en 10 min par adresse IP ; session ouverte dans la même transaction (une panne ne fait jamais perdre le code)
+- [x] `POST /api/auth/refresh` (rotation, 401 `NO_SESSION` seulement si la session est vraiment refusée) et `POST /api/auth/logout` (204 dans tous les cas, cet appareil seulement)
+- [x] `GET /api/me`, `PATCH /api/me` (champs envoyés seulement ; ville = ville desservie, une ville inchangée n’est pas recontrôlée)
+- [x] Carnet d’adresses : `GET`, `POST`, `PATCH`, `DELETE /api/me/addresses` — mêmes règles que le formulaire du front, une seule adresse par défaut (même avec deux appareils), pas de doublon au double appui, 20 adresses au plus, adresse d’un autre client = « introuvable »
+- [x] Favoris : `POST /api/favorites` (fusion à la connexion) ; **en plus** `GET /api/favorites` et `DELETE /api/favorites/{id}` (prévus par le contrat §16)
+- [x] Compte bloqué : ni code, ni connexion, ni rafraîchissement
+- [x] Protections : envois forcés depuis un autre site refusés sur `/api/auth/*` (origine contrôlée, JSON obligatoire) ; 60 écritures par minute et par client
+- [x] Cache : lectures privées en `private, no-cache` (lisibles hors connexion par le service worker, contrat §17 question 1), écritures en `no-store`
+- [x] Commandes : `app:purge` (tâche quotidienne : codes de plus de 48 h, sessions expirées, vieux fichiers de verrou), `app:sms:test` (SMS d’essai), `app:diagnostic` (état de l’envoi des codes)
+- [x] `OTP_SMS_TRANSPORT=log` : en développement, codes écrits dans `var/log/dev.log` au lieu d’un SMS (ignoré en production)
+- [x] Front : relais `/api` facultatif `VITE_DEV_API_PROXY` (même domaine en développement, nécessaire au cookie de session) ; routes P2 ajoutées à `VITE_API_REAL_ROUTES`
+- [x] Vérifications :
+  - 64 nouveaux tests automatiques (127 au total), aussi dans le désordre et fichier par fichier ;
+  - relecture adverse (4 relecteurs + contre-vérification) : 13 problèmes confirmés et corrigés (2 importants, 11 mineurs) ; seconde relecture des corrections : 4 problèmes mineurs de plus, corrigés ;
+  - front compilé et ouvert dans un navigateur automatisé sur la vraie API : code faux (« Il vous reste 4 essais »), connexion par code, étape « prénom », rechargement (session retrouvée), adresse, favoris fusionnés, déconnexion, reconnexion — tout au vert, aucun écart de contrat signalé par l’app
+- [x] Front (non enregistré dans git) : le cache hors connexion des données personnelles est vidé aussi quand la session est refusée et avant chaque connexion (téléphone partagé)
+
+Écarts volontaires avec les mocks : nouvelle demande de code dans les 60 s = pas de nouveau SMS ; code mal formé (pas 6 chiffres) refusé sans consommer d’essai ; compte bloqué : 403 `ACCOUNT_BLOCKED` ; favoris d’articles retirés ignorés.
+
 ## Points ouverts (à décider)
 
 | Avant | Question | Proposition |
 |---|---|---|
-| P2 | Compte Twilio **d’essai** (expéditeur +1) : SMS seulement vers des numéros vérifiés | Passer en compte payant avant la mise en ligne ; vérifier les numéros de test en attendant |
+| P10 | Compte Twilio **d’essai** (expéditeur +1) : SMS seulement vers des numéros vérifiés | En attente des clés du compte payant : il suffira de remplacer `TWILIO_*` dans `.env.local` (aucun code à changer). D’ici là : numéros vérifiés dans la console Twilio, ou `OTP_SMS_TRANSPORT=log` en développement |
+| P10 | Domaine de l’app pour le remplissage automatique du code sur Android | `OTP_WEBOTP_HOST=<domaine>` dans `.env.local` |
 | P5 | Panier limité à une seule ville ? | Oui : un panier = une ville |
 | P5 | Retrait en boutique possible à Douala ? | Une boutique par ville (table dédiée) |
 | P5 | Qui valide les paiements Mobile Money ? | Le super admin (comptes marchands DR Choco) |

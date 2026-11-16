@@ -3,6 +3,7 @@
 namespace App\Controller\Catalog;
 
 use App\Api\ApiException;
+use App\Api\ClientIp;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,12 +27,14 @@ final class ClientErrorController
         private readonly LoggerInterface $logger,
         #[Autowire(service: 'limiter.client_errors')]
         private readonly RateLimiterFactoryInterface $limiter,
+        #[Autowire('%kernel.secret%')]
+        private readonly string $secret,
     ) {}
 
     #[Route('/client-errors', name: 'api_client_errors', methods: ['POST'])]
     public function __invoke(Request $request): Response
     {
-        $limit = $this->limiter->create($request->getClientIp() ?? 'inconnu')->consume();
+        $limit = $this->limiter->create(ClientIp::limiterKey($request->getClientIp(), $this->secret))->consume();
         if (!$limit->isAccepted()) {
             $retryAfter = max(1, $limit->getRetryAfter()->getTimestamp() - time());
             throw ApiException::tooManyRequests('RATE_LIMITED', 'Trop d’envois. Veuillez réessayer plus tard.', $retryAfter);

@@ -20,7 +20,7 @@ composer install
 php bin/console doctrine:migrations:migrate
 php bin/console app:seed                # données de départ : catalogue, looks, villes, agences, pages, réglages
 php bin/console app:create-owner        # compte propriétaire (mot de passe demandé, masqué)
-php bin/console app:diagnostic          # vérifie base, JWT, Cloudinary, Twilio, PawaPay
+php bin/console app:diagnostic          # vérifie base, JWT, Cloudinary, Twilio, codes SMS, PawaPay
 symfony serve                           # ou : php -S 127.0.0.1:8000 -t public
 ```
 
@@ -35,13 +35,41 @@ Les fichiers `data/seed/*.json` reprennent exactement les données de démonstra
 - `--update` : reprend les valeurs du fichier pour ce qui existe déjà (confirmation demandée).
 - Pour régénérer les fichiers depuis les mocks du front : voir `tools/export-front-fixtures.ts`.
 
+## Connexion des clients par code SMS (P2)
+
+Le client se connecte avec son numéro : un code à 6 chiffres part par SMS (Twilio), valable 5 min.
+
+| Réglage (`.env.local`) | Rôle |
+|---|---|
+| `OTP_SMS_TRANSPORT=twilio` | Envoi réel par Twilio (par défaut). |
+| `OTP_SMS_TRANSPORT=log` | Développement seulement : aucun SMS, le code est écrit dans `var/log/dev.log` (ignoré en production). |
+| `OTP_WEBOTP_HOST=drchoco.cm` | Domaine de l’app : le SMS se termine par `@drchoco.cm #123456` (remplissage automatique sur Android). |
+| `OTP_DAILY_SMS_LIMIT=300` | Plafond de SMS sur 24 h pour toute la boutique (protection des coûts). |
+
+- **Compte Twilio d’essai** (actuel) : les SMS ne partent que vers les numéros vérifiés dans la console Twilio (*Phone Numbers > Verified Caller IDs*), précédés de « Sent from your Twilio trial account ». Pour tester avec un autre numéro, utiliser `OTP_SMS_TRANSPORT=log`. Avec le compte payant, il suffit de remplacer `TWILIO_*` dans `.env.local`.
+- `php bin/console app:sms:test 690000001` : envoie un SMS d’essai (confirmation demandée).
+- SMS non parti : le client voit « Impossible d’envoyer le SMS pour le moment » ; `var/log/prod.log` contient « Code de connexion non envoyé… » (numéro masqué) et la raison exacte donnée par Twilio est dans le journal PHP (`error_log` de l’hébergement, jamais servi au public).
+- Limites : renvoi après 60 s, 3 demandes en 10 min et 10 par jour par numéro, 30 par heure par adresse IP ; 5 codes faux bloquent le numéro 10 min.
+- Session du client : cookie httpOnly `drc_refresh` (90 jours glissants). Il n’est posé que si l’app et l’API sont sur le **même domaine**.
+
+### Tâche planifiée (cPanel)
+
+Une fois par jour : `php bin/console app:purge` (codes SMS de plus de 48 h, sessions expirées, fichiers de verrou de `var/lock` inutilisés depuis 48 h).
+
 ## Brancher le front sur cette API
 
-Dans le front (`.env.local`), avec `VITE_API_BASE_URL=http://127.0.0.1:8000/api` :
+Dans le front (`.env.local`) :
 
-- **Bascule progressive** (recommandé tant que toutes les phases ne sont pas finies) : garder `VITE_API_MOCK=true` et lister les routes déjà prêtes ; elles partent vers l’API, le reste reste simulé :
-  `VITE_API_REAL_ROUTES=/categories,/products,/search,/looks,/settings/public,/delivery,/pages,/cart/validate,/client-errors`
-- **Tout réel** : `VITE_API_MOCK=false` (les écrans de compte et de réservation attendent les phases P2 et P5).
+```env
+VITE_API_MOCK=true
+VITE_API_BASE_URL=/api
+VITE_DEV_API_PROXY=http://127.0.0.1:8000
+VITE_API_REAL_ROUTES=/categories,/products,/search,/looks,/settings/public,/delivery,/pages,/cart/validate,/client-errors,/auth,/me,/favorites
+```
+
+- `VITE_DEV_API_PROXY` relaie `/api` du serveur Vite vers cette API : même domaine, comme en production, indispensable au cookie de session.
+- **Bascule progressive** : les routes listées dans `VITE_API_REAL_ROUTES` partent vers l’API, le reste reste simulé (tant que `/reservations` est simulé, les mocks montrent les réservations de démonstration).
+- **Tout réel** : `VITE_API_MOCK=false` (les écrans de réservation attendent la phase P5).
 
 ## Tests
 

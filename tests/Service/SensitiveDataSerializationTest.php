@@ -3,13 +3,14 @@
 namespace App\Tests\Service;
 
 use App\Entity\Admin;
+use App\Entity\OtpCode;
 use App\Entity\RefreshToken;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
  * Données sensibles en écriture seule : même si une entité était renvoyée telle quelle par l'API,
- * le mot de passe haché de l'admin et l'empreinte des jetons de session n'en sortiraient jamais.
+ * le mot de passe haché de l'admin, l'empreinte des jetons de session et celle des codes SMS n'en sortiraient jamais.
  */
 final class SensitiveDataSerializationTest extends KernelTestCase
 {
@@ -42,6 +43,17 @@ final class SensitiveDataSerializationTest extends KernelTestCase
 
         self::assertArrayNotHasKey('tokenHash', json_decode($json, true));
         self::assertStringNotContainsString('empreinte-secrete-de-test', $json);
+    }
+
+    public function testOtpCodeHashIsNeverSerialized(): void
+    {
+        $now = new \DateTimeImmutable();
+        $otp = new OtpCode('+237690000001', 'empreinte-du-code-sms', $now, $now->modify('+5 minutes'));
+
+        $json = $this->serializer()->serialize($otp, 'json');
+
+        self::assertArrayNotHasKey('codeHash', json_decode($json, true));
+        self::assertStringNotContainsString('empreinte-du-code-sms', $json);
     }
 
     private function serializer(): SerializerInterface

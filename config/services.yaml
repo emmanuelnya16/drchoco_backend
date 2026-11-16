@@ -58,6 +58,11 @@ when@test:
             autoconfigure: true
         App\Tests\Probe\:
             resource: '../tests/Probe/'
+        # Aucun SMS réel pendant les tests : les codes envoyés sont lisibles par les tests.
+        test.otp_sender:
+            class: App\Tests\Fake\RecordingOtpSender
+            public: true
+        App\Auth\OtpSenderInterface: '@test.otp_sender'
         # Accès direct aux services encore inutilisés par un contrôleur (tests uniquement).
         test.refresh_token_service:
             alias: App\Service\Auth\RefreshTokenService

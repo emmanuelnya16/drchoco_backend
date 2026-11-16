@@ -1,2 +1,10 @@
+# Verrous (ex. une demande de code SMS à la fois par numéro).
+# LOCK_DSN vide (par défaut) : fichiers dans var/lock du projet, et non dans le dossier temporaire partagé
+# de l'hébergement. Le chemin du projet est lu à l'exécution (« %% » + « resolve: ») : un cache préparé sur
+# une autre machine reste valable sur le serveur.
+# Attention : avec « resolve: », un « % » écrit dans LOCK_DSN doit être doublé (« %% »).
+parameters:
+    app.lock_dsn: 'flock://%%kernel.project_dir%%/var/lock'
+
 framework:
-    lock: '%env(LOCK_DSN)%'
+    lock: '%env(resolve:default:app.lock_dsn:LOCK_DSN)%'

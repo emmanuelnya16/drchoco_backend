@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Auth\SmsOtpSender;
 use Cloudinary\Cloudinary;
 use Doctrine\DBAL\Connection;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
@@ -15,7 +16,8 @@ use Twilio\Rest\Client as TwilioClient;
 
 /**
  * Vérifie que les services externes sont joignables, SANS rien envoyer :
- * base de données, clés JWT, Cloudinary (ping), Twilio (lecture du compte), PawaPay (interrupteur).
+ * base de données, clés JWT, Cloudinary (ping), Twilio (lecture du compte), envoi des codes de connexion,
+ * PawaPay (interrupteur).
  *
  *   php bin/console app:diagnostic
  *
@@ -32,6 +34,9 @@ final class DiagnosticCommand extends Command
         #[Autowire('%env(TWILIO_AUTH_TOKEN)%')] private readonly string $twilioToken,
         #[Autowire('%env(TWILIO_FROM_NUMBER)%')] private readonly string $twilioFrom,
         #[Autowire('%env(bool:PAWAPAY_ENABLED)%')] private readonly bool $pawapayEnabled,
+        private readonly SmsOtpSender $otpSender,
+        #[Autowire('%env(int:OTP_DAILY_SMS_LIMIT)%')] private readonly int $dailySmsLimit,
+        #[Autowire('%env(OTP_WEBOTP_HOST)%')] private readonly string $webOtpHost,
     ) {
         parent::__construct();
     }
@@ -94,6 +99,21 @@ final class DiagnosticCommand extends Command
                 $failed = true;
             }
         }
+
+        // Codes de connexion (P2) : SMS Twilio, ou journal en développement (OTP_SMS_TRANSPORT=log).
+        // Sans Twilio (et hors mode journal), aucun client ne peut se connecter : le diagnostic échoue.
+        $logMode = $this->otpSender->usesLogTransport();
+        $smsReady = $logMode || $this->otpSender->isTwilioConfigured();
+        if (!$smsReady) {
+            $failed = true;
+        }
+        $rows[] = [
+            'Codes SMS (connexion)',
+            $logMode ? 'JOURNAL' : ($smsReady ? 'SMS' : 'ÉCHEC'),
+            ($logMode ? 'aucun SMS envoyé, code écrit dans var/log/dev.log' : ($smsReady ? 'envoyés par Twilio' : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN ou TWILIO_FROM_NUMBER vide : aucun client ne peut se connecter'))
+                . ', plafond ' . $this->dailySmsLimit . ' SMS par jour, remplissage auto. Android : '
+                . ($this->webOtpHost !== '' ? $this->webOtpHost : 'non configuré (OTP_WEBOTP_HOST)'),
+        ];
 
         $rows[] = ['PawaPay', $this->pawapayEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ', $this->pawapayEnabled ? 'Paiement PawaPay possible' : 'Paiement par code USSD + capture (normal)'];
 

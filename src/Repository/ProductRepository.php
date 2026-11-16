@@ -216,6 +216,26 @@ class ProductRepository extends ServiceEntityRepository
     }
 
     /**
+     * Identifiants d'articles visibles parmi ceux donnés (favoris : un article retiré est ignoré).
+     *
+     * @param list<string> $ids
+     *
+     * @return list<string>
+     */
+    public function visibleIdsAmong(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return array_map('strval', $this->visible()->select('p.id')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('ids', array_values(array_unique($ids)))
+            ->getQuery()
+            ->getSingleColumnResult());
+    }
+
+    /**
      * Articles associés (contrat §2.6) : même sous-catégorie d'abord, puis même catégorie ;
      * à pertinence égale, ceux de la même ville puis les plus réservés.
      *

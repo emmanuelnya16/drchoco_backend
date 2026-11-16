@@ -22,7 +22,8 @@ abstract class ApiTestCase extends WebTestCase
         $this->client = static::createClient();
 
         $connection = $this->em()->getConnection();
-        foreach (['refresh_tokens', 'users', 'admins'] as $table) {
+        // Les adresses et favoris partent avec les clients (clé étrangère ON DELETE CASCADE).
+        foreach (['refresh_tokens', 'otp_codes', 'users', 'admins'] as $table) {
             $connection->executeStatement('DELETE FROM ' . $table);
         }
     }

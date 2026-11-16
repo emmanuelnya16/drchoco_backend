@@ -6,3 +6,23 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '60 minutes'
+
+        # POST /auth/otp/request : 30 demandes de code par heure et par adresse IP (en plus des limites par
+        # numéro, contrat §4.1). Assez large pour les réseaux mobiles où beaucoup de clients partagent une IP.
+        otp_request_ip:
+            policy: sliding_window
+            limit: 30
+            interval: '60 minutes'
+
+        # Écritures d'un client connecté (adresses, profil, favoris, réservations…) : 60 par minute et par compte.
+        client_writes:
+            policy: sliding_window
+            limit: 60
+            interval: '1 minute'
+
+        # POST /auth/otp/verify : 30 codes faux, expirés ou refusés en 10 min par adresse IP (une connexion réussie
+        # ne compte pas). Une seule machine ne peut pas sonder ni verrouiller les numéros des clients à la chaîne.
+        otp_verify_ip:
+            policy: sliding_window
+            limit: 30
+            interval: '10 minutes'
