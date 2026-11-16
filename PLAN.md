@@ -1,13 +1,13 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **30 %** (P0, P1 et P2 terminées)
+Avancement total : **38 %** (P0 à P3 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
 | **P0** | Mise en place du projet (socle) | 1 | 8 % | ✅ Terminée |
 | **P1** | Catalogue public et référentiels | 11 + 1 | 12 % | ✅ Terminée |
 | **P2** | Comptes clients (code SMS) | 11 + 2 | 10 % | ✅ Terminée |
-| **P3** | Socle admin, rôles et vendeurs | 10 | 8 % | ⏳ À faire |
+| **P3** | Socle admin, rôles et vendeurs | 10 | 8 % | ✅ Terminée |
 | **P4** | Catalogue admin et images Cloudinary | 14 | 12 % | ⏳ À faire |
 | **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ⏳ À faire |
 | **P6** | Gestion des réservations (admin) | 10 | 10 % | ⏳ À faire |
@@ -99,6 +99,27 @@ Avancement total : **30 %** (P0, P1 et P2 terminées)
 
 Écarts volontaires avec les mocks : nouvelle demande de code dans les 60 s = pas de nouveau SMS ; code mal formé (pas 6 chiffres) refusé sans consommer d’essai ; compte bloqué : 403 `ACCOUNT_BLOCKED` ; favoris d’articles retirés ignorés.
 
+## P3 — Socle admin, rôles et vendeurs ✅
+
+- [x] Rôles : **owner** et **manager** (super admins, tout voir), **seller** (vendeur rattaché à Yaoundé ou Douala) ; droits contrôlés par le serveur
+- [x] `POST /api/admin/auth/login` (e-mail ou téléphone + mot de passe), `/refresh`, `/logout` : session admin séparée de celle des clients, 12 h au plus, cookie strict
+  - 5 mots de passe faux par compte (e-mail et téléphone ensemble) ou 20 par adresse IP en 15 min : blocage ;
+  - identifiant inconnu : même réponse et même temps qu’un mot de passe faux ; compte désactivé : refusé (après le bon mot de passe seulement)
+- [x] Vendeurs (super admins seulement) : `GET`, `POST /api/admin/sellers`, `PATCH`, `DELETE /api/admin/sellers/{id}`
+  - changement de ville : ses articles le suivent ; désactivation ou nouveau mot de passe : accès coupé aussitôt (sessions et jeton en cours) ;
+  - suppression refusée tant qu’il a des articles ; mot de passe de 10 caractères, ni « choco2026 » ni mot de passe connu
+- [x] `GET /api/admin/dashboard` : alertes de stock réelles (limitées à sa ville pour un vendeur) ; ventes et réservations à zéro jusqu’à la P5
+- [x] `GET /api/admin/search` (articles ; réservations à la P5) et `GET /api/admin/customers` (super admins : clients inscrits et leurs adresses ; vendeur : ses clients, à partir de la P5)
+- [x] Chaque jeton est lié à son compte (identifiant, type, empreinte du mot de passe) : un jeton ne peut jamais ouvrir un autre compte
+- [x] Réponses de l’administration jamais mises en cache ; URL encodées soumises aux mêmes contrôles
+- [x] Commandes : `app:create-admin` (gérant ou vendeur), `app:admin:update` (mot de passe, désactivation, tout rôle), `app:diagnostic` (propriétaire actif présent)
+- [x] Front (non enregistré dans git) : formulaire vendeur sans mot de passe pré-rempli (10 caractères) ; abonnement aux notifications admin envoyé avec le jeton admin
+- [x] Vérifications :
+  - 33 nouveaux tests (160 au total), aussi dans le désordre et fichier par fichier ;
+  - relecture adverse (4 relecteurs + contre-vérification) : 23 constats confirmés (3 importants), tous corrigés ;
+  - navigateur sur la vraie API : super admin, vendeur de Douala (menu limité, écran vendeurs refusé par le serveur), vendeur désactivé — 21/21 (avant les corrections de la relecture, couvertes ensuite par les tests ; nouveau passage à refaire quand la base locale sera relancée)
+
+Les autres écrans d’administration (catalogue, réservations, réglages) arrivent en P4, P6 et P8.
 ## Points ouverts (à décider)
 
 | Avant | Question | Proposition |

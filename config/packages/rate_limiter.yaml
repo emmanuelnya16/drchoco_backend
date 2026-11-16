@@ -26,3 +26,15 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '10 minutes'
+
+        # POST /admin/auth/login : 5 mots de passe faux en 15 min par identifiant (e-mail ou téléphone), puis
+        # blocage (« Réessayez dans 15 minutes » côté front) ; 20 en 15 min par adresse IP. Une connexion
+        # réussie ne compte pas et remet le compteur de l'identifiant à zéro.
+        admin_login_identifier:
+            policy: sliding_window
+            limit: 5
+            interval: '15 minutes'
+        admin_login_ip:
+            policy: sliding_window
+            limit: 20
+            interval: '15 minutes'

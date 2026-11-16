@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Api\RequestPath;
 use App\EventListener\JwtCreatedListener;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTDecodedEvent;
 use Lexik\Bundle\JWTAuthenticationBundle\Events;
@@ -41,7 +42,7 @@ final class JwtDecodedListener
             return;
         }
 
-        $expectedType = str_starts_with($request->getPathInfo(), '/api/admin') ? 'admin' : 'user';
+        $expectedType = str_starts_with(RequestPath::of($request), '/api/admin') ? 'admin' : 'user';
         if (($payload['type'] ?? null) !== $expectedType) {
             $request->attributes->set(self::FORBIDDEN_ATTRIBUTE, true);
             $event->markAsInvalid();

@@ -2,6 +2,7 @@
 
 namespace App\EventSubscriber;
 
+use App\Api\RequestPath;
 use App\Api\ApiException;
 use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -37,7 +38,7 @@ final class ClientWriteRateLimitSubscriber
         }
 
         $request = $event->getRequest();
-        $path = $request->getPathInfo();
+        $path = RequestPath::of($request);
         if (\in_array($request->getMethod(), self::READ_METHODS, true) || !str_starts_with($path, '/api/')) {
             return;
         }

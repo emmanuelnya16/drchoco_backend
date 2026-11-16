@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Catalog\ProductFilters;
+use App\Entity\Admin;
 use App\Entity\Product;
 use App\Entity\ProductVariant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -300,6 +301,116 @@ class ProductRepository extends ServiceEntityRepository
         }
 
         return $ordered;
+    }
+
+    // ── Administration ─────────────────────────────────────────────────────
+
+    /**
+     * Nombre d'articles de chaque vendeur : les siens, plus ceux de sa ville qui n'ont pas encore de vendeur
+     * (articles de départ), comme le calcul du front (mocks).
+     *
+     * @param list<Admin> $sellers
+     *
+     * @return array<int, int> nombre par identifiant de vendeur
+     */
+    public function countForSellers(array $sellers): array
+    {
+        $own = [];
+        foreach ($this->createQueryBuilder('p')
+            ->select('IDENTITY(p.seller) AS sid, COUNT(p.id) AS n')
+            ->where('p.seller IS NOT NULL')
+            ->groupBy('sid')
+            ->getQuery()->getArrayResult() as $row) {
+            $own[(int) $row['sid']] = (int) $row['n'];
+        }
+
+        $unassignedByCity = [];
+        foreach ($this->createQueryBuilder('p')
+            ->select('p.city AS city, COUNT(p.id) AS n')
+            ->where('p.seller IS NULL')
+            ->groupBy('p.city')
+            ->getQuery()->getArrayResult() as $row) {
+            $unassignedByCity[(string) $row['city']] = (int) $row['n'];
+        }
+
+        $counts = [];
+        foreach ($sellers as $seller) {
+            $counts[(int) $seller->getId()] = ($own[(int) $seller->getId()] ?? 0) + ($unassignedByCity[(string) $seller->getCity()] ?? 0);
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Articles en vente du périmètre d'un compte de l'équipe, avec leurs variantes : tous pour un super admin
+     * ($seller null) ; pour un vendeur, les siens et ceux de sa ville sans vendeur.
+     *
+     * @return list<Product>
+     */
+    public function findActiveForAdmin(?Admin $seller): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->select('p.id')
+            ->where('p.isActive = true')
+            ->orderBy('p.name', 'ASC')
+            ->addOrderBy('p.id', 'ASC');
+        if ($seller !== null) {
+            $qb->andWhere('p.seller = :seller OR (p.seller IS NULL AND p.city = :city)')
+                ->setParameter('seller', $seller)
+                ->setParameter('city', (string) $seller->getCity());
+        }
+
+        return $this->findWithDetails(array_map('strval', $qb->getQuery()->getSingleColumnResult()));
+    }
+
+    /** Articles rattachés à ce vendeur (en vente ou non). */
+    public function countOwnedBy(Admin $seller): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->where('p.seller = :seller')
+            ->setParameter('seller', $seller)
+            ->getQuery()->getSingleScalarResult();
+    }
+
+    /** Le vendeur change de ville : ses articles le suivent (comportement du front). */
+    public function moveSellerProductsToCity(Admin $seller, string $city): int
+    {
+        return $this->createQueryBuilder('p')
+            ->update()
+            ->set('p.city', ':city')
+            ->where('p.seller = :seller')
+            ->setParameter('city', $city)
+            ->setParameter('seller', $seller)
+            ->getQuery()->execute();
+    }
+
+    /**
+     * Recherche rapide de l'administration : nom, slug, catégorie ou sous-catégorie (sans accents ni casse),
+     * articles retirés compris. Un vendeur ne voit que ses articles et ceux de sa ville sans vendeur.
+     *
+     * @return list<Product>
+     */
+    public function adminSearch(string $query, ?Admin $seller, int $limit): array
+    {
+        $like = '%' . addcslashes($query, '%_\\') . '%';
+        $qb = $this->createQueryBuilder('p')
+            ->select('p.id')
+            ->innerJoin('p.category', 'c')
+            ->leftJoin('p.subCategory', 's')
+            ->where('p.name LIKE :q OR p.slug LIKE :q OR c.slug LIKE :q OR c.name LIKE :q OR s.slug LIKE :q OR s.name LIKE :q')
+            ->setParameter('q', $like)
+            ->orderBy('p.name', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->setMaxResults($limit);
+
+        if ($seller !== null) {
+            $qb->andWhere('p.seller = :seller OR (p.seller IS NULL AND p.city = :city)')
+                ->setParameter('seller', $seller)
+                ->setParameter('city', (string) $seller->getCity());
+        }
+
+        return $this->findWithDetails(array_map('strval', $qb->getQuery()->getSingleColumnResult()));
     }
 
     // ── Construction des requêtes ──────────────────────────────────────────

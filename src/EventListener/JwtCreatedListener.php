@@ -4,7 +4,9 @@ namespace App\EventListener;
 
 use App\Entity\Admin;
 use App\Entity\User;
+use App\Security\CredentialFingerprint;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTCreatedEvent;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Enrichit le contenu du JWT — repris du backend de référence.
@@ -18,6 +20,11 @@ use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTCreatedEvent;
  */
 class JwtCreatedListener
 {
+    public function __construct(
+        #[Autowire('%kernel.secret%')]
+        private readonly string $secret = '',
+    ) {}
+
     public const AUDIENCE = 'drchoco';
 
     public function onJwtCreated(JWTCreatedEvent $event): void
@@ -43,6 +50,8 @@ class JwtCreatedListener
             $payload['role']      = $user->getRole();
             $payload['email']     = $user->getEmail();
             $payload['city']      = $user->getCity();
+            // Ajout DR Choco : empreinte du mot de passe (jeton refusé dès que le mot de passe change).
+            $payload['pwv']       = CredentialFingerprint::of($user, $this->secret);
         }
 
         $event->setData($payload);

@@ -39,4 +39,32 @@ class AddressRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['id' => $id, 'user' => $user]);
     }
+
+    /**
+     * Adresses de plusieurs clients en une requête, regroupées par client (adresse par défaut en tête).
+     *
+     * @param list<User> $users
+     *
+     * @return array<int, list<Address>>
+     */
+    public function findForUsers(array $users): array
+    {
+        if ($users === []) {
+            return [];
+        }
+        $rows = $this->createQueryBuilder('a')
+            ->where('a.user IN (:users)')
+            ->setParameter('users', $users)
+            ->orderBy('a.isDefault', 'DESC')
+            ->addOrderBy('a.sequence', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()->getResult();
+
+        $byUser = [];
+        foreach ($rows as $address) {
+            $byUser[(int) $address->getUser()->getId()][] = $address;
+        }
+
+        return $byUser;
+    }
 }

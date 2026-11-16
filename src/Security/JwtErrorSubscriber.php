@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Api\RequestPath;
 use App\Api\ApiErrorResponse;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTExpiredEvent;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTInvalidEvent;
@@ -57,7 +58,7 @@ final class JwtErrorSubscriber implements EventSubscriberInterface
     private function unauthorized(string $message): JsonResponse
     {
         $request = $this->requestStack->getMainRequest();
-        $isAdmin = $request !== null && str_starts_with($request->getPathInfo(), '/api/admin');
+        $isAdmin = $request !== null && str_starts_with(RequestPath::of($request), '/api/admin');
 
         return ApiErrorResponse::create(401, $isAdmin ? 'ADMIN_UNAUTHORIZED' : 'UNAUTHORIZED', $message);
     }

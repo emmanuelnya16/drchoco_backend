@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Api\RequestPath;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
@@ -30,7 +31,7 @@ final class PublicRouteAuthFailureListener
     public function __invoke(LoginFailureEvent $event): void
     {
         $request = $event->getRequest();
-        if (!str_starts_with($request->getPathInfo(), '/api')) {
+        if (!str_starts_with(RequestPath::of($request), '/api')) {
             return;
         }
 

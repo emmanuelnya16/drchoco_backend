@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Api\RequestPath;
 use App\Api\ApiException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -23,7 +24,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
 final class AuthOriginGuard
 {
     private const GUARDED_PREFIXES = ['/api/auth/', '/api/admin/auth/'];
-    private const JSON_ONLY_PATHS = ['/api/auth/otp/request', '/api/auth/otp/verify', '/api/auth/refresh'];
+    // Routes envoyées avec un corps JSON par le front (le rafraîchissement admin part sans corps : non concerné).
+    private const JSON_ONLY_PATHS = ['/api/auth/otp/request', '/api/auth/otp/verify', '/api/auth/refresh', '/api/admin/auth/login'];
 
     public function __construct(
         #[Autowire('%env(CORS_ALLOW_ORIGIN)%')]
@@ -37,7 +39,7 @@ final class AuthOriginGuard
         }
 
         $request = $event->getRequest();
-        $path = $request->getPathInfo();
+        $path = RequestPath::of($request);
         if ($request->getMethod() !== 'POST' || !$this->isGuarded($path)) {
             return;
         }

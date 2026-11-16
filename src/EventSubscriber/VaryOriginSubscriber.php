@@ -2,6 +2,7 @@
 
 namespace App\EventSubscriber;
 
+use App\Api\RequestPath;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -16,7 +17,7 @@ final class VaryOriginSubscriber
     public function __invoke(ResponseEvent $event): void
     {
         $request = $event->getRequest();
-        if (!str_starts_with($request->getPathInfo(), '/api') || !$request->headers->has('Origin')) {
+        if (!str_starts_with(RequestPath::of($request), '/api') || !$request->headers->has('Origin')) {
             return;
         }
 

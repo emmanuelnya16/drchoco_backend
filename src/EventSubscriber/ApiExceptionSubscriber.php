@@ -2,6 +2,7 @@
 
 namespace App\EventSubscriber;
 
+use App\Api\RequestPath;
 use App\Api\ApiErrorResponse;
 use App\Api\ApiException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -46,7 +47,7 @@ final class ApiExceptionSubscriber implements EventSubscriberInterface
     public function onException(ExceptionEvent $event): void
     {
         $request = $event->getRequest();
-        if (!str_starts_with($request->getPathInfo(), '/api')) {
+        if (!str_starts_with(RequestPath::of($request), '/api')) {
             return;
         }
 
@@ -84,7 +85,7 @@ final class ApiExceptionSubscriber implements EventSubscriberInterface
             );
         }
 
-        $isAdmin = str_starts_with($request->getPathInfo(), '/api/admin');
+        $isAdmin = str_starts_with(RequestPath::of($request), '/api/admin');
 
         return match (true) {
             $status === 400 => ApiErrorResponse::create(400, 'INVALID_PAYLOAD', 'La requête est invalide.', [], $headers),

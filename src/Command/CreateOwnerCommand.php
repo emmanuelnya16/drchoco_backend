@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Admin\SellerManager;
 use App\Entity\Admin;
 use App\Repository\AdminRepository;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -62,8 +63,10 @@ class CreateOwnerCommand extends Command
         $phone = $input->getOption('phone') ?: $io->ask('Téléphone (+2376XXXXXXXX, facultatif)', '');
         $password = (string) $io->askHidden('Mot de passe (masqué, 10 caractères minimum)');
 
-        if (mb_strlen($password) < 10) {
-            $io->error('Le mot de passe doit contenir au moins 10 caractères.');
+        // Même règle que tous les comptes de l'équipe (10 caractères, ni mot de passe connu, ni e-mail ou téléphone).
+        $problem = SellerManager::passwordProblem($password, [(string) $email, (string) $phone]);
+        if ($problem !== null) {
+            $io->error($problem);
 
             return Command::FAILURE;
         }

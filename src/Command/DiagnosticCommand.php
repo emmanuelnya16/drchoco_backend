@@ -52,6 +52,16 @@ final class DiagnosticCommand extends Command
         try {
             $version = (string) $this->connection->executeQuery('SELECT VERSION()')->fetchOne();
             $rows[] = ['Base de données', 'OK', $this->connection->getDatabase() . ' — ' . $version];
+
+            // Administration (P3) : sans propriétaire actif, personne ne peut gérer la boutique.
+            $owners = (int) $this->connection->fetchOne("SELECT COUNT(*) FROM admins WHERE role = 'owner' AND is_active = 1");
+            $sellers = (int) $this->connection->fetchOne("SELECT COUNT(*) FROM admins WHERE role = 'seller' AND is_active = 1");
+            $rows[] = $owners > 0
+                ? ['Comptes de l’équipe', 'OK', sprintf('%d propriétaire(s) actif(s), %d vendeur(s) actif(s)', $owners, $sellers)]
+                : ['Comptes de l’équipe', 'ABSENT', 'Aucun propriétaire actif : php bin/console app:create-owner'];
+            if ($owners === 0) {
+                $failed = true;
+            }
         } catch (\Throwable $e) {
             $rows[] = ['Base de données', 'ÉCHEC', $this->short($e)];
             $failed = true;
