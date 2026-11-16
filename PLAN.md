@@ -117,7 +117,7 @@ Avancement total : **38 %** (P0 à P3 terminées)
 - [x] Vérifications :
   - 33 nouveaux tests (160 au total), aussi dans le désordre et fichier par fichier ;
   - relecture adverse (4 relecteurs + contre-vérification) : 23 constats confirmés (3 importants), tous corrigés ;
-  - navigateur sur la vraie API : super admin, vendeur de Douala (menu limité, écran vendeurs refusé par le serveur), vendeur désactivé — 21/21 (avant les corrections de la relecture, couvertes ensuite par les tests ; nouveau passage à refaire quand la base locale sera relancée)
+  - navigateur sur la vraie API : super admin, vendeur de Douala (menu limité, écran vendeurs refusé par le serveur), vendeur désactivé — 21/21, aussi après les corrections de la relecture
 
 Les autres écrans d’administration (catalogue, réservations, réglages) arrivent en P4, P6 et P8.
 ## Points ouverts (à décider)
