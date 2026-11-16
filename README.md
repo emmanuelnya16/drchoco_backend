@@ -69,6 +69,14 @@ Trois rôles : **owner** (propriétaire) et **manager** (gérant) sont super adm
 - Dépannage de n’importe quel compte (propriétaire compris) : `php bin/console app:admin:update <e-mail ou téléphone> --password | --disable | --enable`. Le dernier propriétaire actif ne peut pas être désactivé.
 - Compte bloqué après 5 mots de passe faux (ou 20 depuis une même adresse IP) : attendre 15 min, ou `php bin/console cache:pool:clear cache.rate_limiter`.
 
+## Catalogue de l’administration et images (P4)
+
+- Articles : création, modification, stock rapide et suppression depuis l’écran « Catalogue ». Un vendeur gère ses articles et ceux de sa ville sans vendeur ; ce qu’il crée lui est rattaché, dans sa ville. Le super admin choisit la ville (et peut rattacher un vendeur).
+- Les variantes (couleur × taille) gardent leur identifiant d’un enregistrement à l’autre : paniers et réservations restent valables.
+- Supprimer un article le retire de la vente partout (site, looks, recherche) ; son historique est gardé et son adresse redevient libre.
+- Catégories, sous-catégories et looks : écran « Looks & Catégories ». Retirer une sous-catégorie laisse ses articles dans la catégorie.
+- Images : `POST /api/admin/media` (JPEG, PNG ou WebP, 5 Mo au plus) les envoie sur Cloudinary, dossiers `drchoco/products`, `drchoco/categories`, `drchoco/looks`. Le front y envoie les photos choisies dans l’administration. Sur l’hébergement, `upload_max_filesize` et `post_max_size` (PHP) doivent dépasser 5 Mo.
+
 ## Brancher le front sur cette API
 
 Dans le front (`.env.local`) :
@@ -80,7 +88,7 @@ VITE_DEV_API_PROXY=http://127.0.0.1:8000
 VITE_API_REAL_ROUTES=/categories,/products,/search,/looks,/settings/public,/delivery,/pages,/cart/validate,/client-errors,/auth,/me,/favorites
 ```
 
-Administration (P3) : ajouter `/admin/auth,/admin/sellers,/admin/customers,/admin/search,/admin/dashboard`. Les autres écrans d’administration (catalogue, réservations, réglages) restent simulés et ne reconnaissent pas le vrai jeton admin : ils afficheront une erreur jusqu’aux phases P4, P6 et P8.
+Administration (P3 et P4) : ajouter `/admin/auth,/admin/sellers,/admin/customers,/admin/search,/admin/dashboard,/admin/products,/admin/categories,/admin/looks,/admin/media`. Les autres écrans d’administration (réservations, réglages) restent simulés et ne reconnaissent pas le vrai jeton admin : ils afficheront une erreur jusqu’aux phases P6 et P8.
 
 - `VITE_DEV_API_PROXY` relaie `/api` du serveur Vite vers cette API : même domaine, comme en production, indispensable au cookie de session.
 - **Bascule progressive** : les routes listées dans `VITE_API_REAL_ROUTES` partent vers l’API, le reste reste simulé (tant que `/reservations` est simulé, les mocks montrent les réservations de démonstration).

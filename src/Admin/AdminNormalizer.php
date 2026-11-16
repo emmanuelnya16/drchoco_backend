@@ -3,9 +3,12 @@
 namespace App\Admin;
 
 use App\Account\AccountNormalizer;
+use App\Catalog\CatalogNormalizer;
 use App\Api\ApiDate;
 use App\Entity\Address;
 use App\Entity\Admin;
+use App\Entity\Category;
+use App\Entity\Look;
 use App\Entity\Product;
 use App\Entity\User;
 
@@ -16,7 +19,51 @@ final class AdminNormalizer
 {
     public const PERIODS = ['today', '7d', '30d', 'year'];
 
-    public function __construct(private readonly AccountNormalizer $accounts) {}
+    public function __construct(
+        private readonly AccountNormalizer $accounts,
+        private readonly CatalogNormalizer $catalog,
+    ) {}
+
+    /**
+     * Article vu par l'administration : la fiche publique complète, plus le vendeur (`sellerId`, `sellerName`),
+     * que le site public ne montre jamais.
+     *
+     * @return array<string, mixed>
+     */
+    public function adminProduct(Product $product): array
+    {
+        $data = $this->catalog->product($product);
+        $seller = $product->getSeller();
+        if ($seller !== null) {
+            $data['sellerId'] = (string) $seller->getId();
+            $data['sellerName'] = $seller->getName();
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array{categories: array<string, int>, subCategories: array<string, int>} $counts articles en vente
+     *
+     * @return array<string, mixed>
+     */
+    public function adminCategory(Category $category, array $counts): array
+    {
+        return $this->catalog->category($category, $counts['categories'], $counts['subCategories']);
+    }
+
+    /** Look tel qu'enregistré (toutes ses adresses d'articles, même retirés de la vente). @return array<string, mixed> */
+    public function adminLook(Look $look): array
+    {
+        return [
+            'id'           => $look->getId(),
+            'title'        => $look->getTitle(),
+            'subtitle'     => $look->getSubtitle(),
+            'image'        => $look->getImage(),
+            'fallback'     => $look->getFallback(),
+            'productSlugs' => array_values($look->getProductSlugs()),
+        ];
+    }
 
     /**
      * `AdminUser` : jamais le mot de passe. `phone` vaut "" s'il n'est pas renseigné (champ obligatoire du type).

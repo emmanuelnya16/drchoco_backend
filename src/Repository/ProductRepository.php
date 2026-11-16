@@ -149,6 +149,27 @@ class ProductRepository extends ServiceEntityRepository
         return ['categories' => $categories, 'subCategories' => $subCategories];
     }
 
+    /**
+     * Articles en vente par catégorie et sous-catégorie, pour l'administration (catégories masquées comprises).
+     *
+     * @return array{categories: array<string, int>, subCategories: array<string, int>}
+     */
+    public function countActiveByCategory(): array
+    {
+        $categories = [];
+        foreach ($this->createQueryBuilder('p')->select('IDENTITY(p.category) AS cid, COUNT(p.id) AS n')
+            ->where('p.isActive = true')->groupBy('cid')->getQuery()->getArrayResult() as $row) {
+            $categories[(string) $row['cid']] = (int) $row['n'];
+        }
+        $subCategories = [];
+        foreach ($this->createQueryBuilder('p')->select('IDENTITY(p.subCategory) AS sid, COUNT(p.id) AS n')
+            ->where('p.isActive = true')->andWhere('p.subCategory IS NOT NULL')->groupBy('sid')->getQuery()->getArrayResult() as $row) {
+            $subCategories[(string) $row['sid']] = (int) $row['n'];
+        }
+
+        return ['categories' => $categories, 'subCategories' => $subCategories];
+    }
+
     public function findVisibleBySlug(string $slug): ?Product
     {
         $id = $this->visible()
@@ -217,6 +238,28 @@ class ProductRepository extends ServiceEntityRepository
     }
 
     /**
+     * Adresses (slugs) d'articles en vente parmi celles données, catégorie masquée ou non (looks de l'administration).
+     *
+     * @param list<string> $slugs
+     *
+     * @return array<string, true>
+     */
+    public function activeSlugSet(array $slugs): array
+    {
+        if ($slugs === []) {
+            return [];
+        }
+        $rows = $this->createQueryBuilder('p')->select('p.slug')
+            ->where('p.isActive = true')
+            ->andWhere('p.slug IN (:slugs)')
+            ->setParameter('slugs', array_values(array_unique($slugs)))
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_fill_keys(array_map('strval', $rows), true);
+    }
+
+    /**
      * Identifiants d'articles visibles parmi ceux donnés (favoris : un article retiré est ignoré).
      *
      * @param list<string> $ids
@@ -272,21 +315,23 @@ class ProductRepository extends ServiceEntityRepository
      *
      * @return list<Product>
      */
-    public function findWithDetails(array $ids): array
+    public function findWithDetails(array $ids, bool $withSeller = false): array
     {
         if ($ids === []) {
             return [];
         }
-        $rows = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->addSelect('c', 's', 'v')
             ->innerJoin('p.category', 'c')
             ->leftJoin('p.subCategory', 's')
             ->leftJoin('p.variants', 'v')
             ->where('p.id IN (:ids)')
             ->setParameter('ids', $ids)
-            ->orderBy('v.position', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('v.position', 'ASC');
+        if ($withSeller) {
+            $qb->addSelect('a')->leftJoin('p.seller', 'a');
+        }
+        $rows = $qb->getQuery()->getResult();
 
         $byId = [];
         foreach ($rows as $product) {
@@ -319,6 +364,7 @@ class ProductRepository extends ServiceEntityRepository
         foreach ($this->createQueryBuilder('p')
             ->select('IDENTITY(p.seller) AS sid, COUNT(p.id) AS n')
             ->where('p.seller IS NOT NULL')
+            ->andWhere('p.isActive = true')
             ->groupBy('sid')
             ->getQuery()->getArrayResult() as $row) {
             $own[(int) $row['sid']] = (int) $row['n'];
@@ -328,6 +374,7 @@ class ProductRepository extends ServiceEntityRepository
         foreach ($this->createQueryBuilder('p')
             ->select('p.city AS city, COUNT(p.id) AS n')
             ->where('p.seller IS NULL')
+            ->andWhere('p.isActive = true')
             ->groupBy('p.city')
             ->getQuery()->getArrayResult() as $row) {
             $unassignedByCity[(string) $row['city']] = (int) $row['n'];
@@ -347,7 +394,7 @@ class ProductRepository extends ServiceEntityRepository
      *
      * @return list<Product>
      */
-    public function findActiveForAdmin(?Admin $seller): array
+    public function findActiveForAdmin(?Admin $seller, bool $withSeller = false): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('p.id')
@@ -360,15 +407,16 @@ class ProductRepository extends ServiceEntityRepository
                 ->setParameter('city', (string) $seller->getCity());
         }
 
-        return $this->findWithDetails(array_map('strval', $qb->getQuery()->getSingleColumnResult()));
+        return $this->findWithDetails(array_map('strval', $qb->getQuery()->getSingleColumnResult()), $withSeller);
     }
 
-    /** Articles rattachés à ce vendeur (en vente ou non). */
+    /** Articles en vente rattachés à ce vendeur (les articles supprimés gardent leur historique). */
     public function countOwnedBy(Admin $seller): int
     {
         return (int) $this->createQueryBuilder('p')
             ->select('COUNT(p.id)')
             ->where('p.seller = :seller')
+            ->andWhere('p.isActive = true')
             ->setParameter('seller', $seller)
             ->getQuery()->getSingleScalarResult();
     }
@@ -386,8 +434,9 @@ class ProductRepository extends ServiceEntityRepository
     }
 
     /**
-     * Recherche rapide de l'administration : nom, slug, catégorie ou sous-catégorie (sans accents ni casse),
-     * articles retirés compris. Un vendeur ne voit que ses articles et ceux de sa ville sans vendeur.
+     * Recherche rapide de l'administration : nom, slug, catégorie ou sous-catégorie (sans accents ni casse).
+     * Articles supprimés exclus (leur fiche n'existe plus). Un vendeur ne voit que ses articles et ceux de sa
+     * ville sans vendeur.
      *
      * @return list<Product>
      */
@@ -399,6 +448,7 @@ class ProductRepository extends ServiceEntityRepository
             ->innerJoin('p.category', 'c')
             ->leftJoin('p.subCategory', 's')
             ->where('p.name LIKE :q OR p.slug LIKE :q OR c.slug LIKE :q OR c.name LIKE :q OR s.slug LIKE :q OR s.name LIKE :q')
+            ->andWhere('p.isActive = true')
             ->setParameter('q', $like)
             ->orderBy('p.name', 'ASC')
             ->addOrderBy('p.id', 'ASC')

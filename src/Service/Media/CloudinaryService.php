@@ -68,6 +68,52 @@ class CloudinaryService
         }
     }
 
+    /**
+     * Ajout DR Choco (P4) : image du catalogue (article, catégorie, look) envoyée dans un dossier de
+     * drchoco/, avec exactement les réglages de uploadProductImage() (WebP, qualité auto, 1 200 px au plus).
+     * Les identifiants DR Choco sont du texte (« prod-01 ») et l'image est envoyée avant la création de
+     * l'article : uploadProductImage(), qui attend un identifiant entier, est gardée telle quelle.
+     *
+     * @param string       $folder sous-dossier de drchoco/ (« products », « categories », « looks »)
+     * @param list<string> $tags
+     *
+     * @return array{publicId: string, url: string, width: int, height: int, format: string, size: int}
+     */
+    public function uploadCatalogImage(UploadedFile $file, string $folder, array $tags = []): array
+    {
+        $this->validateFile($file);
+
+        try {
+            $result = $this->cloudinary->uploadApi()->upload(
+                $file->getPathname(),
+                [
+                    'folder'          => 'drchoco/' . $folder,
+                    'format'          => 'webp',
+                    'quality'         => 'auto',
+                    'transformation'  => [
+                        ['width' => 1200, 'height' => 1200, 'crop' => 'limit'],
+                    ],
+                    'tags'            => $tags,
+                    'overwrite'       => false,
+                    'unique_filename' => true,
+                ]
+            );
+
+            return [
+                'publicId' => $result['public_id'],
+                'url'      => $result['secure_url'],
+                'width'    => $result['width'],
+                'height'   => $result['height'],
+                'format'   => $result['format'],
+                'size'     => $result['bytes'],
+            ];
+        } catch (\Exception $e) {
+            throw new \RuntimeException(
+                'Échec de l\'upload vers Cloudinary : ' . $e->getMessage()
+            );
+        }
+    }
+
     public function deleteImage(string $publicId): bool
     {
         try {
@@ -84,7 +130,8 @@ class CloudinaryService
     public function deleteProductFolder(int $productId): void
     {
         try {
-            $this->cloudinary->adminApi()->deleteResourcesByPrefix(
+            // Correction DR Choco (P4, accord du 16/11/2026) : le SDK Cloudinary 3 n'a pas deleteResourcesByPrefix().
+            $this->cloudinary->adminApi()->deleteAssetsByPrefix(
                 self::PRODUCTS_FOLDER . '/' . $productId . '/'
             );
         } catch (\Exception) {

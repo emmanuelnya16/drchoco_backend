@@ -1,6 +1,6 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **38 %** (P0 à P3 terminées)
+Avancement total : **50 %** (P0 à P4 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
@@ -8,7 +8,7 @@ Avancement total : **38 %** (P0 à P3 terminées)
 | **P1** | Catalogue public et référentiels | 11 + 1 | 12 % | ✅ Terminée |
 | **P2** | Comptes clients (code SMS) | 11 + 2 | 10 % | ✅ Terminée |
 | **P3** | Socle admin, rôles et vendeurs | 10 | 8 % | ✅ Terminée |
-| **P4** | Catalogue admin et images Cloudinary | 14 | 12 % | ⏳ À faire |
+| **P4** | Catalogue admin et images Cloudinary | 14 | 12 % | ✅ Terminée |
 | **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ⏳ À faire |
 | **P6** | Gestion des réservations (admin) | 10 | 10 % | ⏳ À faire |
 | **P7** | Notifications push et tableau de bord | 5 + déclencheurs | 8 % | ⏳ À faire |
@@ -120,6 +120,28 @@ Avancement total : **38 %** (P0 à P3 terminées)
   - navigateur sur la vraie API : super admin, vendeur de Douala (menu limité, écran vendeurs refusé par le serveur), vendeur désactivé — 21/21, aussi après les corrections de la relecture
 
 Les autres écrans d’administration (catalogue, réservations, réglages) arrivent en P4, P6 et P8.
+
+## P4 — Catalogue admin et images Cloudinary ✅
+
+- [x] `GET /api/admin/products` : liste filtrée (catégorie, ville et vendeur pour les super admins, état du stock, recherche sans accents), triée, paginée (24 par page, 50 au plus) ; résumé du stock calculé avant les filtres
+- [x] `GET`, `POST /api/admin/products`, `PATCH`, `DELETE /api/admin/products/{id}` (identifiant ou slug), `PATCH /api/admin/products/{id}/stock`
+  - vendeur : ses articles et ceux de sa ville sans vendeur ; ce qu’il crée ou modifie lui est rattaché, dans sa ville ;
+  - super admin : choisit le vendeur ; un article qui a un vendeur est toujours dans la ville de ce vendeur, la ville choisie ne vaut que sans vendeur ;
+  - variantes retrouvées par couleur et taille (taille comparée sans accents, casse ni espaces en trop) : leurs identifiants et leurs stocks restent ; ceux inventés par le front (`var-…`) sont ignorés ;
+  - nouvelle adresse (slug) : les looks suivent ; suppression : l’article est retiré de la vente (fiches, recherche, looks), son adresse est libérée, l’historique reste ;
+  - messages d’erreur précis, affichés tels quels par le formulaire (photo non envoyée, photo d’exemple, couleur, taille en double…)
+- [x] Catégories : `GET`, `POST /api/admin/categories`, `PATCH /api/admin/categories/{id}` (avec la liste complète des sous-catégories) ; une sous-catégorie retirée laisse ses articles dans la catégorie ; une catégorie et une sous-catégorie n’ont jamais le même slug
+- [x] Looks : `GET`, `POST /api/admin/looks`, `PATCH`, `DELETE /api/admin/looks/{id}` ; seuls les articles en vente sont gardés (20 au plus)
+- [x] Catégories et looks modifiables par toute l’équipe, comme le prévoit l’écran du front
+- [x] `POST /api/admin/media` : image (JPEG, PNG ou WebP, 5 Mo au plus, type réel vérifié) envoyée sur Cloudinary (`drchoco/products`, `categories`, `looks`), convertie en WebP, 1 200 px au plus ; erreurs lisibles (trop lourde, envoi interrompu, panne de Cloudinary)
+- [x] Cloudinary : la seule ligne fautive héritée (`deleteResourcesByPrefix` → `deleteAssetsByPrefix`) corrigée avec accord ; ajout de l’envoi des images du catalogue, rien d’autre de changé
+- [x] Front (non enregistré dans git) : photos envoyées au serveur au lieu d’adresses `blob:` ; nouvel article sans photo d’exemple ; option « Aucune sous-catégorie » ; une photo refusée n’empêche pas d’ajouter les autres ; messages du serveur affichés
+- [x] Vérifications :
+  - 21 nouveaux tests (181 au total), aussi dans le désordre et fichier par fichier ;
+  - relecture adverse : 20 constats confirmés, tous corrigés ;
+  - navigateur sur la vraie API (super admin) : liste, création et modification par le vrai formulaire, stock rapide, catégorie, look, écran « Looks & Catégories », suppression — 16/17, le dernier contrôle (article disparu du site) refait directement sur l’API : l’écart venait du cache de 60 s du catalogue public dans le navigateur du test
+  - envoi réel vers Cloudinary non exercé (service simulé dans les tests) : à essayer une fois avec une vraie photo
+
 ## Points ouverts (à décider)
 
 | Avant | Question | Proposition |
@@ -129,7 +151,6 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 | P5 | Panier limité à une seule ville ? | Oui : un panier = une ville |
 | P5 | Retrait en boutique possible à Douala ? | Une boutique par ville (table dédiée) |
 | P5 | Qui valide les paiements Mobile Money ? | Le super admin (comptes marchands DR Choco) |
-| P4 | `CloudinaryService::deleteProductFolder()` (hérité tel quel) appelle une méthode qui n'existe pas dans le SDK (`deleteResourcesByPrefix` au lieu de `deleteAssetsByPrefix`) : plantage si on l'utilise | Corriger cette seule ligne en P4 (accord demandé, car Cloudinary est repris à l'identique) |
 | P8 | Numéro WhatsApp de la boutique (aujourd'hui +237690000000, fictif), vraies villes, frais et agences (aujourd'hui ceux des mocks, agences fictives), textes « [À COMPLÉTER] » des pages légales | À saisir dans l'administration (P8) ou à me transmettre pour les données de départ |
 | P10 | Offre cPanel (PHP, base, SSH, crons) et domaine (.cm ou .com) | — |
 | P10 | Montage sur cPanel : les routes gardent le préfixe `/api` | Projet hors de `public_html`, son dossier `public/` exposé sous `public_html/_api` (lien), et règle du `.htaccess` du front : `^api(/.*)?$ → _api/index.php` |

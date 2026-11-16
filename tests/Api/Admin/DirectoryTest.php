@@ -12,7 +12,7 @@ use App\Tests\AdminTestCase;
  */
 final class DirectoryTest extends AdminTestCase
 {
-    public function testSuperAdminSearchFindsEveryProductIncludingRetiredOnes(): void
+    public function testSuperAdminSearchFindsEveryProductOfTheShop(): void
     {
         $this->account();
         $this->mutateProduct('hoodie-barbele-noir', fn (Product $p) => $p->setIsActive(false));
@@ -21,7 +21,8 @@ final class DirectoryTest extends AdminTestCase
         self::assertSame(200, $this->httpStatus());
         self::assertSame(['reservations', 'products'], array_keys($data));
         self::assertSame([], $data['reservations']);
-        self::assertContains('hoodie-barbele-noir', array_column($data['products'], 'slug'), 'article retiré trouvé par l’équipe');
+        self::assertNotContains('hoodie-barbele-noir', array_column($data['products'], 'slug'), 'article supprimé : sa fiche n’existe plus');
+        self::assertContains('hoodie-zip-armure', array_column($data['products'], 'slug'));
         self::assertLessThanOrEqual(6, \count($data['products']));
         self::assertSame(['id', 'slug', 'name', 'image', 'price', 'totalStock', 'outOfStockCount'], array_keys($data['products'][0]));
 
