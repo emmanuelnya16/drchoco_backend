@@ -62,6 +62,8 @@ security:
         - { path: ^/api/(categories|products|search|looks|settings/public|delivery|pages)(/|$), roles: PUBLIC_ACCESS, methods: [GET] }
         - { path: ^/api/cart/validate$, roles: PUBLIC_ACCESS, methods: [POST] }
         - { path: ^/api/client-errors$, roles: PUBLIC_ACCESS, methods: [POST] }
+        # Captures de paiement : lien signé et temporaire (balise <img>, sans jeton), vérifié par le contrôleur
+        - { path: ^/api/media/private/, roles: PUBLIC_ACCESS, methods: [GET] }
         # Administration : gestion des vendeurs réservée aux super admins (owner, manager)
         - { path: ^/api/admin/sellers, roles: ROLE_SUPER_ADMIN }
         - { path: ^/api/admin, roles: ROLE_ADMIN }

@@ -239,6 +239,9 @@ final class CatalogSeeder
                 ->setAddress($row['address'] ?? '')
                 ->setPhone($row['phone'] ?? '')
                 ->setOpeningHours($row['openingHours'] ?? '')
+                // Prix de l'agence : celui du fichier, sinon le prix actuel de sa ville.
+                ->setFee(\is_int($row['fee'] ?? null) ? $row['fee'] : $city->getFee())
+                ->setDepartureCity(\App\Catalog\ShopCity::normalize(\is_string($row['departureCity'] ?? null) ? $row['departureCity'] : null))
                 ->setPosition($positions[$row['cityId']])
                 ->setIsActive(true);
             $this->em->persist($agency);

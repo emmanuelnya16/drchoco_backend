@@ -4,6 +4,8 @@ parameters:
     # client = 90 jours glissants ; admin = 12 h maximum après la connexion.
     app.refresh.client_ttl_days: 90
     app.refresh.admin_session_hours: 12
+    # Fichiers privés (preuves de paiement) : hors du site public, servis par liens signés (P5).
+    app.private_media_dir: '%kernel.project_dir%/var/private'
 
 services:
     _defaults:
@@ -52,6 +54,8 @@ services:
             $adminSessionHours: '%app.refresh.admin_session_hours%'
 
 when@test:
+    parameters:
+        app.private_media_dir: '%kernel.project_dir%/var/test-private'
     services:
         _defaults:
             autowire: true

@@ -128,7 +128,8 @@ final class ReferenceDataTest extends CatalogTestCase
             $agencies = $this->getJson('/api/delivery/agencies?city=' . rawurlencode($value));
             self::assertSame(['ag-dla-1', 'ag-dla-2'], array_column($agencies, 'id'), $value);
         }
-        self::assertSame(['id', 'cityId', 'city', 'name', 'address', 'phone', 'openingHours'], array_keys($agencies[0]));
+        self::assertSame(['id', 'cityId', 'city', 'name', 'address', 'phone', 'openingHours', 'fee', 'departureCity'], array_keys($agencies[0]));
+        self::assertSame([2500, null], [$agencies[0]['fee'], $agencies[0]['departureCity']], 'prix de l’agence : celui de sa ville au départ');
         self::assertCount(3, $this->getJson('/api/delivery/agencies?city=yaounde'));
 
         self::assertSame([], $this->getJson('/api/delivery/agencies?city=Paris'));

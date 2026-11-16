@@ -2,6 +2,7 @@
 
 namespace App\Settings;
 
+use App\Catalog\ShopCity;
 use App\Entity\AppSetting;
 use App\Repository\AppSettingRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -37,6 +38,58 @@ final class PublicSettingsProvider
         unset($data['operators']); // ancien format : recalculé à partir de payment.operators
 
         return $data;
+    }
+
+    /**
+     * Boutique d'une ville (retrait, livraison à domicile) : {city, name, address, openingHours, mapsUrl, homeDeliveryFee}.
+     *
+     * @return array{city: string, name: string, address: string, openingHours: string, mapsUrl: string, homeDeliveryFee: int}
+     */
+    public function shop(string $city): array
+    {
+        foreach ($this->get()['shops'] as $shop) {
+            if ($shop['city'] === $city) {
+                return $shop;
+            }
+        }
+
+        return $this->get()['shops'][0];
+    }
+
+    /**
+     * Les deux boutiques, dans l'ordre de ShopCity::ALL. Réglages enregistrés avant la P5 (sans `shops`) :
+     * valeurs de départ ; Yaoundé reprend sinon la boutique principale (`shop`).
+     *
+     * @param array<string, mixed> $s
+     * @param array<string, mixed> $main
+     *
+     * @return list<array{city: string, name: string, address: string, openingHours: string, mapsUrl: string, homeDeliveryFee: int}>
+     */
+    private function shops(array $s, array $main): array
+    {
+        $rows = \is_array($s['shops'] ?? null) ? $s['shops'] : ($this->defaults()['shops'] ?? []);
+        $byCity = [];
+        foreach ($rows as $row) {
+            $city = \is_array($row) ? ShopCity::normalize(\is_string($row['city'] ?? null) ? $row['city'] : null) : null;
+            if ($city !== null && !isset($byCity[$city])) {
+                $byCity[$city] = $row;
+            }
+        }
+
+        $shops = [];
+        foreach (ShopCity::ALL as $city) {
+            $row = $byCity[$city] ?? ($city === ShopCity::YAOUNDE ? $main : []);
+            $shops[] = [
+                'city'            => $city,
+                'name'            => (string) ($row['name'] ?? sprintf('Boutique DR Choco L’Incompris — %s', $city)),
+                'address'         => (string) ($row['address'] ?? ''),
+                'openingHours'    => (string) ($row['openingHours'] ?? ''),
+                'mapsUrl'         => (string) ($row['mapsUrl'] ?? ''),
+                'homeDeliveryFee' => max(0, (int) ($row['homeDeliveryFee'] ?? 1500)),
+            ];
+        }
+
+        return $shops;
     }
 
     /**
@@ -92,6 +145,8 @@ final class PublicSettingsProvider
                 'landmark'     => (string) ($pickup['landmark'] ?? ''),
                 'openingHours' => (string) ($pickup['openingHours'] ?? $shop['openingHours'] ?? ''),
             ],
+            // Une boutique par ville (P5) : retrait en boutique et livraison à domicile dans sa ville.
+            'shops' => $this->shops($s, $shop),
             // Ancien format (M1/M2), plus lu par l'app mais encore décrit par son type.
             'operators' => array_map(fn (array $op) => array_filter([
                 'code'          => $op['id'],

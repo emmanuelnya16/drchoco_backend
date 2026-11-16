@@ -69,5 +69,23 @@
     "quarter": "Yaoundé Centre",
     "landmark": "Boutique officielle DR Choco, immeuble anthracite rez-de-chaussée",
     "openingHours": "Lun – Sam · 9 h 30 à 19 h 30"
-  }
+  },
+  "shops": [
+    {
+      "city": "Yaoundé",
+      "name": "Boutique DR Choco L’Incompris — Yaoundé",
+      "address": "Yaoundé — Boutique officielle DR Choco, immeuble anthracite rez-de-chaussée",
+      "openingHours": "Lun – Sam · 9 h 30 à 19 h 30",
+      "mapsUrl": "https://maps.google.com/?q=Yaounde+Cameroun",
+      "homeDeliveryFee": 1500
+    },
+    {
+      "city": "Douala",
+      "name": "Boutique DR Choco L’Incompris — Douala",
+      "address": "Douala — Boutique DR Choco (adresse exacte à confirmer)",
+      "openingHours": "Lun – Sam · 9 h 30 à 19 h 30",
+      "mapsUrl": "https://maps.google.com/?q=Douala+Cameroun",
+      "homeDeliveryFee": 1500
+    }
+  ]
 }

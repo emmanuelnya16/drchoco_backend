@@ -30,12 +30,14 @@ final class CartAndClientErrorsTest extends CatalogTestCase
         self::assertSame(200, $this->httpStatus());
         self::assertStringContainsString('no-store', (string) $this->header('Cache-Control'));
         self::assertMatchesRegularExpression('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/', $data['checkedAt']);
+        // P5 : chaque ligne indique la ville de l'article (un panier = une seule ville).
+        $city = $this->getJson('/api/products/hoodie-barbele-noir')['city'];
         self::assertSame([
-            ['variantId' => 'prod-01-noir-s', 'status' => 'ok', 'availableQuantity' => 4, 'unitPrice' => 45000],
-            ['variantId' => 'prod-01-noir-l', 'status' => 'reduced', 'availableQuantity' => 2, 'unitPrice' => 45000],
-            ['variantId' => 'prod-01-noir-xxl', 'status' => 'unavailable', 'availableQuantity' => 0, 'unitPrice' => 45000],
-            ['variantId' => 'variante-disparue', 'status' => 'unavailable', 'availableQuantity' => 0, 'unitPrice' => 0],
-            ['variantId' => 'prod-01-noir-m', 'status' => 'price_changed', 'availableQuantity' => 6, 'unitPrice' => 45000, 'previousPrice' => 40000],
+            ['variantId' => 'prod-01-noir-s', 'status' => 'ok', 'availableQuantity' => 4, 'unitPrice' => 45000, 'city' => $city],
+            ['variantId' => 'prod-01-noir-l', 'status' => 'reduced', 'availableQuantity' => 2, 'unitPrice' => 45000, 'city' => $city],
+            ['variantId' => 'prod-01-noir-xxl', 'status' => 'unavailable', 'availableQuantity' => 0, 'unitPrice' => 45000, 'city' => $city],
+            ['variantId' => 'variante-disparue', 'status' => 'unavailable', 'availableQuantity' => 0, 'unitPrice' => 0, 'city' => null],
+            ['variantId' => 'prod-01-noir-m', 'status' => 'price_changed', 'availableQuantity' => 6, 'unitPrice' => 45000, 'city' => $city, 'previousPrice' => 40000],
         ], $data['items']);
     }
 

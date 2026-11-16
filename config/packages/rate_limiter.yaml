@@ -20,6 +20,12 @@ framework:
             limit: 60
             interval: '1 minute'
 
+        # POST /reservations/{ref}/proof : 20 captures par heure et par compte (fichiers jusqu'à 10 Mo).
+        proof_upload:
+            policy: sliding_window
+            limit: 20
+            interval: '60 minutes'
+
         # POST /auth/otp/verify : 30 codes faux, expirés ou refusés en 10 min par adresse IP (une connexion réussie
         # ne compte pas). Une seule machine ne peut pas sonder ni verrouiller les numéros des clients à la chaîne.
         otp_verify_ip:

@@ -92,19 +92,23 @@ final class ProductEditor
         $oldSlug = $product->getSlug();
         $this->assertSlugFree($values['slug'], $product);
 
+        $this->stockDeltas = [];
         $this->em->wrapInTransaction(function () use ($product, $body, $admin, $values, $oldSlug): void {
             $this->assign($product, $body, $admin, creating: false);
             $this->apply($product, $values);
             if ($values['slug'] !== $oldSlug) {
                 $this->renameInLooks($oldSlug, $values['slug']);
             }
+            $this->flushStockDeltas();
         });
 
         return $product;
     }
 
     /**
-     * Stock rapide : `{ variants: [{ variantId, stock }] }`, valeurs absolues. Une variante inconnue est ignorée.
+     * Stock rapide : `{ variants: [{ variantId, stock, previousStock? }] }`. Avec `previousStock` (stock affiché à
+     * l'ouverture), seul l'écart est appliqué : les réservations faites entre-temps restent comptées (P5).
+     * Sans lui : valeur absolue (anciens écrans). Une variante inconnue est ignorée.
      *
      * @param array<string, mixed> $body
      */
@@ -128,13 +132,22 @@ final class ProductEditor
             if ($stock === null) {
                 throw ApiException::validation(['variants' => 'Stock invalide.'], sprintf('Stock invalide : un nombre entier entre 0 et %d.', self::MAX_STOCK));
             }
-            $updates[$id] = $stock;
+            $previous = \array_key_exists('previousStock', $line) ? $this->stockValue($line['previousStock']) : null;
+            $updates[$id] = [$stock, $previous];
         }
 
-        foreach ($updates as $id => $stock) {
-            $byId[$id]->setStock($stock);
-        }
-        $this->em->flush();
+        $this->stockDeltas = [];
+        $this->em->wrapInTransaction(function () use ($updates, $byId): void {
+            foreach ($updates as $id => [$stock, $previous]) {
+                if ($previous !== null) {
+                    $this->queueStockDelta($id, $stock - $previous);
+                } else {
+                    $byId[$id]->setStock($stock);
+                }
+            }
+            $this->em->flush();
+            $this->flushStockDeltas();
+        });
 
         return $product;
     }
@@ -336,7 +349,14 @@ final class ProductEditor
                     $variant->setColorCode($color['code'])->setSize($size);
                 }
                 if ($stocks !== null) {
-                    $variant->setStock($stocks[$key] ?? 0);
+                    $line = $stocks[$key] ?? ['stock' => 0, 'previous' => null];
+                    if ($variant->getId() !== '' && isset($existing[$key]) && $line['previous'] !== null) {
+                        // Stock vu par l'admin à l'ouverture : seule sa modification est appliquée, en base, sans
+                        // effacer les pièces réservées ou remises en vente entre-temps (P5).
+                        $this->queueStockDelta($variant->getId(), $line['stock'] - $line['previous']);
+                    } else {
+                        $variant->setStock($line['stock']);
+                    }
                 }
                 $variant->setPosition($position++);
                 $kept[$key] = true;
@@ -382,7 +402,9 @@ final class ProductEditor
      * @param array<string, mixed>  $body
      * @param array<string, string> $errors
      *
-     * @return array<string, int>|null null : variantes absentes du PATCH, stocks inchangés
+     * `previousStock` (facultatif) : stock affiché quand l'admin a ouvert le formulaire.
+     *
+     * @return array<string, array{stock: int, previous: ?int}>|null null : variantes absentes du PATCH, stocks inchangés
      */
     private function stocks(array $body, ?Product $current, array &$errors): ?array
     {
@@ -409,10 +431,40 @@ final class ProductEditor
                 $errors['variants'] = sprintf('Stock invalide : un nombre entier entre 0 et %d.', self::MAX_STOCK);
                 continue;
             }
-            $stocks[self::variantKey(trim($line['colorCode']), CatalogInput::text($line['size']) ?? '')] = $stock;
+            $stocks[self::variantKey(trim($line['colorCode']), CatalogInput::text($line['size']) ?? '')] = [
+                'stock'    => $stock,
+                'previous' => \array_key_exists('previousStock', $line) ? $this->stockValue($line['previousStock']) : null,
+            ];
         }
 
         return $stocks;
+    }
+
+    /** @var array<string, int> écarts de stock à appliquer en base, par variante */
+    private array $stockDeltas = [];
+
+    private function queueStockDelta(string $variantId, int $delta): void
+    {
+        if ($delta !== 0) {
+            $this->stockDeltas[$variantId] = ($this->stockDeltas[$variantId] ?? 0) + $delta;
+        }
+    }
+
+    /**
+     * Applique les écarts en base (stock = stock + écart, jamais négatif), dans l'ordre des identifiants comme la
+     * création d'une réservation : pas d'interblocage entre les deux.
+     */
+    private function flushStockDeltas(): void
+    {
+        $deltas = $this->stockDeltas;
+        $this->stockDeltas = [];
+        ksort($deltas, \SORT_STRING);
+        foreach ($deltas as $id => $delta) {
+            $this->em->getConnection()->executeStatement(
+                'UPDATE product_variants SET stock = GREATEST(0, LEAST(?, stock + ?)) WHERE id = ?',
+                [self::MAX_STOCK, $delta, $id],
+            );
+        }
     }
 
     private function stockValue(mixed $raw): ?int

@@ -77,6 +77,21 @@ Trois rôles : **owner** (propriétaire) et **manager** (gérant) sont super adm
 - Catégories, sous-catégories et looks : écran « Looks & Catégories ». Retirer une sous-catégorie laisse ses articles dans la catégorie.
 - Images : `POST /api/admin/media` (JPEG, PNG ou WebP, 5 Mo au plus) les envoie sur Cloudinary, dossiers `drchoco/products`, `drchoco/categories`, `drchoco/looks`. Le front y envoie les photos choisies dans l’administration. Sur l’hébergement, `upload_max_filesize` et `post_max_size` (PHP) doivent dépasser 5 Mo.
 
+## Réservations et paiement Mobile Money (P5)
+
+- Une réservation ne contient que des articles d’**une seule ville** (Yaoundé ou Douala) ; sinon `422 MIXED_CITIES`.
+- **Retrait** à la boutique de cette ville (gratuit). **Livraison** : à domicile dans la ville de la boutique (prix `homeDeliveryFee` de la boutique), sinon par une **agence** choisie par le client, au prix de cette agence (champ `fee` de l’agence ; vide = prix de sa ville). Une agence peut être réservée à une boutique de départ (`departure_city`). Les boutiques (adresse, horaires, prix de livraison à domicile) sont dans les réglages publics (`shops`).
+- Le stock est retiré à la réservation, sous verrou (deux clients ne peuvent pas prendre la dernière pièce), et remis en vente une seule fois si la réservation expire ou est annulée.
+- Délai de paiement : `reservationHoldHours` (24 h). Une réservation « en attente de validation » (preuve envoyée) n’expire jamais.
+- Preuves de paiement : `POST /api/reservations/{ref}/proof` (JPEG, PNG ou WebP, 10 Mo au plus ; 20 envois par heure et par client). Rangées **hors du site public** dans `var/private/proofs/`, sans leurs métadonnées (GPS, appareil), servies par des liens signés valables 1 h (`/api/media/private/proofs/{id}`). Une même capture ne peut pas payer deux réservations. À sauvegarder avec la base. Sur l’hébergement, `upload_max_filesize` et `post_max_size` doivent dépasser 11 Mo.
+- Routes client : `POST /api/reservations` (en-tête `Idempotency-Key`), `GET /api/reservations?status=reserved`, `GET /api/reservations?scope=active|done&page=`, `GET /api/reservations/summary`, `GET /api/reservations/{ref}`, `POST /api/reservations/{ref}/proof`, `POST /api/reservations/{ref}/cancel`. La réservation d’un autre client répond 404.
+- La validation des paiements par le super admin et les autres étapes (préparation, remise, livraison) arrivent en P6 ; les notifications push en P7 (en attendant, nouvelles réservations, preuves reçues et rappels sont écrits dans `var/log`).
+
+### Tâches planifiées des réservations (cPanel)
+
+- Toutes les 5 minutes : `php bin/console app:reservations:expire` (réservations non payées à l’échéance → expirées, articles remis en vente).
+- Toutes les 15 minutes : `php bin/console app:reservations:remind` (rappel, une seule fois, quand il reste moins de 2 h).
+
 ## Brancher le front sur cette API
 
 Dans le front (`.env.local`) :
@@ -88,11 +103,13 @@ VITE_DEV_API_PROXY=http://127.0.0.1:8000
 VITE_API_REAL_ROUTES=/categories,/products,/search,/looks,/settings/public,/delivery,/pages,/cart/validate,/client-errors,/auth,/me,/favorites
 ```
 
+Réservations (P5) : ajouter `/reservations,/media`.
+
 Administration (P3 et P4) : ajouter `/admin/auth,/admin/sellers,/admin/customers,/admin/search,/admin/dashboard,/admin/products,/admin/categories,/admin/looks,/admin/media`. Les autres écrans d’administration (réservations, réglages) restent simulés et ne reconnaissent pas le vrai jeton admin : ils afficheront une erreur jusqu’aux phases P6 et P8.
 
 - `VITE_DEV_API_PROXY` relaie `/api` du serveur Vite vers cette API : même domaine, comme en production, indispensable au cookie de session.
 - **Bascule progressive** : les routes listées dans `VITE_API_REAL_ROUTES` partent vers l’API, le reste reste simulé (tant que `/reservations` est simulé, les mocks montrent les réservations de démonstration).
-- **Tout réel** : `VITE_API_MOCK=false` (les écrans de réservation attendent la phase P5).
+- **Tout réel** : `VITE_API_MOCK=false` (les écrans d’administration des réservations attendent la phase P6).
 
 ## Tests
 

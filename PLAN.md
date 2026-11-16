@@ -1,6 +1,6 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **50 %** (P0 à P4 terminées)
+Avancement total : **65 %** (P0 à P5 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
@@ -9,7 +9,7 @@ Avancement total : **50 %** (P0 à P4 terminées)
 | **P2** | Comptes clients (code SMS) | 11 + 2 | 10 % | ✅ Terminée |
 | **P3** | Socle admin, rôles et vendeurs | 10 | 8 % | ✅ Terminée |
 | **P4** | Catalogue admin et images Cloudinary | 14 | 12 % | ✅ Terminée |
-| **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ⏳ À faire |
+| **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ✅ Terminée |
 | **P6** | Gestion des réservations (admin) | 10 | 10 % | ⏳ À faire |
 | **P7** | Notifications push et tableau de bord | 5 + déclencheurs | 8 % | ⏳ À faire |
 | **P8** | Réglages, livraison et pages (admin) | 10 | 6 % | ⏳ À faire |
@@ -142,15 +142,43 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
   - navigateur sur la vraie API (super admin) : liste, création et modification par le vrai formulaire, stock rapide, catégorie, look, écran « Looks & Catégories », suppression — 16/17, le dernier contrôle (article disparu du site) refait directement sur l’API : l’écart venait du cache de 60 s du catalogue public dans le navigateur du test
   - envoi réel vers Cloudinary non exercé (service simulé dans les tests) : à essayer une fois avec une vraie photo
 
+## P5 — Réservations et paiement USSD ✅
+
+- [x] `POST /api/reservations` (en-tête `Idempotency-Key`) : prix, frais et total recalculés par le serveur
+  - un panier = une seule ville de boutique (`422 MIXED_CITIES`) ;
+  - retrait gratuit à la boutique de la ville des articles (Yaoundé ou Douala) ;
+  - livraison à domicile dans la ville de la boutique (prix de la boutique), sinon envoi par une agence choisie par le client, au prix de cette agence ;
+  - stock retiré sous verrou (`409 STOCK_CONFLICT` avec les lignes du panier mises à jour) ; la même demande renvoyée donne la même réservation
+- [x] `GET /api/reservations?status=reserved`, `?scope=active|done&page=`, `GET /api/reservations/summary`, `GET /api/reservations/{ref}` ; la réservation d’un autre client : 404
+- [x] `POST /api/reservations/{ref}/proof` : capture JPEG, PNG ou WebP (10 Mo), rangée hors du site public sans ses métadonnées (GPS), lien signé valable 1 h ; une même capture ne paie pas deux réservations ; 20 envois par heure
+- [x] `POST /api/reservations/{ref}/cancel` : réservée, paiement rejeté, en attente de validation ou confirmée ; articles remis en vente
+- [x] Expiration à l’échéance sans paiement (à la lecture et par la tâche `app:reservations:expire`, toutes les 5 min) ; « en attente de validation » n’expire jamais ; rappel 2 h avant (`app:reservations:remind`, toutes les 15 min ; écrit dans le journal, notification push en P7)
+- [x] Livraison : `GET /api/delivery/cities?from=` et `/api/delivery/agencies?from=` (selon la boutique de départ), prix et boutique de départ par agence ; réglages publics : une boutique par ville (`shops`) ; `/cart/validate` donne la ville de chaque article
+- [x] Stock de l’administration : le formulaire et le stock rapide envoient le stock vu à l’ouverture ; seul l’écart est appliqué (une réservation faite pendant ce temps n’est plus effacée)
+- [x] Front (non enregistré dans git) : panier de deux villes bloqué avec un message ; formulaire de réservation selon la ville du panier (boutique de retrait, agences et leurs prix) ; envoi de `previousStock` dans l’administration ; contrat mis à jour (`docs/CONTRAT_API.md` §18)
+- [x] Vérifications :
+  - 24 nouveaux tests (205 au total), aussi dans le désordre et fichier par fichier ;
+  - relecture adverse (4 relecteurs + contre-vérification) : 8 constats, 5 confirmés (4 distincts), tous corrigés — dont l’écrasement du stock par l’administration ;
+  - navigateur sur la vraie API : panier de deux villes bloqué, connexion par code, retrait à Yaoundé par le vrai formulaire, écran de paiement (45 000 FCFA, code marchand), envoi de la capture, remerciement, suivi, retrait à Douala, annulation et stock remis — 19/19
+
+À faire en P6 : validation ou rejet du paiement par le super admin (+6 h pour renvoyer une preuve après un rejet), étapes de préparation et de remise, écrans d’administration des réservations.
+
+## Décisions prises
+
+| Date | Question | Décision |
+|---|---|---|
+| 2026-11-16 | Panier limité à une seule ville ? | Oui : un panier (et une réservation) ne contient que des articles d’une seule ville |
+| 2026-11-16 | Retrait en boutique possible à Douala ? | Oui : retrait en boutique à Yaoundé et à Douala (une boutique par ville) |
+| 2026-11-16 | Qui valide les paiements Mobile Money ? | Le super admin (propriétaire ou gérant), à partir des preuves envoyées par le client |
+
 ## Points ouverts (à décider)
 
 | Avant | Question | Proposition |
 |---|---|---|
 | P10 | Compte Twilio **d’essai** (expéditeur +1) : SMS seulement vers des numéros vérifiés | En attente des clés du compte payant : il suffira de remplacer `TWILIO_*` dans `.env.local` (aucun code à changer). D’ici là : numéros vérifiés dans la console Twilio, ou `OTP_SMS_TRANSPORT=log` en développement |
 | P10 | Domaine de l’app pour le remplissage automatique du code sur Android | `OTP_WEBOTP_HOST=<domaine>` dans `.env.local` |
-| P5 | Panier limité à une seule ville ? | Oui : un panier = une ville |
-| P5 | Retrait en boutique possible à Douala ? | Une boutique par ville (table dédiée) |
-| P5 | Qui valide les paiements Mobile Money ? | Le super admin (comptes marchands DR Choco) |
 | P8 | Numéro WhatsApp de la boutique (aujourd'hui +237690000000, fictif), vraies villes, frais et agences (aujourd'hui ceux des mocks, agences fictives), textes « [À COMPLÉTER] » des pages légales | À saisir dans l'administration (P8) ou à me transmettre pour les données de départ |
+| P8 | Boutique de Douala : adresse exacte, horaires, lien Maps (aujourd'hui « adresse exacte à confirmer ») ; prix de la livraison à domicile dans chaque ville (1 500 FCFA supposé à Yaoundé et à Douala) ; prix de chaque agence (aujourd'hui celui de sa ville) | À saisir dans l'administration (P8) ou à me transmettre |
+| P10 | Captures de paiement gardées dans `var/private/proofs` (hors du site public) : à inclure dans les sauvegardes ; durée de conservation à décider | Sauvegarde avec la base ; conservation proposée : 12 mois |
 | P10 | Offre cPanel (PHP, base, SSH, crons) et domaine (.cm ou .com) | — |
 | P10 | Montage sur cPanel : les routes gardent le préfixe `/api` | Projet hors de `public_html`, son dossier `public/` exposé sous `public_html/_api` (lien), et règle du `.htaccess` du front : `^api(/.*)?$ → _api/index.php` |

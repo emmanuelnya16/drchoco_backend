@@ -34,6 +34,17 @@ class Agency
     #[ORM\Column(type: 'string', length: 120, options: ['default' => ''])]
     private string $openingHours = '';
 
+    /**
+     * Prix de l'envoi par cette agence (FCFA), fixé quand l'agence est enregistrée (décision du 2026-11-16).
+     * Vide : prix de la ville de livraison.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $fee = null;
+
+    /** Boutique de départ desservie (Yaoundé ou Douala) ; vide : les deux boutiques. */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
+    private ?string $departureCity = null;
+
     #[ORM\Column(type: 'smallint', options: ['default' => 0])]
     private int $position = 0;
 
@@ -72,6 +83,16 @@ class Agency
 
     public function getOpeningHours(): string { return $this->openingHours; }
     public function setOpeningHours(string $v): static { $this->openingHours = $v; return $this; }
+
+    public function getFee(): ?int { return $this->fee; }
+    public function setFee(?int $v): static { $this->fee = $v !== null ? max(0, $v) : null; return $this; }
+    /** Prix appliqué : celui de l'agence, sinon celui de sa ville. */
+    public function effectiveFee(): int { return $this->fee ?? $this->city->getFee(); }
+
+    public function getDepartureCity(): ?string { return $this->departureCity; }
+    public function setDepartureCity(?string $v): static { $this->departureCity = $v; return $this; }
+    /** Envoi possible depuis la boutique de cette ville. */
+    public function servesFrom(string $shopCity): bool { return $this->departureCity === null || $this->departureCity === $shopCity; }
 
     public function getPosition(): int { return $this->position; }
     public function setPosition(int $v): static { $this->position = $v; return $this; }

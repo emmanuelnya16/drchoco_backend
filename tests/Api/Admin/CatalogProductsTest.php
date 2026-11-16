@@ -351,6 +351,38 @@ final class CatalogProductsTest extends AdminTestCase
         self::assertSame(422, $this->httpStatus());
     }
 
+    public function testAdminSavesKeepReservationsMadeMeanwhile(): void
+    {
+        $token = $this->owner();
+        $product = $this->api('GET', '/api/admin/products/prod-01', $token)['product'];
+        $stock = fn (string $id) => (int) $this->em()->getConnection()->fetchOne('SELECT stock FROM product_variants WHERE id = ?', [$id]);
+        self::assertSame(4, $stock('prod-01-noir-s'));
+
+        // Formulaire ouvert (stock 4), puis un client réserve une pièce (4 → 3) avant l'enregistrement.
+        $this->em()->getConnection()->executeStatement("UPDATE product_variants SET stock = stock - 1 WHERE id = 'prod-01-noir-s'");
+        $variants = array_map(fn (array $v) => ['id' => 'var-x', 'size' => $v['size'], 'colorCode' => $v['colorCode'], 'stock' => $v['stock'], 'previousStock' => $v['stock']], $product['variants']);
+
+        // Seule la description change : la pièce réservée reste retirée du stock.
+        $this->api('PATCH', '/api/admin/products/prod-01', $token, ['description' => 'Nouvelle description.', 'variants' => $variants]);
+        self::assertSame(200, $this->httpStatus());
+        self::assertSame(3, $stock('prod-01-noir-s'));
+
+        // L'admin ajoute 2 pièces : 3 + 2.
+        $variants = array_map(fn (array $v) => $v['colorCode'] . $v['size'] === 'noirS' ? ['stock' => 6] + $v : $v, $variants);
+        $data = $this->api('PATCH', '/api/admin/products/prod-01', $token, ['variants' => $variants]);
+        self::assertSame(5, $stock('prod-01-noir-s'));
+        self::assertSame(5, array_column($data['product']['variants'], 'stock', 'id')['prod-01-noir-s'], 'réponse relue en base');
+
+        // Stock rapide : même règle ; sans previousStock (anciens écrans), valeur absolue.
+        $this->em()->getConnection()->executeStatement("UPDATE product_variants SET stock = stock - 1 WHERE id = 'prod-01-noir-s'");
+        $this->api('PATCH', '/api/admin/products/prod-01/stock', $token, ['variants' => [['variantId' => 'prod-01-noir-s', 'stock' => 5, 'previousStock' => 5]]]);
+        self::assertSame(4, $stock('prod-01-noir-s'));
+        $this->api('PATCH', '/api/admin/products/prod-01/stock', $token, ['variants' => [['variantId' => 'prod-01-noir-s', 'stock' => 0, 'previousStock' => 1]]]);
+        self::assertSame(3, $stock('prod-01-noir-s'));
+        $this->api('PATCH', '/api/admin/products/prod-01/stock', $token, ['variants' => [['variantId' => 'prod-01-noir-s', 'stock' => 7]]]);
+        self::assertSame(7, $stock('prod-01-noir-s'));
+    }
+
     public function testDeleteRetiresTheProductEverywhere(): void
     {
         $token = $this->owner();

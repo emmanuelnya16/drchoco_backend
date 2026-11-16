@@ -6,6 +6,7 @@ use App\Api\ApiDate;
 use App\Api\ApiException;
 use App\Api\ApiJson;
 use App\Repository\ProductVariantRepository;
+use App\Reservation\CartCheck;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,35 +29,10 @@ final class CartController
         $lines = $this->readLines($request);
         $found = $variants->findWithProducts(array_column($lines, 'variantId'));
 
+        // Chaque ligne indique aussi la ville de l'article (P5 : un panier = une seule ville).
         $items = [];
         foreach ($lines as $line) {
-            $variant = $found[$line['variantId']] ?? null;
-            $product = $variant?->getProduct();
-
-            if ($variant === null || !$product->isVisible() || $variant->getStock() <= 0) {
-                $items[] = [
-                    'variantId'         => $line['variantId'],
-                    'status'            => 'unavailable',
-                    'availableQuantity' => 0,
-                    'unitPrice'         => $product?->getPrice() ?? 0,
-                ];
-                continue;
-            }
-
-            $item = [
-                'variantId'         => $line['variantId'],
-                'status'            => $line['quantity'] > $variant->getStock() ? 'reduced' : 'ok',
-                'availableQuantity' => $variant->getStock(),
-                'unitPrice'         => $product->getPrice(),
-            ];
-
-            // Prix vu par le client (si l'app l'envoie un jour, contrat §17 question 8) : changement signalé.
-            if ($item['status'] === 'ok' && $line['unitPrice'] !== null && $line['unitPrice'] !== $product->getPrice()) {
-                $item['status'] = 'price_changed';
-                $item['previousPrice'] = $line['unitPrice'];
-            }
-
-            $items[] = $item;
+            $items[] = CartCheck::line($line, $found[$line['variantId']] ?? null);
         }
 
         return ApiJson::noStore([

@@ -189,6 +189,8 @@ final class CatalogNormalizer
             'address'      => $a->getAddress(),
             'phone'        => $a->getPhone(),
             'openingHours' => $a->getOpeningHours(),
+            'fee'           => $a->effectiveFee(),
+            'departureCity' => $a->getDepartureCity(),
         ];
     }
 

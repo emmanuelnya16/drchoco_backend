@@ -1,0 +1,447 @@
+<?php
+
+namespace App\Reservation;
+
+use App\Account\PhoneNumber;
+use App\Account\TextInput;
+use App\Api\ApiException;
+use App\Entity\Agency;
+use App\Entity\DeliveryCity;
+use App\Entity\ProductVariant;
+use App\Entity\Reservation;
+use App\Entity\ReservationItem;
+use App\Entity\User;
+use App\Repository\AgencyRepository;
+use App\Repository\DeliveryCityRepository;
+use App\Repository\ProductVariantRepository;
+use App\Repository\ReservationRepository;
+use App\Settings\PublicSettingsProvider;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
+
+/**
+ * POST /api/reservations (contrat §10.1, décisions du 2026-11-16).
+ *
+ * - Les prix, les frais et le total sont recalculés ici (jamais repris du front).
+ * - Un panier = une seule ville de boutique (422 MIXED_CITIES sinon).
+ * - Retrait : à la boutique de la ville des articles. Livraison : à domicile dans cette ville, sinon par une
+ *   agence de la ville de destination qui dessert cette boutique, au prix de l'agence.
+ * - Le stock est retiré sous verrou : deux clients ne peuvent pas réserver la dernière pièce (409 STOCK_CONFLICT,
+ *   avec les lignes au format de /cart/validate).
+ * - Idempotency-Key : la même demande renvoyée (réseau coupé, double appui) donne la même réservation.
+ */
+final class ReservationCreator
+{
+    private const MAX_LINES = 100;
+    private const MAX_QUANTITY = 999;
+
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly ReservationRepository $reservations,
+        private readonly ProductVariantRepository $variants,
+        private readonly DeliveryCityRepository $cities,
+        private readonly AgencyRepository $agencies,
+        private readonly DeliveryOptions $delivery,
+        private readonly PublicSettingsProvider $settings,
+        private readonly ReservationNotifier $notifier,
+        private readonly ClockInterface $clock,
+    ) {}
+
+    /**
+     * @param array<string, mixed> $body
+     *
+     * @return array{reservation: Reservation, replayed: bool}
+     */
+    public function create(User $user, array $body, ?string $idempotencyKey): array
+    {
+        $key = trim((string) $idempotencyKey);
+        if (preg_match('/^[A-Za-z0-9-]{8,64}\z/', $key) !== 1) {
+            throw ApiException::validation(['idempotencyKey' => 'Clé de requête manquante ou invalide.'], 'La demande est incomplète : rechargez la page puis réessayez.');
+        }
+        $hash = hash('sha256', json_encode(self::canonical($body), \JSON_THROW_ON_ERROR));
+        if (($replay = $this->replay($user, $key, $hash)) !== null) {
+            return ['reservation' => $replay, 'replayed' => true];
+        }
+
+        $lines = $this->lines($body['items'] ?? null);
+        $found = $this->variants->findWithProducts(array_keys($lines));
+
+        $shopCity = $this->shopCity($lines, $found);
+        $errors = [];
+        $plan = $this->fulfilment($user, $body, $shopCity, $errors);
+        if ($errors !== []) {
+            throw ApiException::validation($errors, (string) reset($errors));
+        }
+
+        // Contrôle rapide avant le verrou (article retiré, stock déjà insuffisant).
+        foreach ($lines as $id => $line) {
+            if (CartCheck::line($line, $found[$id] ?? null)['status'] !== 'ok') {
+                $this->stockConflict($lines, $found);
+            }
+        }
+
+        $now = $this->now();
+        $ids = array_keys($lines);
+        sort($ids, \SORT_STRING);
+        $connection = $this->em->getConnection();
+        $connection->beginTransaction();
+        try {
+            $outcome = $this->insideTransaction($user, $body, $plan, $lines, $ids, $found, $shopCity, $key, $hash, $now);
+        } catch (\Throwable $e) {
+            $connection->rollBack();
+            throw $e;
+        }
+        if ($outcome === null) {
+            $connection->rollBack();
+            $this->stockConflict($lines, $found, $this->freshStocks($ids));
+        }
+        $connection->commit();
+
+        if (!$outcome['replayed']) {
+            $this->notifier->created($outcome['reservation']);
+        }
+
+        return $outcome;
+    }
+
+    /**
+     * @param array<string, mixed>                                  $body
+     * @param array<string, mixed>                                  $plan
+     * @param array<string, array{variantId: string, quantity: int}> $lines
+     * @param list<string>                                          $ids variantes, dans l'ordre de verrouillage
+     * @param array<string, ProductVariant>                         $found
+     *
+     * @return array{reservation: Reservation, replayed: bool}|null null : stock insuffisant (à annuler)
+     */
+    private function insideTransaction(User $user, array $body, array $plan, array $lines, array $ids, array $found, string $shopCity, string $key, string $hash, \DateTimeImmutable $now): ?array
+    {
+        $connection = $this->em->getConnection();
+
+        // Une demande à la fois par client : deux envois de la même clé ne créent jamais deux réservations.
+        $connection->fetchOne('SELECT id FROM users WHERE id = ? FOR UPDATE', [$user->getId()]);
+        if (($replay = $this->replay($user, $key, $hash)) !== null) {
+            return ['reservation' => $replay, 'replayed' => true];
+        }
+
+        // Popularité (tri « les plus réservés ») : articles verrouillés avant leurs variantes, dans le même ordre
+        // que l'enregistrement d'un article par l'administration (pas d'interblocage entre les deux).
+        $productIds = array_values(array_unique(array_map(fn (ProductVariant $v) => $v->getProduct()->getId(), array_values(array_intersect_key($found, $lines)))));
+        sort($productIds, \SORT_STRING);
+        $connection->executeStatement(
+            'UPDATE products SET reservations_count = reservations_count + 1 WHERE id IN (?)',
+            [$productIds],
+            [\Doctrine\DBAL\ArrayParameterType::STRING],
+        );
+
+        // Retrait sous condition : la ligne n'est modifiée que s'il reste assez de pièces (ordre fixe : pas
+        // d'interblocage entre deux réservations des mêmes articles).
+        foreach ($ids as $id) {
+            $updated = $connection->executeStatement(
+                'UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?',
+                [$lines[$id]['quantity'], $id, $lines[$id]['quantity']],
+            );
+            if ($updated !== 1) {
+                return null;
+            }
+        }
+
+        $reservation = $this->build($user, $body, $plan, $lines, $found, $shopCity, $key, $hash, $now);
+        $this->em->persist($reservation);
+        $this->em->flush();
+        $reservation->setRef(sprintf('RES-%06d', $reservation->getId()));
+        $this->em->flush();
+
+        return ['reservation' => $reservation, 'replayed' => false];
+    }
+
+    private function replay(User $user, string $key, string $hash): ?Reservation
+    {
+        $existing = $this->reservations->findByIdempotencyKey($user, $key);
+        if ($existing === null) {
+            return null;
+        }
+        if (!hash_equals($existing->getRequestHash(), $hash)) {
+            throw new ApiException(422, 'IDEMPOTENCY_KEY_REUSED', 'Cette demande a déjà été envoyée avec un autre contenu. Rechargez la page puis réessayez.');
+        }
+
+        return $existing;
+    }
+
+    /**
+     * Lignes du panier, fusionnées par variante.
+     *
+     * @return array<string, array{variantId: string, quantity: int}>
+     */
+    private function lines(mixed $items): array
+    {
+        if (!\is_array($items) || !array_is_list($items) || $items === []) {
+            throw ApiException::validation(['items' => 'Votre panier est vide.'], 'Votre panier est vide.');
+        }
+        if (\count($items) > self::MAX_LINES) {
+            throw ApiException::validation(['items' => 'Le panier contient trop d’articles.'], 'Le panier contient trop d’articles.');
+        }
+
+        $lines = [];
+        foreach ($items as $i => $entry) {
+            $variantId = \is_array($entry) ? ($entry['variantId'] ?? null) : null;
+            $quantity = \is_array($entry) ? ($entry['quantity'] ?? null) : null;
+            if ((!\is_string($variantId) && !\is_int($variantId)) || (string) $variantId === '' || \strlen((string) $variantId) > 80) {
+                throw ApiException::validation(["items[$i].variantId" => 'Article invalide.'], 'Un article du panier est invalide.');
+            }
+            if (!\is_int($quantity) || $quantity < 1 || $quantity > self::MAX_QUANTITY) {
+                throw ApiException::validation(["items[$i].quantity" => 'Quantité invalide.'], 'Une quantité du panier est invalide.');
+            }
+            $id = (string) $variantId;
+            $lines[$id] = [
+                'variantId' => $id,
+                'quantity'  => min(self::MAX_QUANTITY, ($lines[$id]['quantity'] ?? 0) + $quantity),
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Ville de boutique des articles (une seule). Articles inconnus ou retirés : traités ensuite (409).
+     *
+     * @param array<string, array{variantId: string, quantity: int}> $lines
+     * @param array<string, ProductVariant>                        $found
+     */
+    private function shopCity(array $lines, array $found): string
+    {
+        $cities = [];
+        $byItem = [];
+        foreach ($lines as $id => $line) {
+            $variant = $found[$id] ?? null;
+            if ($variant === null || !$variant->getProduct()->isVisible()) {
+                continue;
+            }
+            $city = $variant->getProduct()->getCity();
+            $cities[$city] = true;
+            $byItem[] = ['variantId' => $id, 'city' => $city];
+        }
+
+        if (\count($cities) > 1) {
+            throw new ApiException(
+                422,
+                'MIXED_CITIES',
+                sprintf(
+                    'Votre panier contient des articles de %s. Réservez les articles d’une seule ville à la fois.',
+                    implode(' et de ', array_keys($cities)),
+                ),
+                ['cities' => array_keys($cities), 'items' => $byItem],
+            );
+        }
+        if ($cities === []) {
+            $this->stockConflict($lines, $found); // rien de réservable
+        }
+
+        return (string) array_key_first($cities);
+    }
+
+    /**
+     * Retrait ou livraison : destinataire, adresse ou agence, frais.
+     *
+     * @param array<string, mixed>  $body
+     * @param array<string, string> $errors
+     *
+     * @return array<string, mixed>
+     */
+    private function fulfilment(User $user, array $body, string $shopCity, array &$errors): array
+    {
+        $plan = ['fee' => 0];
+
+        $mode = $body['receptionMode'] ?? null;
+        if (!\in_array($mode, [Reservation::MODE_PICKUP, Reservation::MODE_DELIVERY], true)) {
+            $errors['receptionMode'] = 'Choisissez le retrait en boutique ou la livraison.';
+
+            return $plan;
+        }
+        $plan['mode'] = $mode;
+
+        $first = TextInput::clean($body['firstName'] ?? null) ?? '';
+        $last = TextInput::clean($body['lastName'] ?? null) ?? '';
+        if ($first === '' || TextInput::length($first) > 100) {
+            $errors['firstName'] = $first === '' ? 'Indiquez votre prénom.' : 'Le prénom ne doit pas dépasser 100 caractères.';
+        }
+        if (TextInput::length($last) > 100) {
+            $errors['lastName'] = 'Le nom ne doit pas dépasser 100 caractères.';
+        }
+        $plan['firstName'] = $first;
+        $plan['lastName'] = $last;
+
+        $notes = TextInput::clean($body['notes'] ?? null) ?? '';
+        if (TextInput::length($notes) > 200) {
+            $errors['notes'] = 'La remarque ne doit pas dépasser 200 caractères.';
+        }
+        $plan['notes'] = $notes !== '' ? $notes : null;
+
+        // Destinataire : le client lui-même ; une autre personne seulement pour un envoi par agence (le front ne
+        // propose le choix que là : un ancien choix laissé dans le formulaire ne doit pas bloquer un retrait).
+        $plan['recipient'] = [mb_substr(trim($first . ' ' . $last), 0, 120, 'UTF-8'), $user->getPhone()];
+
+        if ($mode === Reservation::MODE_PICKUP) {
+            $shop = $this->settings->shop($shopCity);
+            unset($shop['homeDeliveryFee']);
+            $plan['pickupShop'] = $shop;
+
+            return $plan;
+        }
+
+        $cityRaw = \is_string($body['city'] ?? null) ? trim(mb_substr($body['city'], 0, 80)) : '';
+        $city = $cityRaw !== '' ? $this->cities->findVisibleByIdOrName($cityRaw) : null;
+        if (!$city instanceof DeliveryCity) {
+            $errors['city'] = 'Choisissez une ville de livraison de la liste.';
+
+            return $plan;
+        }
+        $plan['city'] = $city;
+
+        if (DeliveryOptions::isHomeDelivery($city, $shopCity)) {
+            $district = TextInput::clean($body['district'] ?? null) ?? '';
+            $landmark = TextInput::clean($body['landmark'] ?? null) ?? '';
+            if (TextInput::length($district) < 2 || TextInput::length($district) > 120) {
+                $errors['district'] = 'Indiquez votre quartier.';
+            }
+            if (TextInput::length($landmark) < 5 || TextInput::length($landmark) > 255) {
+                $errors['landmark'] = 'Indiquez un point de repère précis (5 caractères au moins).';
+            }
+            $plan['home'] = [$district, $landmark];
+            $plan['fee'] = $this->delivery->homeDeliveryFee($shopCity);
+
+            return $plan;
+        }
+
+        $agencyId = \is_string($body['agencyId'] ?? null) ? trim($body['agencyId']) : '';
+        $agency = $agencyId !== '' && \strlen($agencyId) <= 40 ? $this->agencies->find($agencyId) : null;
+        if (!$agency instanceof Agency || !$agency->isActive() || $agency->getCity()->getId() !== $city->getId() || !$agency->servesFrom($shopCity)) {
+            $errors['agencyId'] = sprintf('Choisissez une agence de %s dans la liste.', $city->getName());
+
+            return $plan;
+        }
+        $plan['agency'] = $agency;
+        $plan['fee'] = $agency->effectiveFee();
+
+        if (($body['recipientType'] ?? 'self') === 'other') {
+            $name = TextInput::clean($body['recipientName'] ?? null) ?? '';
+            $phone = PhoneNumber::normalizeCameroonMobile($body['recipientPhone'] ?? null);
+            if (TextInput::length($name) < 2 || TextInput::length($name) > 120) {
+                $errors['recipientName'] = 'Indiquez le nom de la personne qui récupérera le colis à l’agence.';
+            }
+            if ($phone === null) {
+                $errors['recipientPhone'] = 'Numéro du destinataire invalide : un mobile camerounais (6XX XX XX XX).';
+            }
+            $plan['recipient'] = [$name, $phone];
+        }
+
+        return $plan;
+    }
+
+    /**
+     * @param array<string, mixed>                                  $body
+     * @param array<string, mixed>                                  $plan
+     * @param array<string, array{variantId: string, quantity: int}> $lines
+     * @param array<string, ProductVariant>                         $found
+     */
+    private function build(User $user, array $body, array $plan, array $lines, array $found, string $shopCity, string $key, string $hash, \DateTimeImmutable $now): Reservation
+    {
+        $settings = $this->settings->get();
+        $reservation = new Reservation($user, $shopCity, $plan['mode'], $now);
+        $reservation->setCustomer($plan['firstName'], $plan['lastName'], $user->getPhone())
+            ->setRecipient($plan['recipient'][0] !== '' ? $plan['recipient'][0] : null, $plan['recipient'][1])
+            ->setNotes($plan['notes'])
+            ->setIdempotency($key, $hash);
+
+        $hours = max(1, min(72, (int) $settings['reservationHoldHours']));
+        $reservation->setHold($hours, $now->modify(sprintf('+%d hours', $hours)));
+
+        if ($plan['mode'] === Reservation::MODE_PICKUP) {
+            $reservation->setPickupShop($plan['pickupShop']);
+        } else {
+            /** @var DeliveryCity $city */
+            $city = $plan['city'];
+            $reservation->setDeliveryCity($city->getId(), $city->getName());
+            if (isset($plan['home'])) {
+                $reservation->setHomeAddress($plan['home'][0], $plan['home'][1]);
+            } else {
+                /** @var Agency $agency */
+                $agency = $plan['agency'];
+                $reservation->setAgency($agency->getId(), [
+                    'id'           => $agency->getId(),
+                    'name'         => $agency->getName(),
+                    'address'      => $agency->getAddress(),
+                    'city'         => $city->getName(),
+                    'phone'        => $agency->getPhone(),
+                    'openingHours' => $agency->getOpeningHours(),
+                    'fee'          => $agency->effectiveFee(),
+                ]);
+            }
+        }
+
+        $subtotal = 0;
+        $position = 0;
+        foreach ($lines as $id => $line) {
+            $item = new ReservationItem($reservation, $position++, $found[$id], $line['quantity']);
+            $reservation->addItem($item);
+            $subtotal += $item->getLineTotal();
+        }
+        $reservation->setAmounts($subtotal, (int) $plan['fee'], (string) $settings['deliveryFeePayment']);
+
+        $note = $plan['mode'] === Reservation::MODE_PICKUP
+            ? sprintf('Réservation enregistrée : retrait à la boutique de %s.', $shopCity)
+            : 'Réservation enregistrée.';
+        $reservation->record(Reservation::STATUS_RESERVED, Reservation::ACTOR_CLIENT, $note, $now);
+
+        return $reservation;
+    }
+
+    /**
+     * 409 STOCK_CONFLICT avec toutes les lignes au format de /cart/validate (le front met son panier à jour).
+     *
+     * @param array<string, array{variantId: string, quantity: int}> $lines
+     * @param array<string, ProductVariant>                         $found
+     * @param array<string, int>|null                               $stocks stock relu en base
+     */
+    private function stockConflict(array $lines, array $found, ?array $stocks = null): never
+    {
+        $items = [];
+        foreach ($lines as $id => $line) {
+            $items[] = CartCheck::line($line, $found[$id] ?? null, $stocks !== null ? ($stocks[$id] ?? 0) : null);
+        }
+
+        throw new ApiException(409, 'STOCK_CONFLICT', 'Le stock a changé pendant votre réservation : votre panier a été mis à jour.', ['items' => $items]);
+    }
+
+    /**
+     * @param list<string> $ids
+     *
+     * @return array<string, int>
+     */
+    private function freshStocks(array $ids): array
+    {
+        $rows = $this->em->getConnection()->fetchAllKeyValue(
+            'SELECT id, stock FROM product_variants WHERE id IN (?)',
+            [$ids],
+            [\Doctrine\DBAL\ArrayParameterType::STRING],
+        );
+
+        return array_map('intval', $rows);
+    }
+
+    private function now(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('@' . $this->clock->now()->getTimestamp());
+    }
+
+    private static function canonical(mixed $value): mixed
+    {
+        if (!\is_array($value)) {
+            return $value;
+        }
+        if (!array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(self::canonical(...), $value);
+    }
+}
