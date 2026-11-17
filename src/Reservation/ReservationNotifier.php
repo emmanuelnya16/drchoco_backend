@@ -7,8 +7,9 @@ use App\Entity\Reservation;
 use Psr\Log\LoggerInterface;
 
 /**
- * Événements à signaler (boutique et client). P5 : écrits dans le journal de l'application ;
- * les notifications push (nouvelle réservation, preuve reçue, « plus que 2 h ») arrivent en P7.
+ * Événements à signaler (boutique et client). P5 et P6 : écrits dans le journal de l'application ;
+ * les notifications push (nouvelle réservation, preuve reçue, « plus que 2 h », paiement validé ou rejeté,
+ * colis prêt avec sa photo, en route, livré) arrivent en P7.
  * Appelé après l'enregistrement : une panne ici n'annule jamais la réservation.
  */
 class ReservationNotifier
@@ -38,6 +39,27 @@ class ReservationNotifier
     public function cancelledByClient(Reservation $r): void
     {
         $this->log('Réservation annulée par le client', $r);
+    }
+
+    public function paymentValidated(Reservation $r): void
+    {
+        $this->log('Paiement validé par la boutique', $r, ['total' => $r->getTotal()]);
+    }
+
+    public function paymentRejected(Reservation $r): void
+    {
+        $this->log('Paiement rejeté par la boutique', $r, ['expiresAt' => $r->getExpiresAt()->format(\DATE_ATOM)]);
+    }
+
+    /** Étape de préparation, colis prêt (avec photos), en route, livré ou retiré. */
+    public function statusChanged(Reservation $r): void
+    {
+        $this->log('Réservation mise à jour par la boutique', $r);
+    }
+
+    public function cancelledByShop(Reservation $r): void
+    {
+        $this->log('Réservation annulée par la boutique, articles remis en vente', $r);
     }
 
     /** @param array<string, mixed> $context */

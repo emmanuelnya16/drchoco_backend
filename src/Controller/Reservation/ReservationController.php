@@ -99,7 +99,7 @@ final class ReservationController
             if (\in_array($r->getStatus(), [...Reservation::AWAITING_PAYMENT, Reservation::STATUS_READY_FOR_PICKUP], true)) {
                 ++$needsAction;
             }
-            $items[] = ['ref' => $r->getRef(), 'status' => $r->getStatus(), 'updatedAt' => ApiDate::format($r->getUpdatedAt()), 'hasPackagePhotos' => false];
+            $items[] = ['ref' => $r->getRef(), 'status' => $r->getStatus(), 'updatedAt' => ApiDate::format($r->getUpdatedAt()), 'hasPackagePhotos' => $r->getPackageReadyAt() !== null];
         }
         $latest = $this->reservations->findOneBy(['user' => $user], ['updatedAt' => 'DESC', 'id' => 'DESC']);
         if ($latest !== null) {

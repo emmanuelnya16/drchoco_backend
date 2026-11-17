@@ -20,6 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_reservation_due', columns: ['status', 'expires_at'])]
 #[ORM\Index(name: 'idx_reservation_user_updated', columns: ['user_id', 'updated_at'])]
 #[ORM\Index(name: 'idx_reservation_shop', columns: ['shop_city', 'status', 'updated_at'])]
+#[ORM\Index(name: 'idx_reservation_paid', columns: ['paid_at'])]
 class Reservation
 {
     public const STATUS_RESERVED = 'reserved';
@@ -42,6 +43,12 @@ class Reservation
 
     /** Annulables par le client lui-même (contrat §10.8). */
     public const CLIENT_CANCELLABLE = [self::STATUS_RESERVED, self::STATUS_PAYMENT_REJECTED, self::STATUS_PENDING_VALIDATION, self::STATUS_CONFIRMED];
+
+    /** Paiement validé par la boutique (chiffre « confirmé » des clients et du tableau de bord). */
+    public const PAID_STATUSES = [
+        self::STATUS_CONFIRMED, self::STATUS_PREPARING, self::STATUS_HANDED_TO_AGENCY, self::STATUS_READY_FOR_PICKUP,
+        self::STATUS_IN_DELIVERY, self::STATUS_DELIVERED, self::STATUS_PICKED_UP,
+    ];
 
     public const MODE_DELIVERY = 'delivery';
     public const MODE_PICKUP = 'pickup';
@@ -145,6 +152,14 @@ class Reservation
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $rejectedAt = null;
 
+    /** Paiement validé par la boutique (P6). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $paidAt = null;
+
+    /** Photos du colis prêt envoyées (P6). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $packageReadyAt = null;
+
     #[ORM\Column(type: 'string', length: 64)]
     private string $idempotencyKey;
 
@@ -173,6 +188,16 @@ class Reservation
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $proofs;
 
+    /** @var Collection<int, ReservationPackagePhoto> */
+    #[ORM\OneToMany(targetEntity: ReservationPackagePhoto::class, mappedBy: 'reservation', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    private Collection $packagePhotos;
+
+    /** @var Collection<int, ReservationNote> */
+    #[ORM\OneToMany(targetEntity: ReservationNote::class, mappedBy: 'reservation', cascade: ['persist'])]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $internalNotes;
+
     public function __construct(User $user, string $shopCity, string $receptionMode, \DateTimeImmutable $now)
     {
         $this->user = $user;
@@ -184,6 +209,8 @@ class Reservation
         $this->items = new ArrayCollection();
         $this->events = new ArrayCollection();
         $this->proofs = new ArrayCollection();
+        $this->packagePhotos = new ArrayCollection();
+        $this->internalNotes = new ArrayCollection();
     }
 
     public function isFinal(): bool { return \in_array($this->status, self::FINAL_STATUSES, true); }
@@ -292,6 +319,26 @@ class Reservation
     public function getRejectionReason(): ?string { return $this->rejectionReason; }
     public function getRejectedAt(): ?\DateTimeImmutable { return $this->rejectedAt; }
     public function setRejection(?string $reason, ?\DateTimeImmutable $at): static { $this->rejectionReason = $reason; $this->rejectedAt = $at; return $this; }
+    public function getPaidAt(): ?\DateTimeImmutable { return $this->paidAt; }
+    public function setPaidAt(?\DateTimeImmutable $v): static { $this->paidAt = $v; return $this; }
+    public function getPackageReadyAt(): ?\DateTimeImmutable { return $this->packageReadyAt; }
+
+    /**
+     * Remplace les photos du colis (les anciennes lignes sont supprimées à l'enregistrement).
+     *
+     * @param list<ReservationPackagePhoto> $photos
+     */
+    public function replacePackagePhotos(array $photos, \DateTimeImmutable $now): void
+    {
+        $this->packagePhotos->clear();
+        foreach ($photos as $photo) {
+            $this->packagePhotos->add($photo);
+        }
+        $this->packageReadyAt = $now;
+        $this->updatedAt = $now;
+    }
+
+    public function addInternalNote(ReservationNote $note): void { $this->internalNotes->add($note); }
 
     public function getIdempotencyKey(): string { return $this->idempotencyKey; }
     public function getRequestHash(): string { return $this->requestHash; }
@@ -306,4 +353,8 @@ class Reservation
     public function getEvents(): Collection { return $this->events; }
     /** @return Collection<int, ReservationProof> */
     public function getProofs(): Collection { return $this->proofs; }
+    /** @return Collection<int, ReservationPackagePhoto> */
+    public function getPackagePhotos(): Collection { return $this->packagePhotos; }
+    /** @return Collection<int, ReservationNote> */
+    public function getInternalNotes(): Collection { return $this->internalNotes; }
 }

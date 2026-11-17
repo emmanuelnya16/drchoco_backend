@@ -3,6 +3,7 @@
 namespace App\Controller\Reservation;
 
 use App\Api\ApiException;
+use App\Entity\ReservationPackagePhoto;
 use App\Entity\ReservationProof;
 use App\Media\PrivateMediaStorage;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,39 +15,69 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 
 /**
- * GET /api/media/private/proofs/{id}?expires=…&signature=… — capture de paiement, par lien signé et
- * temporaire (balise <img> : pas d'en-tête Authorization possible). Lien faux ou expiré : 403.
- * Le chemin contient « /private/ » : le service worker du front ne la met jamais en cache.
+ * Images privées, par lien signé et temporaire (balise <img> : pas d'en-tête Authorization possible) :
+ *  - GET /api/media/private/proofs/{id}?expires=…&signature=…         capture de paiement (P5) ;
+ *  - GET /api/media/private/package-photos/{id}?expires=…&signature=… photo du colis prêt (P6).
+ * Lien faux ou expiré : 403. Le chemin contient « /private/ » : le service worker du front ne les met jamais en cache.
  */
 final class PrivateMediaController
 {
+    public function __construct(
+        private readonly PrivateMediaStorage $storage,
+        private readonly EntityManagerInterface $em,
+        private readonly ClockInterface $clock,
+    ) {}
+
     #[Route('/media/private/proofs/{id}', name: 'api_private_proof', requirements: ['id' => Requirement::DIGITS], methods: ['GET'])]
-    public function proof(int $id, Request $request, PrivateMediaStorage $storage, EntityManagerInterface $em, ClockInterface $clock): BinaryFileResponse
+    public function proof(int $id, Request $request): BinaryFileResponse
     {
-        $now = new \DateTimeImmutable('@' . $clock->now()->getTimestamp());
+        $expires = $this->assertSigned('proof', $id, $request);
+        $proof = $this->em->find(ReservationProof::class, $id);
+
+        return $this->file($proof?->getStoragePath(), $proof?->getMimeType(), 'preuve-' . $proof?->getReservation()->getRef(), $expires);
+    }
+
+    #[Route('/media/private/package-photos/{id}', name: 'api_private_package_photo', requirements: ['id' => Requirement::DIGITS], methods: ['GET'])]
+    public function packagePhoto(int $id, Request $request): BinaryFileResponse
+    {
+        $expires = $this->assertSigned('package', $id, $request);
+        $photo = $this->em->find(ReservationPackagePhoto::class, $id);
+
+        return $this->file($photo?->getStoragePath(), $photo?->getMimeType(), sprintf('colis-%s-%d', $photo?->getReservation()->getRef(), (int) $photo?->getPosition() + 1), $expires);
+    }
+
+    /** @return int échéance du lien (secondes) */
+    private function assertSigned(string $kind, int $id, Request $request): int
+    {
         $expires = (int) $request->query->get('expires', '0');
         $signature = (string) $request->query->get('signature', '');
-        if (!$storage->isValid('proof', $id, $expires, $signature, $now)) {
+        if (!$this->storage->isValid($kind, $id, $expires, $signature, $this->now())) {
             throw new ApiException(403, 'LINK_EXPIRED', 'Ce lien a expiré : rechargez la page.');
         }
 
-        $proof = $em->find(ReservationProof::class, $id);
-        $path = $proof !== null ? $storage->absolute($proof->getStoragePath()) : null;
-        if ($path === null || !is_file($path)) {
+        return $expires;
+    }
+
+    private function file(?string $storagePath, ?string $mimeType, string $name, int $expires): BinaryFileResponse
+    {
+        $path = $storagePath !== null ? $this->storage->absolute($storagePath) : null;
+        if ($path === null || $mimeType === null || !is_file($path)) {
             throw ApiException::notFound('NOT_FOUND', 'Image introuvable.');
         }
 
         $response = new BinaryFileResponse($path, 200, [
-            'Content-Type'            => $proof->getMimeType(),
+            'Content-Type'            => $mimeType,
             'X-Content-Type-Options'  => 'nosniff',
             'Content-Security-Policy' => "default-src 'none'",
         ], false);
-        $response->setContentDisposition(
-            ResponseHeaderBag::DISPOSITION_INLINE,
-            sprintf('preuve-%s.%s', $proof->getReservation()->getRef(), pathinfo($path, \PATHINFO_EXTENSION)),
-        );
-        $response->headers->set('Cache-Control', sprintf('private, max-age=%d', max(0, min(3600, $expires - $now->getTimestamp()))));
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $name . '.' . pathinfo($path, \PATHINFO_EXTENSION));
+        $response->headers->set('Cache-Control', sprintf('private, max-age=%d', max(0, min(3600, $expires - $this->now()->getTimestamp()))));
 
         return $response;
+    }
+
+    private function now(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('@' . $this->clock->now()->getTimestamp());
     }
 }

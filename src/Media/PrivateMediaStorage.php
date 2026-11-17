@@ -6,7 +6,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
- * Fichiers privés (preuves de paiement) : rangés hors du site public (var/private), servis seulement par des
+ * Fichiers privés (preuves de paiement, photos du colis) : rangés hors du site public (var/private), servis seulement par des
  * liens signés qui expirent (contrat §2.8 : 1 h, régénérés à chaque lecture).
  *
  * L'échéance est arrondie aux 10 minutes : le lien reste le même entre deux rafraîchissements du front
@@ -60,12 +60,23 @@ class PrivateMediaStorage
     /** Lien signé (absolu) vers une preuve de paiement. */
     public function proofUrl(int $proofId, \DateTimeImmutable $now): string
     {
+        return $this->signedUrl('api_private_proof', 'proof', $proofId, $now);
+    }
+
+    /** Lien signé (absolu) vers une photo du colis (P6). */
+    public function packagePhotoUrl(int $photoId, \DateTimeImmutable $now): string
+    {
+        return $this->signedUrl('api_private_package_photo', 'package', $photoId, $now);
+    }
+
+    private function signedUrl(string $route, string $kind, int $id, \DateTimeImmutable $now): string
+    {
         $expires = (int) (ceil(($now->getTimestamp() + self::LIFETIME) / self::ROUNDING) * self::ROUNDING);
 
-        return $this->urls->generate('api_private_proof', [
-            'id'        => $proofId,
+        return $this->urls->generate($route, [
+            'id'        => $id,
             'expires'   => $expires,
-            'signature' => $this->signature('proof', $proofId, $expires),
+            'signature' => $this->signature($kind, $id, $expires),
         ], UrlGeneratorInterface::ABSOLUTE_URL);
     }
 

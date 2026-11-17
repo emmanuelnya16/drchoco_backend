@@ -1,6 +1,6 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **65 %** (P0 à P5 terminées)
+Avancement total : **75 %** (P0 à P6 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
@@ -10,7 +10,7 @@ Avancement total : **65 %** (P0 à P5 terminées)
 | **P3** | Socle admin, rôles et vendeurs | 10 | 8 % | ✅ Terminée |
 | **P4** | Catalogue admin et images Cloudinary | 14 | 12 % | ✅ Terminée |
 | **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ✅ Terminée |
-| **P6** | Gestion des réservations (admin) | 10 | 10 % | ⏳ À faire |
+| **P6** | Gestion des réservations (admin) | 10 | 10 % | ✅ Terminée |
 | **P7** | Notifications push et tableau de bord | 5 + déclencheurs | 8 % | ⏳ À faire |
 | **P8** | Réglages, livraison et pages (admin) | 10 | 6 % | ⏳ À faire |
 | **P9** | SEO, sécurité, tests de bout en bout | — | 6 % | ⏳ À faire |
@@ -161,7 +161,23 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
   - relecture adverse (4 relecteurs + contre-vérification) : 8 constats, 5 confirmés (4 distincts), tous corrigés — dont l’écrasement du stock par l’administration ;
   - navigateur sur la vraie API : panier de deux villes bloqué, connexion par code, retrait à Yaoundé par le vrai formulaire, écran de paiement (45 000 FCFA, code marchand), envoi de la capture, remerciement, suivi, retrait à Douala, annulation et stock remis — 19/19
 
-À faire en P6 : validation ou rejet du paiement par le super admin (+6 h pour renvoyer une preuve après un rejet), étapes de préparation et de remise, écrans d’administration des réservations.
+## P6 — Gestion des réservations (admin) ✅
+
+- [x] `GET /api/admin/reservations` : onglets (à valider, à préparer, prêtes, en livraison, à surveiller, terminées, toutes) avec leurs compteurs, filtres (statut, mode, ville, boutique, opérateur), recherche (référence, nom, téléphone, ville), 20 par page ; preuves à vérifier d’abord, la plus ancienne en premier
+- [x] `GET /api/admin/reservations/{ref}` : fiche complète (vendeur de chaque article, membre de l’équipe qui a agi, état de la preuve), contrôle des captures en double, notes internes, agences possibles pour la remise
+- [x] Paiement (super admin seulement) : `validate-payment` (preuve acceptée, ou validation manuelle tant que l’échéance n’est pas passée) ; `reject-payment` (motif de 3 à 200 caractères montré au client, **au moins 6 h** pour renvoyer une preuve, échéance d’origine jamais raccourcie, nouveau rappel possible)
+- [x] Étapes : `status` (préparation, en route, livrée, retirée) et `package-ready` (1 à 3 photos du colis en `multipart`, privées, sans métadonnées, liens signés 1 h ; prête en boutique ou remise à l’agence / au livreur ; agence modifiable sans changer le prix payé) ; toute autre étape refusée ; double clic sans effet
+- [x] `cancel` (super admin) : depuis tout statut non terminé, articles remis en vente, motif montré au client ; `notes` : notes internes jamais montrées au client
+- [x] Vendeur : seulement les réservations qui contiennent ses articles (ou des articles sans vendeur de sa ville) ; ailleurs 404 ; paiement et annulation 403 (aussi par `security.yaml`)
+- [x] Recherche rapide, clients (nombre de réservations, total payé, historique ; vendeur : ses clients seulement, sans leurs adresses) et compteurs du tableau de bord (à valider, à préparer, prêtes, expirent dans 3 h, en cours, file d’action) calculés sur les réservations
+- [x] Côté client : photos du colis, date « colis prêt », vignette dans la liste et le résumé, dernière étape atteinte d’une réservation annulée
+- [x] Front (non enregistré dans git) : photos du colis envoyées en vrais fichiers, boutons de paiement et d’annulation réservés au super admin (« Le super admin vérifie ce paiement. » pour un vendeur), messages d’erreur du serveur affichés, notifications de démonstration retirées, boutique réelle (Yaoundé ou Douala) au lieu de « Akwa / Yaoundé » écrits en dur, nouveau délai après un rejet ; contrat mis à jour (`docs/CONTRAT_API_ADMIN.md` §3)
+- [x] Vérifications :
+  - 20 nouveaux tests (225 au total), aussi dans le désordre et fichier par fichier ;
+  - relecture adverse (4 relecteurs + contre-vérification) : 5 constats, 1 confirmé (relevé deux fois) et corrigé — le tableau de bord lisait le stock avant de faire expirer les réservations échues ; 2 renforcements ajoutés (contrôle des doublons réservé au super admin, activité d’un client limitée au périmètre du vendeur) ;
+  - navigateur sur la vraie API (écrans réels) : client qui réserve et envoie sa preuve, super admin qui valide, prépare, envoie la photo du colis, confirme le retrait, rejette une autre preuve avec motif, ajoute une note, annule (stock remis) ; vendeur de Douala limité à sa réservation, sans boutons de paiement, 403 côté serveur ; client qui voit la photo, la réservation retirée et le motif du rejet — 31/31, aussi après les corrections
+
+À faire en P7 : notifications push (nouvelle réservation et preuve reçue pour l’équipe ; paiement validé ou rejeté, colis prêt avec sa photo, en route, livré pour le client), chiffres de ventes du tableau de bord.
 
 ## Décisions prises
 
@@ -170,6 +186,9 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 | 2026-11-16 | Panier limité à une seule ville ? | Oui : un panier (et une réservation) ne contient que des articles d’une seule ville |
 | 2026-11-16 | Retrait en boutique possible à Douala ? | Oui : retrait en boutique à Yaoundé et à Douala (une boutique par ville) |
 | 2026-11-16 | Qui valide les paiements Mobile Money ? | Le super admin (propriétaire ou gérant), à partir des preuves envoyées par le client |
+| 2026-11-16 | Délai après un paiement rejeté ? | 6 h de plus pour renvoyer une preuve, sans jamais raccourcir le délai d’origine |
+| 2026-11-17 | Que voit et fait un vendeur sur les réservations ? (choix par défaut, P6) | Les réservations qui contiennent ses articles (ou des articles sans vendeur de sa ville) : préparation, photos, remise, notes ; pas de paiement ni d’annulation |
+| 2026-11-17 | Annulation par la boutique ? (choix par défaut, P6) | Super admin seulement ; articles remis en vente tout de suite (comme le dit l’écran) ; remboursement d’un paiement validé fait par Mobile Money hors de l’application |
 
 ## Points ouverts (à décider)
 
@@ -179,6 +198,6 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 | P10 | Domaine de l’app pour le remplissage automatique du code sur Android | `OTP_WEBOTP_HOST=<domaine>` dans `.env.local` |
 | P8 | Numéro WhatsApp de la boutique (aujourd'hui +237690000000, fictif), vraies villes, frais et agences (aujourd'hui ceux des mocks, agences fictives), textes « [À COMPLÉTER] » des pages légales | À saisir dans l'administration (P8) ou à me transmettre pour les données de départ |
 | P8 | Boutique de Douala : adresse exacte, horaires, lien Maps (aujourd'hui « adresse exacte à confirmer ») ; prix de la livraison à domicile dans chaque ville (1 500 FCFA supposé à Yaoundé et à Douala) ; prix de chaque agence (aujourd'hui celui de sa ville) | À saisir dans l'administration (P8) ou à me transmettre |
-| P10 | Captures de paiement gardées dans `var/private/proofs` (hors du site public) : à inclure dans les sauvegardes ; durée de conservation à décider | Sauvegarde avec la base ; conservation proposée : 12 mois |
+| P10 | Captures de paiement et photos du colis gardées dans `var/private/proofs` et `var/private/packages` (hors du site public) : à inclure dans les sauvegardes ; durée de conservation à décider | Sauvegarde avec la base ; conservation proposée : 12 mois |
 | P10 | Offre cPanel (PHP, base, SSH, crons) et domaine (.cm ou .com) | — |
 | P10 | Montage sur cPanel : les routes gardent le préfixe `/api` | Projet hors de `public_html`, son dossier `public/` exposé sous `public_html/_api` (lien), et règle du `.htaccess` du front : `^api(/.*)?$ → _api/index.php` |

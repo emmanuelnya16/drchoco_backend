@@ -66,6 +66,8 @@ security:
         - { path: ^/api/media/private/, roles: PUBLIC_ACCESS, methods: [GET] }
         # Administration : gestion des vendeurs réservée aux super admins (owner, manager)
         - { path: ^/api/admin/sellers, roles: ROLE_SUPER_ADMIN }
+        # Paiements (valider, rejeter) et annulation d'une réservation : super admin seulement (P6)
+        - { path: ^/api/admin/reservations/[^/]+/(validate-payment|reject-payment|cancel)$, roles: ROLE_SUPER_ADMIN }
         - { path: ^/api/admin, roles: ROLE_ADMIN }
         # Tout le reste : client connecté
         - { path: ^/api, roles: ROLE_USER }

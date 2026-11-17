@@ -3,6 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Admin\AdminNormalizer;
+use App\Admin\Reservation\AdminReservationList;
 use App\Api\ApiDate;
 use App\Api\ApiJson;
 use App\Entity\Admin;
@@ -16,9 +17,9 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 /**
  * GET /api/admin/dashboard — tableau de bord (`AdminDashboardData`), page d'accueil de l'administration.
  *
- * Déjà réel : alertes de stock (variantes à 1 ou 2 unités, ruptures), limitées aux articles du vendeur et à ceux
- * de sa ville sans vendeur pour un vendeur. Réservations urgentes, compteurs et chiffres de ventes : calculés à
- * partir des réservations (phases P5 à P7) ; à zéro tant qu'il n'y en a pas.
+ * Réels, limités au périmètre d'un vendeur (ses articles et ceux de sa ville sans vendeur ; les réservations qui
+ * en contiennent) : alertes de stock (variantes à 1 ou 2 unités, ruptures), compteurs des réservations et file
+ * d'action (P6). Chiffres de ventes (`kpis`) : P7.
  */
 final class DashboardController
 {
@@ -27,6 +28,7 @@ final class DashboardController
 
     public function __construct(
         private readonly ProductRepository $products,
+        private readonly AdminReservationList $reservations,
         private readonly ClockInterface $clock,
     ) {}
 
@@ -34,6 +36,8 @@ final class DashboardController
     public function __invoke(#[CurrentUser] Admin $admin): JsonResponse
     {
         $seller = $admin->isSuperAdmin() ? null : $admin;
+        // D'abord les réservations (les échues expirent et rendent leur stock), puis les alertes de stock.
+        ['counts' => $reservationCounts, 'urgent' => $urgent] = $this->reservations->dashboard($admin);
         ['items' => $lowStockItems, 'low' => $low, 'out' => $out] = $this->stockAlerts($this->products->findActiveForAdmin($seller));
 
         $scope = ['role' => $admin->getRole()];
@@ -63,16 +67,11 @@ final class DashboardController
         return ApiJson::noStore([
             'serverTime' => ApiDate::format($this->clock->now()),
             'scope'      => $scope,
-            'counts'     => [
-                'pendingValidation'  => 0,
-                'toPrepare'          => 0,
-                'readyForHandover'   => 0,
-                'expiringSoon'       => 0,
-                'activeTotal'        => 0,
+            'counts'     => $reservationCounts + [
                 'lowStockVariants'   => $low,
                 'outOfStockVariants' => $out,
             ],
-            'urgentReservations' => [],
+            'urgentReservations' => $urgent,
             'kpis'               => $kpis,
             'lowStockItems'      => $lowStockItems,
         ]);

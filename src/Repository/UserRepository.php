@@ -28,35 +28,4 @@ class UserRepository extends ServiceEntityRepository
             $this->getEntityManager()->flush();
         }
     }
-
-    /**
-     * Répertoire des clients pour l'administration : recherche sur le nom, la ville ou le téléphone
-     * (chiffres), les plus récemment actifs d'abord.
-     *
-     * @return array{items: list<User>, total: int}
-     */
-    public function adminList(string $query, int $limit): array
-    {
-        $qb = $this->createQueryBuilder('u');
-        $query = trim($query);
-        if ($query !== '') {
-            $conditions = ["CONCAT(COALESCE(u.firstName, ''), ' ', COALESCE(u.lastName, '')) LIKE :q", 'u.city LIKE :q', 'u.phone LIKE :q'];
-            $qb->setParameter('q', '%' . addcslashes($query, '%_\\') . '%');
-            $digits = (string) preg_replace('/\D/', '', $query);
-            if (\strlen($digits) >= 2) {
-                $conditions[] = 'u.phone LIKE :digits';
-                $qb->setParameter('digits', '%' . $digits . '%');
-            }
-            $qb->where(implode(' OR ', $conditions));
-        }
-
-        $total = (int) (clone $qb)->select('COUNT(u.id)')->getQuery()->getSingleScalarResult();
-        $items = $qb->addSelect('COALESCE(u.updatedAt, u.createdAt) AS HIDDEN lastActivity')
-            ->orderBy('lastActivity', 'DESC')
-            ->addOrderBy('u.id', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()->getResult();
-
-        return ['items' => $items, 'total' => $total];
-    }
 }

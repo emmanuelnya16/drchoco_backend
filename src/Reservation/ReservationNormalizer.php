@@ -10,7 +10,8 @@ use App\Media\PrivateMediaStorage;
 
 /**
  * Réservation telle que le front l'attend (src/lib/api/schemas/reservation.ts, contrat §10.4), avec les
- * ajouts de la P5 : `shopCity`, `pickupShop`, `deliveryFeePayment`, prix de l'agence.
+ * ajouts de la P5 : `shopCity`, `pickupShop`, `deliveryFeePayment`, prix de l'agence ; et de la P6 : photos du
+ * colis (`packagePhotos`, `packageReadyAt`, `packagePhotoThumb`).
  */
 final class ReservationNormalizer
 {
@@ -38,8 +39,8 @@ final class ReservationNormalizer
             'cancellable'        => $r->isCancellableByClient(),
             'cancelDeadline'     => null,
             'timeline'           => array_map($this->event(...), $r->getEvents()->toArray()),
-            'packagePhotos'      => [],
-            'packageReadyAt'     => null,
+            'packagePhotos'      => $this->packagePhotos($r, $now),
+            'packageReadyAt'     => $r->getPackageReadyAt() !== null ? ApiDate::format($r->getPackageReadyAt()) : null,
             'customer'           => [
                 'firstName' => $r->getCustomerFirstName(),
                 'lastName'  => $r->getCustomerLastName(),
@@ -110,7 +111,7 @@ final class ReservationNormalizer
                 fn (ReservationItem $i) => ['image' => $i->getImage(), 'name' => $i->getProductName()],
                 \array_slice($r->getItems()->toArray(), 0, 3),
             ),
-            'packagePhotoThumb' => null,
+            'packagePhotoThumb' => $this->packagePhotos($r, $now)[0]['thumbnailUrl'] ?? null,
             'receptionMode'     => $r->getReceptionMode(),
             'city'              => $this->city($r),
             'shopCity'          => $r->getShopCity(),
@@ -119,14 +120,61 @@ final class ReservationNormalizer
             $data['expiresAt'] = ApiDate::format($r->getExpiresAt());
         }
         if (\in_array($r->getStatus(), [Reservation::STATUS_EXPIRED, Reservation::STATUS_CANCELLED], true)) {
-            $events = $r->getEvents()->toArray();
-            $before = \count($events) >= 2 ? $events[\count($events) - 2] : null;
-            if ($before instanceof ReservationEvent) {
-                $data['reachedStatus'] = $before->getStatus();
+            $reached = $this->reachedStatus($r);
+            if ($reached !== null) {
+                $data['reachedStatus'] = $reached;
             }
         }
 
         return $data;
+    }
+
+    /**
+     * Photos du colis prêt, par liens signés (contrat §2.9 : URL complètes, valables 1 h).
+     *
+     * @return list<array{id: string, url: string, thumbnailUrl: string, width: int, height: int, takenAt: string}>
+     */
+    public function packagePhotos(Reservation $r, \DateTimeImmutable $now): array
+    {
+        $photos = [];
+        foreach ($r->getPackagePhotos() as $photo) {
+            // Pas de miniature générée (pas d'extension GD) : la photo elle-même, déjà réduite par le front.
+            $url = $this->media->packagePhotoUrl((int) $photo->getId(), $now);
+            $photos[] = [
+                'id'           => (string) $photo->getId(),
+                'url'          => $url,
+                'thumbnailUrl' => $url,
+                'width'        => $photo->getWidth(),
+                'height'       => $photo->getHeight(),
+                'takenAt'      => ApiDate::format($photo->getTakenAt()),
+            ];
+        }
+
+        return $photos;
+    }
+
+    /**
+     * Réservation expirée ou annulée : dernière étape du parcours atteinte avant l'arrêt (barre de progression du
+     * front). Un rejet du paiement compte comme « paiement envoyé » (même règle que reachedStatusFromTimeline).
+     */
+    private function reachedStatus(Reservation $r): ?string
+    {
+        $path = $r->isPickup()
+            ? [Reservation::STATUS_RESERVED, Reservation::STATUS_PENDING_VALIDATION, Reservation::STATUS_CONFIRMED, Reservation::STATUS_PREPARING, Reservation::STATUS_READY_FOR_PICKUP, Reservation::STATUS_PICKED_UP]
+            : [Reservation::STATUS_RESERVED, Reservation::STATUS_PENDING_VALIDATION, Reservation::STATUS_CONFIRMED, Reservation::STATUS_PREPARING, Reservation::STATUS_HANDED_TO_AGENCY, Reservation::STATUS_IN_DELIVERY, Reservation::STATUS_DELIVERED];
+        $events = $r->getEvents()->toArray();
+        for ($i = \count($events) - 1; $i >= 0; --$i) {
+            $event = $events[$i];
+            if (!$event instanceof ReservationEvent) {
+                continue;
+            }
+            $status = $event->getStatus() === Reservation::STATUS_PAYMENT_REJECTED ? Reservation::STATUS_PENDING_VALIDATION : $event->getStatus();
+            if (\in_array($status, $path, true)) {
+                return $status;
+            }
+        }
+
+        return null;
     }
 
     /** Ville affichée : destination pour une livraison, boutique pour un retrait. */

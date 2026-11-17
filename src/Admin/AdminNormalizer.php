@@ -118,16 +118,23 @@ final class AdminNormalizer
     }
 
     /**
-     * `AdminCustomerItem`. Réservations, compteur et total confirmé : à partir de la phase P5.
+     * `AdminCustomerItem` : compte du client, ses réservations (lignes `AdminReservationRow`), leur nombre et le
+     * total payé (réservations dont le paiement a été validé), P6.
      *
-     * @param list<Address> $addresses
+     * @param list<Address>                                                $addresses
+     * @param array{count: int, paid: int, last: ?\DateTimeImmutable}|null $stats
+     * @param list<array<string, mixed>>                                   $reservations
      *
      * @return array<string, mixed>
      */
-    public function customer(User $user, array $addresses): array
+    public function customer(User $user, array $addresses, ?array $stats = null, array $reservations = [], bool $withAccountActivity = true): array
     {
-        // Dernière modification du compte (connexion comprise) : même ordre que la liste (UserRepository::adminList).
-        $lastActivity = $user->getUpdatedAt() ?? $user->getCreatedAt();
+        // Dernière activité : compte (connexion comprise) ou dernière réservation, la plus récente des deux. Pour un
+        // vendeur : sa dernière réservation dans son périmètre seulement (même ordre que sa liste).
+        $lastActivity = $withAccountActivity || ($stats['last'] ?? null) === null ? $user->getUpdatedAt() ?? $user->getCreatedAt() : $stats['last'];
+        if (($stats['last'] ?? null) !== null && $stats['last'] > $lastActivity) {
+            $lastActivity = $stats['last'];
+        }
 
         return [
             'id'                 => (string) $user->getId(),
@@ -137,11 +144,11 @@ final class AdminNormalizer
             // Client qui n'a pas encore donné son nom (étape « prénom » passée) : jamais de ligne vide à l'écran.
             'fullName'           => $user->getFullName() !== '' ? $user->getFullName() : 'Client sans nom',
             'city'               => $user->getCity() ?? '',
-            'reservationsCount'  => 0,
-            'confirmedTotalFcfa' => 0,
+            'reservationsCount'  => $stats['count'] ?? 0,
+            'confirmedTotalFcfa' => $stats['paid'] ?? 0,
             'lastActivityAt'     => ApiDate::format($lastActivity),
             'addresses'          => array_map($this->accounts->address(...), $addresses),
-            'reservations'       => [],
+            'reservations'       => $reservations,
         ];
     }
 
