@@ -11,7 +11,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Protection des routes de connexion qui posent ou effacent le cookie de session (/api/auth/*,
- * /api/admin/auth/*) contre les envois forcés depuis un autre site (CSRF de connexion ou de déconnexion) :
+ * /api/admin/auth/*), et de l'abonnement aux notifications qui accepte ce cookie (/api/push/subscribe, P7),
+ * contre les envois forcés depuis un autre site (CSRF de connexion ou de déconnexion, appareil imposé) :
  *
  *  - une requête venue d'une autre origine que l'API ou que les origines autorisées par CORS_ALLOW_ORIGIN
  *    est refusée (403), de même qu'une requête marquée « cross-site » par le navigateur ;
@@ -23,9 +24,9 @@ use Symfony\Component\HttpKernel\KernelEvents;
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 20)]
 final class AuthOriginGuard
 {
-    private const GUARDED_PREFIXES = ['/api/auth/', '/api/admin/auth/'];
+    private const GUARDED_PREFIXES = ['/api/auth/', '/api/admin/auth/', '/api/push/subscribe'];
     // Routes envoyées avec un corps JSON par le front (le rafraîchissement admin part sans corps : non concerné).
-    private const JSON_ONLY_PATHS = ['/api/auth/otp/request', '/api/auth/otp/verify', '/api/auth/refresh', '/api/admin/auth/login'];
+    private const JSON_ONLY_PATHS = ['/api/auth/otp/request', '/api/auth/otp/verify', '/api/auth/refresh', '/api/admin/auth/login', '/api/push/subscribe'];
 
     public function __construct(
         #[Autowire('%env(CORS_ALLOW_ORIGIN)%')]

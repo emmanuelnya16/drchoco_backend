@@ -225,6 +225,26 @@ class RefreshTokenService
         return $this->jwtManager->create($account);
     }
 
+    /**
+     * Compte client de la session du cookie, sans le faire tourner (lecture seule) : réabonnement aux notifications
+     * envoyé par le service worker, qui n'a pas de jeton d'accès (P7). Jeton inconnu, révoqué, expiré, déjà
+     * utilisé hors délai de grâce, ou compte bloqué : null.
+     */
+    public function userFromSessionCookie(Request $request): ?User
+    {
+        $plain = $request->cookies->get(self::CLIENT_COOKIE);
+        if (!\is_string($plain) || $plain === '') {
+            return null;
+        }
+        $token = $this->refreshTokenRepository->findByHash(RefreshToken::hash($plain));
+        if ($this->checkPresentedToken($token, RefreshToken::TYPE_USER, $this->now()) !== null) {
+            return null;
+        }
+        $account = $this->loadActiveAccount(RefreshToken::TYPE_USER, $token->getUserId());
+
+        return $account instanceof User ? $account : null;
+    }
+
     private function checkPresentedToken(?RefreshToken $token, string $type, \DateTimeImmutable $now): ?string
     {
         if ($token === null || $token->getUserType() !== $type) {

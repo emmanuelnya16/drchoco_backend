@@ -26,6 +26,13 @@ framework:
             limit: 20
             interval: '60 minutes'
 
+        # POST /push/subscribe : 30 abonnements aux notifications en 10 min par adresse IP (la route accepte aussi le
+        # cookie de session, pour le service worker qui renouvelle l'abonnement sans jeton).
+        push_subscribe:
+            policy: sliding_window
+            limit: 30
+            interval: '10 minutes'
+
         # POST /auth/otp/verify : 30 codes faux, expirés ou refusés en 10 min par adresse IP (une connexion réussie
         # ne compte pas). Une seule machine ne peut pas sonder ni verrouiller les numéros des clients à la chaîne.
         otp_verify_ip:

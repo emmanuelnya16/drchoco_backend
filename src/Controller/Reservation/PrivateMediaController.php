@@ -31,7 +31,7 @@ final class PrivateMediaController
     #[Route('/media/private/proofs/{id}', name: 'api_private_proof', requirements: ['id' => Requirement::DIGITS], methods: ['GET'])]
     public function proof(int $id, Request $request): BinaryFileResponse
     {
-        $expires = $this->assertSigned('proof', $id, $request);
+        $expires = $this->assertSigned(['proof'], $id, $request);
         $proof = $this->em->find(ReservationProof::class, $id);
 
         return $this->file($proof?->getStoragePath(), $proof?->getMimeType(), 'preuve-' . $proof?->getReservation()->getRef(), $expires);
@@ -40,22 +40,29 @@ final class PrivateMediaController
     #[Route('/media/private/package-photos/{id}', name: 'api_private_package_photo', requirements: ['id' => Requirement::DIGITS], methods: ['GET'])]
     public function packagePhoto(int $id, Request $request): BinaryFileResponse
     {
-        $expires = $this->assertSigned('package', $id, $request);
+        // Lien de l'écran (1 h) ou d'une notification push (25 h).
+        $expires = $this->assertSigned(['package', PrivateMediaStorage::KIND_PACKAGE_PUSH], $id, $request);
         $photo = $this->em->find(ReservationPackagePhoto::class, $id);
 
         return $this->file($photo?->getStoragePath(), $photo?->getMimeType(), sprintf('colis-%s-%d', $photo?->getReservation()->getRef(), (int) $photo?->getPosition() + 1), $expires);
     }
 
-    /** @return int échéance du lien (secondes) */
-    private function assertSigned(string $kind, int $id, Request $request): int
+    /**
+     * @param list<string> $kinds signatures acceptées
+     *
+     * @return int échéance du lien (secondes)
+     */
+    private function assertSigned(array $kinds, int $id, Request $request): int
     {
         $expires = (int) $request->query->get('expires', '0');
         $signature = (string) $request->query->get('signature', '');
-        if (!$this->storage->isValid($kind, $id, $expires, $signature, $this->now())) {
-            throw new ApiException(403, 'LINK_EXPIRED', 'Ce lien a expiré : rechargez la page.');
+        foreach ($kinds as $kind) {
+            if ($this->storage->isValid($kind, $id, $expires, $signature, $this->now())) {
+                return $expires;
+            }
         }
 
-        return $expires;
+        throw new ApiException(403, 'LINK_EXPIRED', 'Ce lien a expiré : rechargez la page.');
     }
 
     private function file(?string $storagePath, ?string $mimeType, string $name, int $expires): BinaryFileResponse

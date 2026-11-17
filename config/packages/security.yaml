@@ -64,6 +64,8 @@ security:
         - { path: ^/api/client-errors$, roles: PUBLIC_ACCESS, methods: [POST] }
         # Captures de paiement : lien signé et temporaire (balise <img>, sans jeton), vérifié par le contrôleur
         - { path: ^/api/media/private/, roles: PUBLIC_ACCESS, methods: [GET] }
+        # Abonnement aux notifications : jeton client, ou cookie de session (service worker), vérifié par le contrôleur
+        - { path: ^/api/push/subscribe$, roles: PUBLIC_ACCESS, methods: [POST] }
         # Administration : gestion des vendeurs réservée aux super admins (owner, manager)
         - { path: ^/api/admin/sellers, roles: ROLE_SUPER_ADMIN }
         # Paiements (valider, rejeter) et annulation d'une réservation : super admin seulement (P6)

@@ -47,4 +47,49 @@ final class PurgeCommandTest extends KernelTestCase
         self::assertSame(['2026-11-15 12:00:00'], $db->fetchFirstColumn('SELECT created_at FROM otp_codes'));
         self::assertSame(['h2'], $db->fetchFirstColumn('SELECT token_hash FROM refresh_tokens'));
     }
+
+    public function testOldNotificationsAndIdleDevicesAreDeleted(): void
+    {
+        self::bootKernel();
+        self::mockTime('2026-11-16 10:00:00');
+        $db = static::getContainer()->get(Connection::class);
+        $clean = function () use ($db): void {
+            $db->executeStatement('DELETE FROM push_subscriptions');
+            $db->executeStatement("DELETE FROM refresh_tokens WHERE family_id = 'f-connecte'");
+            $db->executeStatement("DELETE FROM users WHERE phone = '+237690000077'");
+        };
+        $clean();
+        try {
+
+        $device = fn (string $name, string $lastSeen, ?string $lastSuccess) => $db->insert('push_subscriptions', [
+            'owner_kind' => 'user', 'endpoint' => 'https://fcm.googleapis.com/fcm/send/' . $name, 'endpoint_hash' => hash('sha256', $name),
+            'p256dh' => 'x', 'auth' => 'x', 'content_encoding' => 'aes128gcm', 'platform' => 'web',
+            'created_at' => '2026-06-01 00:00:00', 'last_seen_at' => $lastSeen, 'last_success_at' => $lastSuccess, 'failure_count' => 0,
+        ]);
+        $device('oublie', '2026-07-01 00:00:00', null);
+        // Client toujours connecté (session ouverte) : son appareil est gardé même sans activité récente.
+        $db->insert('users', ['phone' => '+237690000077', 'status' => 'active', 'created_at' => '2026-01-01 00:00:00']);
+        $connected = (int) $db->lastInsertId();
+        $db->insert('refresh_tokens', ['token_hash' => str_repeat('c', 64), 'user_type' => 'user', 'user_id' => $connected, 'family_id' => 'f-connecte', 'expires_at' => '2027-02-01 00:00:00', 'created_at' => '2026-11-10 00:00:00', 'is_used' => 0, 'is_revoked' => 0]);
+        $device('connecte', '2026-07-01 00:00:00', null);
+        $db->executeStatement("UPDATE push_subscriptions SET user_id = ? WHERE endpoint LIKE '%connecte'", [$connected]);
+        $device('utilise', '2026-07-01 00:00:00', '2026-11-01 00:00:00');
+        $device('recent', '2026-11-10 00:00:00', null);
+        $recent = (int) $db->fetchOne("SELECT id FROM push_subscriptions WHERE endpoint LIKE '%recent'");
+        foreach ([['sent', '2026-11-01 00:00:00'], ['dropped', '2026-11-02 00:00:00'], ['pending', '2026-11-01 00:00:00'], ['sent', '2026-11-15 00:00:00']] as [$status, $at]) {
+            $db->insert('push_outbox', [
+                'subscription_id' => $recent, 'type' => 'delivered', 'payload' => '{}', 'ttl' => 86400, 'urgency' => 'normal', 'status' => $status,
+                'attempts' => 1, 'next_attempt_at' => $at, 'expires_at' => $at, 'created_at' => $at,
+            ]);
+        }
+
+        $tester = new CommandTester((new Application(self::$kernel))->find('app:purge'));
+        self::assertSame(0, $tester->execute([]));
+        self::assertStringContainsString('2 notification(s) et 1 appareil(s)', $tester->getDisplay());
+        self::assertSame(['connecte', 'utilise', 'recent'], array_map(fn (string $e) => basename($e), $db->fetchFirstColumn('SELECT endpoint FROM push_subscriptions ORDER BY id')));
+        self::assertSame(['pending', 'sent'], $db->fetchFirstColumn('SELECT status FROM push_outbox ORDER BY id'), 'en attente et récentes : gardées');
+        } finally {
+            $clean(); // base de test laissée propre, même si une vérification échoue
+        }
+    }
 }

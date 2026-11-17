@@ -1,6 +1,6 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **75 %** (P0 à P6 terminées)
+Avancement total : **83 %** (P0 à P7 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
@@ -11,7 +11,7 @@ Avancement total : **75 %** (P0 à P6 terminées)
 | **P4** | Catalogue admin et images Cloudinary | 14 | 12 % | ✅ Terminée |
 | **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ✅ Terminée |
 | **P6** | Gestion des réservations (admin) | 10 | 10 % | ✅ Terminée |
-| **P7** | Notifications push et tableau de bord | 5 + déclencheurs | 8 % | ⏳ À faire |
+| **P7** | Notifications push et tableau de bord | 4 + déclencheurs | 8 % | ✅ Terminée |
 | **P8** | Réglages, livraison et pages (admin) | 10 | 6 % | ⏳ À faire |
 | **P9** | SEO, sécurité, tests de bout en bout | — | 6 % | ⏳ À faire |
 | **P10** | Mise en ligne sur cPanel | — | 5 % | ⏳ À faire |
@@ -177,7 +177,22 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
   - relecture adverse (4 relecteurs + contre-vérification) : 5 constats, 1 confirmé (relevé deux fois) et corrigé — le tableau de bord lisait le stock avant de faire expirer les réservations échues ; 2 renforcements ajoutés (contrôle des doublons réservé au super admin, activité d’un client limitée au périmètre du vendeur) ;
   - navigateur sur la vraie API (écrans réels) : client qui réserve et envoie sa preuve, super admin qui valide, prépare, envoie la photo du colis, confirme le retrait, rejette une autre preuve avec motif, ajoute une note, annule (stock remis) ; vendeur de Douala limité à sa réservation, sans boutons de paiement, 403 côté serveur ; client qui voit la photo, la réservation retirée et le motif du rejet — 31/31, aussi après les corrections
 
-À faire en P7 : notifications push (nouvelle réservation et preuve reçue pour l’équipe ; paiement validé ou rejeté, colis prêt avec sa photo, en route, livré pour le client), chiffres de ventes du tableau de bord.
+## P7 — Notifications push et tableau de bord ✅
+
+- [x] Abonnement des appareils : `POST /api/push/subscribe` (jeton client, ou cookie de session pour le service worker qui renouvelle l’abonnement), `POST /api/push/unsubscribe`, `POST /api/admin/push/subscribe`, `POST /api/admin/push/unsubscribe` ; seuls les services de push des navigateurs sont acceptés ; un appareil = le dernier compte connecté ; 10 appareils au plus par compte ; route à cookie protégée contre les envois depuis un autre site
+- [x] Notifications réelles (chiffrées, signées avec les clés VAPID de la boutique, `minishlink/web-push`) :
+  - équipe : nouvelle réservation (super admins et vendeurs concernés), preuve de paiement à vérifier (super admins), annulation par un client qui avait payé (super admins) ;
+  - client : paiement validé, paiement rejeté (motif et nouvelle heure limite), colis prêt avec la photo du colis, en route, livré ou retiré, réservation bientôt expirée, annulée par la boutique (remboursement annoncé si elle était payée)
+- [x] Envoi sans processus permanent (cPanel) : file d’attente en base, envoi juste après la réponse puis par la tâche `app:push:send` chaque minute ; nouveaux essais (1, 5, 15, 60 min) ; appareil désabonné supprimé ; une notification en retard ne remplace jamais une plus récente ; clés refusées signalées dans le journal ; une panne d’envoi n’annule jamais une action
+- [x] Commandes : `app:push:vapid-keys` (clés écrites dans `.env.local`, clé privée jamais affichée), `app:push:send`, `app:push:test` ; `app:purge` nettoie aussi les vieilles notifications et les appareils inactifs sans session ; `app:diagnostic` vérifie les clés et le chiffrement
+- [x] Chiffres de ventes réels du tableau de bord (aujourd’hui, 7 jours, 30 jours, année, en heure du Cameroun) et de la liste des vendeurs : chiffre d’affaires des paiements validés (hors frais de livraison, annulées exclues), pièces, réservations créées et confirmées, taux de transformation, panier moyen, opérateurs, modes de réception, articles les plus vendus ; un vendeur ne voit que ses ventes
+- [x] Front (non enregistré dans git) : deux nouveaux types de notification (preuve à vérifier, réservation annulée), bouton « Activer les notifications » dans l’administration, désabonnement de l’appareil à la déconnexion admin, notifications reçues aussi dans l’administration (message et rafraîchissement), notifications possibles en bascule progressive ; contrats mis à jour (`docs/CONTRAT_API.md` §2.11, `docs/CONTRAT_API_ADMIN.md` §6)
+- [x] Vérifications :
+  - 24 nouveaux tests (249 au total), aussi dans le désordre ; le vrai chiffrement est testé (message déchiffré avec la clé de l’appareil) ;
+  - relecture adverse (4 relecteurs + contre-vérification) : 9 constats, 6 confirmés, tous corrigés — dont la purge qui pouvait retirer l’appareil d’un client encore connecté ;
+  - navigateur sur la vraie API, avec un faux service de push local : notifications de l’équipe et du client reçues, déchiffrées et contrôlées (textes, photo du colis, signature VAPID, en-têtes), remises au vrai service worker et affichées dans l’administration et dans l’application, chiffre d’affaires du jour affiché — 21/21, aussi après les corrections
+
+À faire en P8 : réglages, livraison (villes, agences et leurs prix) et pages dans l’administration.
 
 ## Décisions prises
 
@@ -191,6 +206,7 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 | 2026-11-17 | Annulation par la boutique ? (choix par défaut, P6) | Super admin seulement ; articles remis en vente tout de suite (comme le dit l’écran) ; remboursement d’un paiement validé fait par Mobile Money hors de l’application |
 | 2026-11-17 | Durée de conservation des captures de paiement (et photos du colis) | 12 mois (suppression automatique à mettre en place en P10, avec `app:purge`) |
 | 2026-11-17 | Boutique de Yaoundé | Mokolo, Dubai Market, Yaoundé ; téléphone +237 678 79 47 17 (aussi pris comme numéro WhatsApp de la boutique) |
+| 2026-11-17 | Notifications push (choix par défaut, P7) | Le client reçoit la référence seulement (jamais son téléphone) ; l’équipe reçoit le nom et le montant ; pas de notification pour la préparation ni l’expiration ; ventes datées par la validation du paiement, « aujourd’hui » depuis minuit à l’heure du Cameroun |
 | 2026-11-17 | Agences d’expédition (données de départ) | Agences réelles relevées par le propriétaire, au prix publié d’un colis de 0 à 5 kg : Travel Lines Cameroun (1 000 FCFA, Yaoundé ↔ Douala), United Express (à partir de 1 000 FCFA, Yaoundé ↔ Douala), Touristique Express (à partir de 3 000 FCFA, Yaoundé, Douala, Bafoussam). Enregistrées mais cachées tant que leur prix n’est pas connu (devis) : MTA Express, JFI Express, GT Transport (G2T SARL) dans les trois villes. Les 31 agences fictives des maquettes sont retirées. À la réservation, seules les villes où le colis peut arriver sont proposées (aujourd’hui Yaoundé, Douala, Bafoussam) |
 
 ## Points ouverts (à décider)
@@ -203,4 +219,5 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 | P8 | Boutique de Douala : adresse exacte, horaires, lien Maps (aujourd'hui « adresse exacte à confirmer ») ; horaires de la boutique de Yaoundé (aujourd’hui « Lun – Sam · 9 h 30 à 19 h 30 », supposés) ; prix de la livraison à domicile dans chaque ville (1 500 FCFA supposé à Yaoundé et à Douala) ; adresses et horaires des agences (« à confirmer par téléphone ») ; prix réels d’United Express et de Touristique Express (prix « à partir de ») ; prix de MTA Express, JFI Express et GT Transport pour les activer ; agences dans les autres villes (Bamenda, Buea, Kribi…), qui ne sont pas proposées tant qu’elles n’en ont pas | À saisir dans l'administration (P8) ou à me transmettre |
 | P10 | Captures de paiement et photos du colis gardées dans `var/private/proofs` et `var/private/packages` (hors du site public) : à inclure dans les sauvegardes | Sauvegarde avec la base ; conservation de 12 mois décidée (suppression automatique en P10) |
 | P10 | Offre cPanel (PHP, base, SSH, crons) et domaine (.cm ou .com) | — |
+| P10 | Notifications push en production | Créer les clés une fois sur le serveur (`app:push:vapid-keys --write=.env.local`), construire le front avec la clé publique (`VITE_VAPID_PUBLIC_KEY`), tâche `app:push:send` chaque minute ; vérifier que l’hébergeur autorise une tâche par minute |
 | P10 | Montage sur cPanel : les routes gardent le préfixe `/api` | Projet hors de `public_html`, son dossier `public/` exposé sous `public_html/_api` (lien), et règle du `.htaccess` du front : `^api(/.*)?$ → _api/index.php` |

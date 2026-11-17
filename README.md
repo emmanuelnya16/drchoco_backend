@@ -104,6 +104,27 @@ Trois rôles : **owner** (propriétaire) et **manager** (gérant) sont super adm
 - Notes internes : jamais montrées au client.
 - Routes : `GET /api/admin/reservations` (onglets `tab`, `status`, `receptionMode`, `city`, `shopCity`, `operator`, `q`, `page`, `pageSize`), `GET /api/admin/reservations/{ref}`, `POST …/{ref}/validate-payment`, `…/reject-payment`, `…/status`, `…/package-ready`, `…/cancel`, `…/notes`. La recherche rapide, la liste des clients (nombre de réservations, total payé) et les compteurs du tableau de bord utilisent maintenant les réservations.
 
+## Notifications push et chiffres de ventes (P7)
+
+- **Qui reçoit quoi** :
+  - l’équipe : nouvelle réservation (super admins et vendeurs concernés), preuve de paiement à vérifier (super admins), annulation par un client qui avait déjà payé (super admins) ;
+  - le client : paiement validé ou rejeté (avec le motif et la nouvelle heure limite), colis prêt (avec la photo du colis), en route, livré ou retiré, réservation bientôt expirée (2 h avant), annulée par la boutique.
+- **Abonnement des appareils** : `POST /api/push/subscribe` et `/api/push/unsubscribe` (client ; le service worker peut renouveler l’abonnement avec le seul cookie de session), `POST /api/admin/push/subscribe` et `/api/admin/push/unsubscribe` (équipe). Seuls les services de push des navigateurs sont acceptés ; 10 appareils au plus par compte.
+- **Envoi** : chaque notification passe par une file d’attente en base, envoyée juste après la réponse, puis par la tâche `app:push:send` (nouveaux essais en cas d’erreur passagère ; appareil désabonné supprimé). Une panne d’envoi n’annule jamais une action.
+- **Clés VAPID** (une seule fois par site : en changer désabonne tous les appareils) :
+  ```bash
+  php bin/console app:push:vapid-keys --write=.env.local
+  ```
+  La clé privée reste dans `.env.local` ; la clé publique affichée va dans le front : `VITE_VAPID_PUBLIC_KEY` (au moment de construire le front). `VAPID_SUBJECT` : `mailto:` de la boutique. `PUSH_TRANSPORT=log` : aucune notification envoyée, écrites dans le journal.
+- **Windows / XAMPP** : PHP ne trouve pas `openssl.cnf`, et le chiffrement des notifications échoue. Définir la variable d’environnement `OPENSSL_CONF=C:\xampp\php\extras\ssl\openssl.cnf` (variable Windows de l’utilisateur, puis rouvrir le terminal). Inutile sur cPanel (Linux). `php bin/console app:diagnostic` l’indique.
+- **Essai** : `php bin/console app:push:test 690000001` (client) ou `app:push:test proprietaire@drchoco.cm` (équipe).
+- **Chiffres de ventes** (tableau de bord et liste des vendeurs) : ventes = paiements validés, sauf réservations annulées ensuite ; chiffre d’affaires hors frais de livraison ; périodes en heure du Cameroun (aujourd’hui depuis minuit, 7, 30 et 365 jours) ; un vendeur ne voit que les ventes de ses articles.
+
+### Tâches planifiées (cPanel)
+
+- Chaque minute : `php bin/console app:push:send` (notifications en attente).
+- Chaque jour : `php bin/console app:purge` (codes SMS, sessions, verrous, notifications de plus de 7 jours, appareils inactifs depuis 90 jours).
+
 ## Brancher le front sur cette API
 
 Dans le front (`.env.local`) :
@@ -117,7 +138,9 @@ VITE_API_REAL_ROUTES=/categories,/products,/search,/looks,/settings/public,/deli
 
 Réservations (P5) : ajouter `/reservations,/media`.
 
-Administration (P3, P4 et P6) : ajouter `/admin/auth,/admin/sellers,/admin/customers,/admin/search,/admin/dashboard,/admin/products,/admin/categories,/admin/looks,/admin/media,/admin/reservations`. Les écrans de réglages restent simulés et ne reconnaissent pas le vrai jeton admin : ils afficheront une erreur jusqu’à la phase P8.
+Administration (P3, P4 et P6) : ajouter `/admin/auth,/admin/sellers,/admin/customers,/admin/search,/admin/dashboard,/admin/products,/admin/categories,/admin/looks,/admin/media,/admin/reservations`.
+
+Notifications push (P7) : ajouter `/push,/admin/push`, construire le front avec `VITE_PWA_ENABLED=true` et `VITE_VAPID_PUBLIC_KEY` = la clé publique du serveur. Les écrans de réglages restent simulés et ne reconnaissent pas le vrai jeton admin : ils afficheront une erreur jusqu’à la phase P8.
 
 - `VITE_DEV_API_PROXY` relaie `/api` du serveur Vite vers cette API : même domaine, comme en production, indispensable au cookie de session.
 - **Bascule progressive** : les routes listées dans `VITE_API_REAL_ROUTES` partent vers l’API, le reste reste simulé (tant que `/reservations` est simulé, les mocks montrent les réservations de démonstration).

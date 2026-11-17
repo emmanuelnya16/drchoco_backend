@@ -2,7 +2,7 @@
 
 namespace App\Controller\Admin;
 
-use App\Admin\AdminNormalizer;
+use App\Admin\SalesFigures;
 use App\Admin\Reservation\AdminReservationList;
 use App\Api\ApiDate;
 use App\Api\ApiJson;
@@ -19,7 +19,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
  *
  * Réels, limités au périmètre d'un vendeur (ses articles et ceux de sa ville sans vendeur ; les réservations qui
  * en contiennent) : alertes de stock (variantes à 1 ou 2 unités, ruptures), compteurs des réservations et file
- * d'action (P6). Chiffres de ventes (`kpis`) : P7.
+ * d'action (P6), chiffres de ventes par période (`kpis`, P7 : App\Admin\SalesFigures).
  */
 final class DashboardController
 {
@@ -29,6 +29,7 @@ final class DashboardController
     public function __construct(
         private readonly ProductRepository $products,
         private readonly AdminReservationList $reservations,
+        private readonly SalesFigures $sales,
         private readonly ClockInterface $clock,
     ) {}
 
@@ -49,20 +50,7 @@ final class DashboardController
             $scope['city'] = $admin->getCity();
         }
 
-        $kpis = [];
-        foreach (AdminNormalizer::PERIODS as $period) {
-            $kpis[$period] = [
-                'revenueConfirmed'      => 0,
-                'unitsSold'             => 0,
-                'reservationsCreated'   => 0,
-                'reservationsConfirmed' => 0,
-                'conversionRate'        => 0,
-                'averageBasket'         => 0,
-                'byOperator'            => ['orange' => 0, 'mtn' => 0],
-                'byReception'           => ['delivery' => 0, 'pickup' => 0],
-                'productSales'          => [],
-            ];
-        }
+        $kpis = $this->sales->dashboard($admin);
 
         return ApiJson::noStore([
             'serverTime' => ApiDate::format($this->clock->now()),

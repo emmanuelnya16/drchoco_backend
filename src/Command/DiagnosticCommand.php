@@ -6,6 +6,7 @@ use App\Auth\SmsOtpSender;
 use Cloudinary\Cloudinary;
 use Doctrine\DBAL\Connection;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use App\Push\WebPushTransport;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -37,6 +38,8 @@ final class DiagnosticCommand extends Command
         private readonly SmsOtpSender $otpSender,
         #[Autowire('%env(int:OTP_DAILY_SMS_LIMIT)%')] private readonly int $dailySmsLimit,
         #[Autowire('%env(OTP_WEBOTP_HOST)%')] private readonly string $webOtpHost,
+        #[Autowire('%env(PUSH_TRANSPORT)%')] private readonly string $pushTransport,
+        private readonly WebPushTransport $webPush,
     ) {
         parent::__construct();
     }
@@ -124,6 +127,21 @@ final class DiagnosticCommand extends Command
                 . ', plafond ' . $this->dailySmsLimit . ' SMS par jour, remplissage auto. Android : '
                 . ($this->webOtpHost !== '' ? $this->webOtpHost : 'non configuré (OTP_WEBOTP_HOST)'),
         ];
+
+        // Notifications push (P7) : clés VAPID et chiffrement (OpenSSL doit pouvoir créer des clés EC P-256).
+        if (strtolower(trim($this->pushTransport)) === 'log') {
+            $rows[] = ['Notifications push', 'JOURNAL', 'aucune notification envoyée, écrites dans var/log (PUSH_TRANSPORT=log)'];
+        } elseif (!$this->webPush->isConfigured()) {
+            $rows[] = ['Notifications push', 'ABSENT', 'VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY ou VAPID_SUBJECT vide : app:push:vapid-keys --write=.env.local'];
+        } elseif (($problem = $this->webPush->keysProblem()) !== null) {
+            $failed = true;
+            $rows[] = ['Notifications push', 'ÉCHEC', 'Clés VAPID invalides : ' . $problem];
+        } elseif (@openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => \OPENSSL_KEYTYPE_EC]) === false) {
+            $failed = true;
+            $rows[] = ['Notifications push', 'ÉCHEC', 'OpenSSL ne peut pas chiffrer les notifications (Windows/XAMPP : définir OPENSSL_CONF)'];
+        } else {
+            $rows[] = ['Notifications push', 'OK', 'clés VAPID présentes, chiffrement possible ; tâche app:push:send chaque minute'];
+        }
 
         $rows[] = ['PawaPay', $this->pawapayEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ', $this->pawapayEnabled ? 'Paiement PawaPay possible' : 'Paiement par code USSD + capture (normal)'];
 

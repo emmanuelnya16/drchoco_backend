@@ -17,6 +17,10 @@ class PrivateMediaStorage
     private const LIFETIME = 3600;
     private const ROUNDING = 600;
 
+    /** Photo du colis dans une notification push : lien valable 25 h (durée de vie d'une notification : 24 h). */
+    public const KIND_PACKAGE_PUSH = 'package-push';
+    private const LIFETIMES = [self::KIND_PACKAGE_PUSH => 90000];
+
     public function __construct(
         #[Autowire('%app.private_media_dir%')]
         private readonly string $directory,
@@ -69,22 +73,37 @@ class PrivateMediaStorage
         return $this->signedUrl('api_private_package_photo', 'package', $photoId, $now);
     }
 
-    private function signedUrl(string $route, string $kind, int $id, \DateTimeImmutable $now): string
+    /**
+     * Photo du colis pour une notification push (P7) : lien de 25 h et chemin sans domaine (« /api/media/… ») —
+     * le front et l'API partagent le même domaine, et l'adresse ne dépend pas du domaine connu d'une tâche planifiée.
+     * Le chemin garde « /private/ » et la signature : le service worker ne la met jamais en cache.
+     */
+    public function packagePhotoPushUrl(int $photoId, \DateTimeImmutable $now): string
     {
-        $expires = (int) (ceil(($now->getTimestamp() + self::LIFETIME) / self::ROUNDING) * self::ROUNDING);
+        return $this->signedUrl('api_private_package_photo', self::KIND_PACKAGE_PUSH, $photoId, $now, UrlGeneratorInterface::ABSOLUTE_PATH);
+    }
+
+    private function signedUrl(string $route, string $kind, int $id, \DateTimeImmutable $now, int $reference = UrlGeneratorInterface::ABSOLUTE_URL): string
+    {
+        $expires = (int) (ceil(($now->getTimestamp() + self::lifetime($kind)) / self::ROUNDING) * self::ROUNDING);
 
         return $this->urls->generate($route, [
             'id'        => $id,
             'expires'   => $expires,
             'signature' => $this->signature($kind, $id, $expires),
-        ], UrlGeneratorInterface::ABSOLUTE_URL);
+        ], $reference);
     }
 
     public function isValid(string $kind, int $id, int $expires, string $signature, \DateTimeImmutable $now): bool
     {
         return $expires >= $now->getTimestamp()
-            && $expires <= $now->getTimestamp() + self::LIFETIME + self::ROUNDING
+            && $expires <= $now->getTimestamp() + self::lifetime($kind) + self::ROUNDING
             && hash_equals($this->signature($kind, $id, $expires), $signature);
+    }
+
+    private static function lifetime(string $kind): int
+    {
+        return self::LIFETIMES[$kind] ?? self::LIFETIME;
     }
 
     private function signature(string $kind, int $id, int $expires): string

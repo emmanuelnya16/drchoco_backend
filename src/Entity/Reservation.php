@@ -21,6 +21,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_reservation_user_updated', columns: ['user_id', 'updated_at'])]
 #[ORM\Index(name: 'idx_reservation_shop', columns: ['shop_city', 'status', 'updated_at'])]
 #[ORM\Index(name: 'idx_reservation_paid', columns: ['paid_at'])]
+#[ORM\Index(name: 'idx_reservation_created', columns: ['created_at'])]
 class Reservation
 {
     public const STATUS_RESERVED = 'reserved';

@@ -89,17 +89,16 @@ final class AdminNormalizer
     }
 
     /**
-     * `AdminSellerItem`. Ventes et chiffre d'affaires : calculés à partir des réservations (phases P5 à P7) ;
-     * à zéro tant qu'aucune réservation n'existe.
+     * `AdminSellerItem`. Ventes et chiffre d'affaires de ses articles (App\Admin\SalesFigures::sellers, P7) ; à zéro
+     * pour un vendeur qui vient d'être créé ou modifié (réponse de l'écran, la liste est relue ensuite).
+     *
+     * @param array{unitsSoldTotal: int, revenueConfirmedTotal: int, kpis: array<string, array<string, int>>}|null $figures
      *
      * @return array<string, mixed>
      */
-    public function seller(Admin $seller, int $productsCount): array
+    public function seller(Admin $seller, int $productsCount, ?array $figures = null): array
     {
-        $kpis = [];
-        foreach (self::PERIODS as $period) {
-            $kpis[$period] = ['unitsSold' => 0, 'revenueConfirmed' => 0, 'reservationsConfirmed' => 0];
-        }
+        $figures ??= SalesFigures::emptySeller();
 
         return [
             'id'                    => (string) $seller->getId(),
@@ -111,9 +110,9 @@ final class AdminNormalizer
             'active'                => $seller->isActive(),
             'createdAt'             => ApiDate::format($seller->getCreatedAt()),
             'productsCount'         => $productsCount,
-            'unitsSoldTotal'        => 0,
-            'revenueConfirmedTotal' => 0,
-            'kpis'                  => $kpis,
+            'unitsSoldTotal'        => $figures['unitsSoldTotal'],
+            'revenueConfirmedTotal' => $figures['revenueConfirmedTotal'],
+            'kpis'                  => $figures['kpis'],
         ];
     }
 

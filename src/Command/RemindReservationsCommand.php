@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Push\PushSender;
 use App\Repository\ReservationRepository;
 use App\Reservation\ReservationLifecycle;
 use App\Reservation\ReservationNotifier;
@@ -15,7 +16,7 @@ use Symfony\Component\Lock\LockFactory;
 
 /**
  * Tâche planifiée (cPanel, toutes les 15 minutes) : rappel aux clients dont la réservation expire dans moins
- * de 2 h sans paiement, une seule fois par réservation. P5 : rappel écrit dans le journal ; notification push en P7.
+ * de 2 h sans paiement, une seule fois par réservation (notification push « bientôt expirée », envoyée aussitôt).
  *
  *     php bin/console app:reservations:remind
  */
@@ -28,6 +29,7 @@ final class RemindReservationsCommand extends Command
         private readonly ReservationNotifier $notifier,
         private readonly EntityManagerInterface $em,
         private readonly LockFactory $locks,
+        private readonly PushSender $push,
     ) {
         parent::__construct();
     }
@@ -54,7 +56,8 @@ final class RemindReservationsCommand extends Command
         } finally {
             $lock->release();
         }
-        $io->success(sprintf('%d rappel(s).', \count($due)));
+        $sent = $due !== [] ? $this->push->sendDue(200, 40.0)['sent'] : 0;
+        $io->success(sprintf('%d rappel(s), %d notification(s) envoyée(s).', \count($due), $sent));
 
         return Command::SUCCESS;
     }

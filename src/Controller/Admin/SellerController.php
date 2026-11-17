@@ -3,6 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Admin\AdminNormalizer;
+use App\Admin\SalesFigures;
 use App\Admin\SellerManager;
 use App\Api\ApiException;
 use App\Api\ApiJson;
@@ -27,6 +28,7 @@ final class SellerController
         private readonly AdminRepository $admins,
         private readonly ProductRepository $products,
         private readonly AdminNormalizer $normalizer,
+        private readonly SalesFigures $sales,
     ) {}
 
     /** GET /api/admin/sellers */
@@ -36,9 +38,10 @@ final class SellerController
         $this->assertSuperAdmin($admin);
         $sellers = $this->admins->findSellers();
         $counts = $this->products->countForSellers($sellers);
+        $figures = $this->sales->sellers($sellers);
 
         return ApiJson::noStore([
-            'sellers' => array_map(fn (Admin $seller) => $this->normalizer->seller($seller, $counts[(int) $seller->getId()] ?? 0), $sellers),
+            'sellers' => array_map(fn (Admin $seller) => $this->normalizer->seller($seller, $counts[(int) $seller->getId()] ?? 0, $figures[(int) $seller->getId()] ?? null), $sellers),
         ]);
     }
 
