@@ -44,10 +44,13 @@ final class DeliveryOptions
 
     /**
      * GET /delivery/cities?from= : même forme qu'avant, calculée pour la boutique de départ.
+     * `$reachableOnly` (boutique précisée : réservation, fiche article) : seulement les villes où le colis peut
+     * vraiment arriver (livraison à domicile, ou au moins une agence qui part de cette boutique) ; sans boutique
+     * (profil, adresses), toutes les villes.
      *
      * @return list<array<string, mixed>>
      */
-    public function publicCities(string $from): array
+    public function publicCities(string $from, bool $reachableOnly = false): array
     {
         $byCity = [];
         foreach ($this->agencies->findVisible() as $agency) {
@@ -65,6 +68,9 @@ final class DeliveryOptions
                 $row['hasAgencies'] = false;
             } else {
                 $fees = $byCity[$city->getId()] ?? [];
+                if ($fees === [] && $reachableOnly) {
+                    continue;
+                }
                 $row['fee'] = $fees !== [] ? min($fees) : $city->getFee(); // « à partir de »
                 $row['isLocal'] = false;
                 $row['hasAgencies'] = $fees !== [];

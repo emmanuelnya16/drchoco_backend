@@ -56,16 +56,16 @@ final class AddressesTest extends AccountTestCase
             'district'       => 'Douala',
             'landmark'       => 'Agence Express Akwa',
             'receptionMode'  => 'delivery',
-            'agencyId'       => 'ag-dla-1',
+            'agencyId'       => 'ag-dla-travel-lines',
             'recipientName'  => 'Paul Essomba',
             'recipientPhone' => '677 88 99 00',
         ]);
 
         self::assertSame(201, $this->httpStatus());
-        self::assertSame(['Douala', 'ag-dla-1', 'Paul Essomba', '+237677889900'], [$data['city'], $data['agencyId'], $data['recipientName'], $data['recipientPhone']]);
+        self::assertSame(['Douala', 'ag-dla-travel-lines', 'Paul Essomba', '+237677889900'], [$data['city'], $data['agencyId'], $data['recipientName'], $data['recipientPhone']]);
 
         // Agence d'une autre ville, ou pas d'agence : refusé.
-        $data = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Douala', 'district' => 'Douala', 'landmark' => 'x', 'receptionMode' => 'delivery', 'agencyId' => 'ag-yde-1']);
+        $data = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Douala', 'district' => 'Douala', 'landmark' => 'x', 'receptionMode' => 'delivery', 'agencyId' => 'ag-yde-travel-lines']);
         self::assertSame(422, $this->httpStatus());
         self::assertArrayHasKey('agencyId', $data['details']);
         $data = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Douala', 'district' => 'Douala', 'landmark' => 'x', 'receptionMode' => 'delivery']);
@@ -125,7 +125,7 @@ final class AddressesTest extends AccountTestCase
     public function testPatchWithNullAgencySwitchesToHomeDelivery(): void
     {
         $token = $this->loginNamed();
-        $address = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Douala', 'district' => 'Douala', 'landmark' => 'Agence', 'receptionMode' => 'delivery', 'agencyId' => 'ag-dla-1']);
+        $address = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Douala', 'district' => 'Douala', 'landmark' => 'Agence', 'receptionMode' => 'delivery', 'agencyId' => 'ag-dla-travel-lines']);
 
         $data = $this->api('PATCH', '/api/me/addresses/' . $address['id'], $token, ['city' => 'Yaoundé', 'district' => 'Bastos', 'landmark' => 'Immeuble Mirage 3e étage', 'agencyId' => null]);
         self::assertSame(200, $this->httpStatus());

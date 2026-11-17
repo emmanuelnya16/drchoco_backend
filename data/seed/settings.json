@@ -52,31 +52,31 @@
     "validationDelayText": "en général en moins d’une heure, de 8 h à 20 h",
     "proofMaxSizeMb": 10
   },
-  "whatsappNumber": "+237690000000",
+  "whatsappNumber": "+237678794717",
   "reservationExpiryHours": 24,
   "reservationHoldHours": 24,
   "deliveryFeePayment": "upfront",
   "shop": {
     "name": "Boutique DR Choco L’Incompris",
-    "address": "Yaoundé — Boutique officielle DR Choco, immeuble anthracite rez-de-chaussée",
+    "address": "Mokolo, Dubai Market, Yaoundé",
     "city": "Yaoundé",
     "openingHours": "Lun – Sam · 9 h 30 à 19 h 30",
-    "mapsUrl": "https://maps.google.com/?q=Yaounde+Cameroun"
+    "mapsUrl": "https://maps.google.com/?q=Dubai+Market+Mokolo+Yaounde+Cameroun"
   },
   "pickupAddress": {
     "name": "Boutique DR Choco L’Incompris",
     "city": "Yaoundé",
-    "quarter": "Yaoundé Centre",
-    "landmark": "Boutique officielle DR Choco, immeuble anthracite rez-de-chaussée",
+    "quarter": "Mokolo",
+    "landmark": "Dubai Market",
     "openingHours": "Lun – Sam · 9 h 30 à 19 h 30"
   },
   "shops": [
     {
       "city": "Yaoundé",
       "name": "Boutique DR Choco L’Incompris — Yaoundé",
-      "address": "Yaoundé — Boutique officielle DR Choco, immeuble anthracite rez-de-chaussée",
+      "address": "Mokolo, Dubai Market, Yaoundé",
       "openingHours": "Lun – Sam · 9 h 30 à 19 h 30",
-      "mapsUrl": "https://maps.google.com/?q=Yaounde+Cameroun",
+      "mapsUrl": "https://maps.google.com/?q=Dubai+Market+Mokolo+Yaounde+Cameroun",
       "homeDeliveryFee": 1500
     },
     {

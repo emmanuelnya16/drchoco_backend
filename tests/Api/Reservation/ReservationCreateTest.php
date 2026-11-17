@@ -90,28 +90,30 @@ final class ReservationCreateTest extends ReservationTestCase
     {
         $token = $this->loginNamed();
         $connection = $this->em()->getConnection();
-        $connection->executeStatement("UPDATE agencies SET fee = 2200 WHERE id = 'ag-dla-1'");
+        $connection->executeStatement("UPDATE agencies SET fee = 2200 WHERE id = 'ag-dla-travel-lines'");
 
-        $data = $this->reserve($token, $this->pickup(override: ['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-1']));
+        $data = $this->reserve($token, $this->pickup(override: ['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-travel-lines']));
         self::assertSame(201, $this->httpStatus());
         self::assertSame([2200, 47200, 'Douala'], [$data['deliveryFee'], $data['total'], $data['city']]);
-        self::assertSame(['ag-dla-1', 2200, 'Douala'], [$data['agency']['id'], $data['agency']['fee'], $data['agency']['city']]);
-        self::assertSame('ag-dla-1', $data['deliveryAddress']['agencyId']);
+        self::assertSame(['ag-dla-travel-lines', 2200, 'Douala'], [$data['agency']['id'], $data['agency']['fee'], $data['agency']['city']]);
+        self::assertSame('ag-dla-travel-lines', $data['deliveryAddress']['agencyId']);
         self::assertSame($data['agency']['name'], $data['deliveryAddress']['agencyName']);
         self::assertArrayNotHasKey('address', $data);
 
         // Article de Douala envoyé à Yaoundé : agence de Yaoundé.
-        $data = $this->reserve($token, $this->pickup(self::DLA_VARIANT, override: ['receptionMode' => 'delivery', 'city' => 'Yaoundé', 'agencyId' => 'ag-yde-1']));
+        $data = $this->reserve($token, $this->pickup(self::DLA_VARIANT, override: ['receptionMode' => 'delivery', 'city' => 'Yaoundé', 'agencyId' => 'ag-yde-touristique']));
         self::assertSame(201, $this->httpStatus());
-        self::assertSame(['Douala', 'Yaoundé', 1500], [$data['shopCity'], $data['city'], $data['deliveryFee']]);
+        self::assertSame(['Douala', 'Yaoundé', 3000], [$data['shopCity'], $data['city'], $data['deliveryFee']]);
 
-        // Agence d'une autre ville, agence qui ne part que de Douala, agence absente : refusées.
-        $connection->executeStatement("UPDATE agencies SET departure_city = 'Douala' WHERE id = 'ag-baf-1'");
+        // Agence d'une autre ville, agence sans prix confirmé (cachée), agence qui ne part que de Douala, agence
+        // absente : refusées.
+        $connection->executeStatement("UPDATE agencies SET departure_city = 'Douala' WHERE id = 'ag-baf-touristique'");
         foreach ([
-            ['Douala', 'ag-baf-2', 'Choisissez une agence de Douala dans la liste.'],
-            ['Bafoussam', 'ag-baf-1', 'Choisissez une agence de Bafoussam dans la liste.'],
+            ['Douala', 'ag-baf-touristique', 'Choisissez une agence de Douala dans la liste.'],
+            ['Douala', 'ag-dla-mta', 'Choisissez une agence de Douala dans la liste.'],
+            ['Bafoussam', 'ag-baf-touristique', 'Choisissez une agence de Bafoussam dans la liste.'],
             ['Bafoussam', null, 'Choisissez une agence de Bafoussam dans la liste.'],
-            ['Paris', 'ag-dla-1', 'Choisissez une ville de livraison de la liste.'],
+            ['Paris', 'ag-dla-travel-lines', 'Choisissez une ville de livraison de la liste.'],
         ] as [$city, $agencyId, $message]) {
             $data = $this->reserve($token, $this->pickup(override: array_filter(['receptionMode' => 'delivery', 'city' => $city, 'agencyId' => $agencyId])));
             self::assertSame(422, $this->httpStatus(), $message);
@@ -201,8 +203,8 @@ final class ReservationCreateTest extends ReservationTestCase
             [['receptionMode' => 'drone'], 'Choisissez le retrait en boutique ou la livraison.'],
             [['firstName' => '  '], 'Indiquez votre prénom.'],
             [['notes' => str_repeat('a', 201)], 'La remarque ne doit pas dépasser 200 caractères.'],
-            [['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-1', 'recipientType' => 'other', 'recipientName' => 'Paul Essomba', 'recipientPhone' => '0612'], 'Numéro du destinataire invalide : un mobile camerounais (6XX XX XX XX).'],
-            [['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-1', 'recipientType' => 'other', 'recipientName' => '', 'recipientPhone' => '677889900'], 'Indiquez le nom de la personne qui récupérera le colis à l’agence.'],
+            [['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-travel-lines', 'recipientType' => 'other', 'recipientName' => 'Paul Essomba', 'recipientPhone' => '0612'], 'Numéro du destinataire invalide : un mobile camerounais (6XX XX XX XX).'],
+            [['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-travel-lines', 'recipientType' => 'other', 'recipientName' => '', 'recipientPhone' => '677889900'], 'Indiquez le nom de la personne qui récupérera le colis à l’agence.'],
         ] as [$override, $message]) {
             $data = $this->reserve($token, $this->pickup(override: $override));
             self::assertSame(422, $this->httpStatus(), $message);
@@ -216,7 +218,7 @@ final class ReservationCreateTest extends ReservationTestCase
         self::assertSame([self::PHONE, '', 'Appeler avant'], [$data['customer']['phone'], $data['customer']['lastName'], $data['notes']]);
 
         // Envoi par agence pour quelqu'un d'autre : son nom et son numéro sont gardés.
-        $data = $this->reserve($token, $this->pickup(override: ['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-1', 'recipientType' => 'other', 'recipientName' => 'Paul Essomba', 'recipientPhone' => '677 88 99 00']));
+        $data = $this->reserve($token, $this->pickup(override: ['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-travel-lines', 'recipientType' => 'other', 'recipientName' => 'Paul Essomba', 'recipientPhone' => '677 88 99 00']));
         self::assertSame(201, $this->httpStatus());
         self::assertSame(['Paul Essomba', '+237677889900'], [$data['deliveryAddress']['recipientName'], $data['deliveryAddress']['recipientPhone']]);
 

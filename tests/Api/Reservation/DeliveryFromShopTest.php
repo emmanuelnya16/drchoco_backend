@@ -14,25 +14,37 @@ final class DeliveryFromShopTest extends CatalogTestCase
     {
         $byName = fn (array $list) => array_column($list, null, 'name');
 
-        $yde = $byName($this->getJson('/api/delivery/cities'));
-        self::assertSame([true, false, 1500], [$yde['Yaoundé']['isLocal'], $yde['Yaoundé']['hasAgencies'], $yde['Yaoundé']['fee']]);
-        self::assertSame([false, true, 2500], [$yde['Douala']['isLocal'], $yde['Douala']['hasAgencies'], $yde['Douala']['fee']]);
-        self::assertSame($yde, $byName($this->getJson('/api/delivery/cities?from=Yaound%C3%A9')));
+        // Sans boutique (profil, adresses) : toutes les villes.
+        $all = $byName($this->getJson('/api/delivery/cities'));
+        self::assertCount(15, $all);
+        self::assertSame([true, false, 1500], [$all['Yaoundé']['isLocal'], $all['Yaoundé']['hasAgencies'], $all['Yaoundé']['fee']]);
+        self::assertSame([false, true, 1000], [$all['Douala']['isLocal'], $all['Douala']['hasAgencies'], $all['Douala']['fee']], 'à partir du prix le plus bas');
+        self::assertSame([false, false], [$all['Bamenda']['isLocal'], $all['Bamenda']['hasAgencies']]);
 
+        // Avec la boutique de départ (réservation) : seulement les villes où le colis peut arriver.
+        $yde = $byName($this->getJson('/api/delivery/cities?from=Yaound%C3%A9'));
+        self::assertSame(['Yaoundé', 'Douala', 'Bafoussam'], array_keys($yde));
+        self::assertSame([$all['Yaoundé'], $all['Douala']], [$yde['Yaoundé'], $yde['Douala']]);
         $dla = $byName($this->getJson('/api/delivery/cities?from=douala'));
+        self::assertSame(['Yaoundé', 'Douala', 'Bafoussam'], array_keys($dla));
         self::assertSame([true, false, 1500], [$dla['Douala']['isLocal'], $dla['Douala']['hasAgencies'], $dla['Douala']['fee']]);
-        self::assertSame([false, true, 1500], [$dla['Yaoundé']['isLocal'], $dla['Yaoundé']['hasAgencies'], $dla['Yaoundé']['fee']], 'Yaoundé : par agence, à partir du prix le plus bas');
+        self::assertSame([false, true, 1000], [$dla['Yaoundé']['isLocal'], $dla['Yaoundé']['hasAgencies'], $dla['Yaoundé']['fee']]);
 
         // Agence réservée à une boutique : seulement proposée depuis celle-ci ; prix le plus bas affiché.
         $connection = $this->em()->getConnection();
-        $connection->executeStatement("UPDATE agencies SET departure_city = 'Douala', fee = 2000 WHERE id = 'ag-baf-1'");
+        $connection->executeStatement("UPDATE agencies SET is_active = 1, departure_city = 'Douala', fee = 2000 WHERE id = 'ag-baf-mta'");
         $fromDla = array_column($this->getJson('/api/delivery/agencies?city=Bafoussam&from=Douala'), 'fee', 'id');
         $fromYde = array_column($this->getJson('/api/delivery/agencies?city=Bafoussam&from=Yaound%C3%A9'), 'fee', 'id');
-        self::assertSame(['ag-baf-1' => 2000, 'ag-baf-2' => 3000], $fromDla);
-        self::assertSame(['ag-baf-2' => 3000], $fromYde);
+        self::assertSame(['ag-baf-touristique' => 3000, 'ag-baf-mta' => 2000], $fromDla);
+        self::assertSame(['ag-baf-touristique' => 3000], $fromYde);
         self::assertCount(2, $this->getJson('/api/delivery/agencies?city=Bafoussam'), 'sans boutique : toutes');
         self::assertSame(2000, $byName($this->getJson('/api/delivery/cities?from=Douala'))['Bafoussam']['fee']);
         self::assertSame(3000, $byName($this->getJson('/api/delivery/cities?from=Yaound%C3%A9'))['Bafoussam']['fee']);
+
+        // Plus aucune agence vers Bafoussam depuis Yaoundé : la ville n'est plus proposée depuis Yaoundé.
+        $connection->executeStatement("UPDATE agencies SET is_active = 0 WHERE id = 'ag-baf-touristique'");
+        self::assertArrayNotHasKey('Bafoussam', $byName($this->getJson('/api/delivery/cities?from=Yaound%C3%A9')));
+        self::assertArrayHasKey('Bafoussam', $byName($this->getJson('/api/delivery/cities?from=Douala')));
     }
 
     public function testSettingsListOneShopPerCity(): void

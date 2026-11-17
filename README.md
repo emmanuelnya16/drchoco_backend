@@ -29,12 +29,14 @@ L’API répond sous `http://127.0.0.1:8000/api` (ex. `GET /api/health`).
 
 ## Données de départ (`app:seed`)
 
-Les fichiers `data/seed/*.json` reprennent exactement les données de démonstration du front (24 articles répartis entre Yaoundé et Douala, 3 catégories, 4 looks, 15 villes, agences, 9 pages, réglages de paiement USSD).
+Les fichiers `data/seed/*.json` reprennent les données de démonstration du front (24 articles répartis entre Yaoundé et Douala, 3 catégories, 4 looks, 15 villes, 9 pages, réglages de paiement USSD), sauf deux fichiers qui contiennent maintenant des **données réelles** : `agencies.json` (agences d’expédition et leurs prix publiés ; `"isActive": false` = agence enregistrée mais cachée aux clients tant que son prix n’est pas connu) et `settings.json` (boutique de Yaoundé, numéro de la boutique). Ne pas les régénérer depuis les mocks du front.
+
+- À la réservation (`/api/delivery/cities?from=`), seules les villes où le colis peut arriver sont proposées : celle de la boutique (livraison à domicile) et celles qui ont au moins une agence active au départ de cette boutique. Sans `from` (profil, adresses), toutes les villes.
 
 - `php bin/console app:seed` : ajoute ce qui manque, sans rien écraser ni supprimer (sans danger à relancer).
 - `--only=pages,settings` : seulement certaines parties (`categories`, `products`, `looks`, `delivery`, `pages`, `settings`).
 - `--update` : reprend les valeurs du fichier pour ce qui existe déjà (confirmation demandée).
-- Pour régénérer les fichiers depuis les mocks du front : voir `tools/export-front-fixtures.ts`.
+- Pour régénérer les autres fichiers depuis les mocks du front : voir `tools/export-front-fixtures.ts` (sans `agencies.json` ni `settings.json`).
 
 ## Connexion des clients par code SMS (P2)
 

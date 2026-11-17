@@ -126,11 +126,12 @@ final class ReferenceDataTest extends CatalogTestCase
         // Le front envoie le nom ; sans tenir compte des accents ni de la casse ; l'identifiant marche aussi.
         foreach (['Douala', 'douala', 'city-dla'] as $value) {
             $agencies = $this->getJson('/api/delivery/agencies?city=' . rawurlencode($value));
-            self::assertSame(['ag-dla-1', 'ag-dla-2'], array_column($agencies, 'id'), $value);
+            self::assertSame(['ag-dla-travel-lines', 'ag-dla-united-express', 'ag-dla-touristique'], array_column($agencies, 'id'), $value);
         }
         self::assertSame(['id', 'cityId', 'city', 'name', 'address', 'phone', 'openingHours', 'fee', 'departureCity'], array_keys($agencies[0]));
-        self::assertSame([2500, null], [$agencies[0]['fee'], $agencies[0]['departureCity']], 'prix de l’agence : celui de sa ville au départ');
+        self::assertSame(['Travel Lines Cameroun', '+237 640 02 02 02', 1000, null], [$agencies[0]['name'], $agencies[0]['phone'], $agencies[0]['fee'], $agencies[0]['departureCity']], 'prix publié par l’agence');
         self::assertCount(3, $this->getJson('/api/delivery/agencies?city=yaounde'));
+        self::assertSame(['ag-baf-touristique'], array_column($this->getJson('/api/delivery/agencies?city=Bafoussam'), 'id'), 'agences sans prix confirmé : cachées');
 
         self::assertSame([], $this->getJson('/api/delivery/agencies?city=Paris'));
         self::assertSame(200, $this->httpStatus());

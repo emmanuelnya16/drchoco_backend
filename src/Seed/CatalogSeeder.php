@@ -243,7 +243,8 @@ final class CatalogSeeder
                 ->setFee(\is_int($row['fee'] ?? null) ? $row['fee'] : $city->getFee())
                 ->setDepartureCity(\App\Catalog\ShopCity::normalize(\is_string($row['departureCity'] ?? null) ? $row['departureCity'] : null))
                 ->setPosition($positions[$row['cityId']])
-                ->setIsActive(true);
+                // Agence connue mais sans prix confirmé : enregistrée, cachée aux clients (« isActive »: false).
+                ->setIsActive(($row['isActive'] ?? true) !== false);
             $this->em->persist($agency);
         }
 

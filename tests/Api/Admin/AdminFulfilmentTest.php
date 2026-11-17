@@ -71,23 +71,23 @@ final class AdminFulfilmentTest extends AdminReservationTestCase
 
     public function testDeliveryThroughAnAgency(): void
     {
-        ['client' => $client, 'owner' => $owner, 'ref' => $ref] = $this->paid($this->pickup(override: ['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-1']));
+        ['client' => $client, 'owner' => $owner, 'ref' => $ref] = $this->paid($this->pickup(override: ['receptionMode' => 'delivery', 'city' => 'Douala', 'agencyId' => 'ag-dla-travel-lines']));
 
         $detail = $this->adminDetail($owner, $ref);
         $paidFee = $detail['reservation']['deliveryFee'];
-        self::assertSame(['ag-dla-1', 'ag-dla-2'], array_column($detail['availableAgencies'], 'id'));
+        self::assertSame(['ag-dla-travel-lines', 'ag-dla-united-express', 'ag-dla-touristique'], array_column($detail['availableAgencies'], 'id'), 'agences actives seulement');
         self::assertSame(['id', 'cityId', 'city', 'name', 'address', 'phone', 'openingHours', 'fee', 'departureCity'], array_keys($detail['availableAgencies'][0]));
 
         $data = $this->adminApi('POST', '/api/admin/reservations/' . $ref . '/status', $owner, ['status' => 'preparing']);
         self::assertSame(['preparing', 'Préparation du colis en cours.'], [$data['reservation']['status'], end($data['reservation']['timeline'])['note']]);
 
         // Colis remis à une autre agence de Douala : fiche de l'agence changée, prix payé inchangé.
-        $data = $this->packageReady($owner, $ref, [$this->photo()], ['agencyId' => 'ag-dla-2', 'note' => 'Bordereau 4521']);
+        $data = $this->packageReady($owner, $ref, [$this->photo()], ['agencyId' => 'ag-dla-united-express', 'note' => 'Bordereau 4521']);
         self::assertSame(200, $this->httpStatus(), json_encode($data));
         $reservation = $data['reservation'];
         self::assertSame(['handed_to_agency', 'Bordereau 4521'], [$reservation['status'], end($reservation['timeline'])['note']]);
-        self::assertSame(['ag-dla-2', $paidFee], [$reservation['agency']['id'], $reservation['agency']['fee']]);
-        self::assertSame(['ag-dla-2', $reservation['agency']['name']], [$reservation['deliveryAddress']['agencyId'], $reservation['deliveryAddress']['agencyName']]);
+        self::assertSame(['ag-dla-united-express', $paidFee], [$reservation['agency']['id'], $reservation['agency']['fee']]);
+        self::assertSame(['ag-dla-united-express', $reservation['agency']['name']], [$reservation['deliveryAddress']['agencyId'], $reservation['deliveryAddress']['agencyName']]);
         self::assertSame([$paidFee, $detail['reservation']['total']], [$reservation['deliveryFee'], $reservation['total']]);
 
         $data = $this->adminApi('POST', '/api/admin/reservations/' . $ref . '/status', $owner, ['status' => 'in_delivery']);
@@ -102,7 +102,7 @@ final class AdminFulfilmentTest extends AdminReservationTestCase
         ['owner' => $owner, 'ref' => $ref] = $this->paid($this->pickup(override: ['receptionMode' => 'delivery', 'city' => 'Yaoundé', 'district' => 'Bastos', 'landmark' => 'Portail noir']));
         self::assertSame([], $this->adminDetail($owner, $ref)['availableAgencies']);
 
-        $data = $this->packageReady($owner, $ref, [$this->photo()], ['agencyId' => 'ag-yde-1']);
+        $data = $this->packageReady($owner, $ref, [$this->photo()], ['agencyId' => 'ag-yde-travel-lines']);
         self::assertSame([422, 'VALIDATION_ERROR'], [$this->httpStatus(), $data['code']]);
         self::assertSame([], glob(static::getContainer()->getParameter('app.private_media_dir') . '/packages/*/*') ?: [], 'photo refusée : aucun fichier gardé');
 
@@ -144,7 +144,7 @@ final class AdminFulfilmentTest extends AdminReservationTestCase
         }
         $data = $this->adminApi('POST', '/api/admin/reservations/' . $ref . '/package-ready', $owner, ['photos' => [['url' => 'blob:http://localhost/x', 'width' => 1, 'height' => 1]]]);
         self::assertSame([422, 'PHOTOS_REQUIRED'], [$this->httpStatus(), $data['code']], 'liens blob: en JSON refusés');
-        $data = $this->packageReady($owner, $ref, [$this->photo()], ['agencyId' => 'ag-yde-1']);
+        $data = $this->packageReady($owner, $ref, [$this->photo()], ['agencyId' => 'ag-yde-travel-lines']);
         self::assertSame([422, 'INVALID_RECEPTION_MODE'], [$this->httpStatus(), $data['code']]);
 
         ['ref' => $waiting] = $this->reservationWithProof($this->pickup(self::DLA_VARIANT, override: ['phone' => '+237690000002']), '+237690000002');

@@ -26,7 +26,9 @@ final class DeliveryController
     #[Route('/delivery/cities', name: 'api_delivery_cities', methods: ['GET'])]
     public function cities(Request $request): JsonResponse
     {
-        return ApiJson::publicCached($request, $this->options->publicCities(DeliveryOptions::origin($request->query->get('from'))));
+        $from = $request->query->get('from');
+
+        return ApiJson::publicCached($request, $this->options->publicCities(DeliveryOptions::origin($from), trim((string) $from) !== ''));
     }
 
     /**
