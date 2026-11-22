@@ -6,7 +6,7 @@
       "merchantCode": "909935",
       "ussdTemplate": "#150*14*{code}*640073363*{amount}#",
       "accountName": "DR CHOCO L'INCOMPRIS SARL (SODISERV)",
-      "qrCodeUrl": "/mock/qr-orange.svg"
+      "qrCodeUrl": "/paiement/qr-orange-money.png"
     },
     {
       "code": "mtn",
@@ -14,7 +14,7 @@
       "merchantCode": "00267749",
       "ussdTemplate": "*126*16*{code}*{amount}#",
       "accountName": "DR CHOCO L'INCOMPRIS SARL (SODISERV)",
-      "qrCodeUrl": "/mock/qr-mtn.svg"
+      "qrCodeUrl": "/paiement/qr-mtn-momo.png"
     }
   ],
   "payment": {
@@ -25,9 +25,10 @@
         "merchantName": "DR CHOCO L'INCOMPRIS SARL (SODISERV)",
         "merchantCode": "909935",
         "ussdTemplate": "#150*14*{code}*640073363*{amount}#",
-        "qrImageUrl": "/mock/qr-orange.svg",
+        "qrImageUrl": "/paiement/qr-orange-money.png",
         "steps": [
           "Appuyez sur « Composer le code de paiement » ou copiez le code USSD complet (le montant de votre facture y est déjà intégré automatiquement).",
+          "Depuis un autre téléphone : scannez le QR code, le clavier s’ouvre avec le code marchand ; ajoutez le montant exact (sans espace) puis « # » et lancez l’appel.",
           "Code marchand : 909935 · Numéro de compte Orange Money : 640073363.",
           "Vérifiez que le destinataire affiché est « DR CHOCO L'INCOMPRIS SARL (SODISERV) », puis validez avec OK et votre code secret Orange Money."
         ],
@@ -39,9 +40,10 @@
         "merchantName": "DR CHOCO L'INCOMPRIS SARL (SODISERV)",
         "merchantCode": "00267749",
         "ussdTemplate": "*126*16*{code}*{amount}#",
-        "qrImageUrl": "/mock/qr-mtn.svg",
+        "qrImageUrl": "/paiement/qr-mtn-momo.png",
         "steps": [
           "Appuyez sur « Composer le code de paiement » ou copiez le code USSD complet (le montant de votre facture y est déjà intégré automatiquement).",
+          "Depuis un autre téléphone : scannez le QR code, le clavier s’ouvre avec le code marchand ; ajoutez le montant exact (sans espace) puis « # » et lancez l’appel.",
           "Identifiant de l’agent (Agent ID) : 00267749, le même que sur l’affiche et le QR code de la boutique.",
           "Vérifiez que le nom du marchand est « DR CHOCO L'INCOMPRIS SARL (SODISERV) », puis validez avec votre code PIN MTN Mobile Money."
         ],
