@@ -352,6 +352,15 @@ final class ReservationCreator
             ->setNotes($plan['notes'])
             ->setIdempotency($key, $hash);
 
+        // Profil sans nom (étape « Plus tard » à la connexion) : le nom donné pour la réservation le complète.
+        // Un nom déjà enregistré n'est jamais remplacé.
+        if (($user->getFirstName() ?? '') === '') {
+            $user->setFirstName($plan['firstName']);
+            if (($user->getLastName() ?? '') === '' && $plan['lastName'] !== '') {
+                $user->setLastName($plan['lastName']);
+            }
+        }
+
         $hours = max(1, min(72, (int) $settings['reservationHoldHours']));
         $reservation->setHold($hours, $now->modify(sprintf('+%d hours', $hours)));
 

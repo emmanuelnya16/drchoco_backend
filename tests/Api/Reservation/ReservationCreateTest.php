@@ -63,6 +63,21 @@ final class ReservationCreateTest extends ReservationTestCase
         self::assertSame(5, $this->stock(self::DLA_VARIANT));
     }
 
+    public function testProfileWithoutNameIsCompletedByTheReservation(): void
+    {
+        // Client qui a choisi « Plus tard » à la connexion : le nom de sa réservation remplit son profil.
+        $token = $this->login()['token'];
+        $this->reserve($token, $this->pickup(override: ['firstName' => 'Awa', 'lastName' => 'Ndzie']));
+        self::assertSame(201, $this->httpStatus());
+        $me = $this->api('GET', '/api/me', $token);
+        self::assertSame(['Awa', 'Ndzie'], [$me['firstName'] ?? null, $me['lastName'] ?? null]);
+
+        // Un nom déjà enregistré n'est jamais remplacé.
+        $this->reserve($token, $this->pickup(override: ['firstName' => 'Paul', 'lastName' => 'Essomba']));
+        self::assertSame(201, $this->httpStatus());
+        self::assertSame('Awa', $this->api('GET', '/api/me', $token)['firstName'] ?? null);
+    }
+
     public function testHomeDeliveryInsideTheShopCity(): void
     {
         $token = $this->loginNamed();
