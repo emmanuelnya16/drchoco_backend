@@ -1,6 +1,6 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **83 %** (P0 à P7 terminées)
+Avancement total : **89 %** (P0 à P8 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
@@ -12,7 +12,7 @@ Avancement total : **83 %** (P0 à P7 terminées)
 | **P5** | Réservations et paiement USSD | 8 + 2 crons | 15 % | ✅ Terminée |
 | **P6** | Gestion des réservations (admin) | 10 | 10 % | ✅ Terminée |
 | **P7** | Notifications push et tableau de bord | 4 + déclencheurs | 8 % | ✅ Terminée |
-| **P8** | Réglages, livraison et pages (admin) | 10 | 6 % | ⏳ À faire |
+| **P8** | Réglages, livraison et pages (admin) | 13 | 6 % | ✅ Terminée |
 | **P9** | SEO, sécurité, tests de bout en bout | — | 6 % | ⏳ À faire |
 | **P10** | Mise en ligne sur cPanel | — | 5 % | ⏳ À faire |
 
@@ -192,7 +192,21 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
   - relecture adverse (4 relecteurs + contre-vérification) : 9 constats, 6 confirmés, tous corrigés — dont la purge qui pouvait retirer l’appareil d’un client encore connecté ;
   - navigateur sur la vraie API, avec un faux service de push local : notifications de l’équipe et du client reçues, déchiffrées et contrôlées (textes, photo du colis, signature VAPID, en-têtes), remises au vrai service worker et affichées dans l’administration et dans l’application, chiffre d’affaires du jour affiché — 21/21, aussi après les corrections
 
-À faire en P8 : réglages, livraison (villes, agences et leurs prix) et pages dans l’administration.
+## P8 — Réglages, livraison et pages (admin) ✅
+
+- [x] Réglages (`GET`/`PATCH /api/admin/settings`) : modification partielle vérifiée en entier avant d’enregistrer ; opérateurs Mobile Money (nom, code marchand, code USSD composable, QR code, étapes, actif ; au moins un actif), délai de paiement, taille maximale d’une capture (limitée à ce que le serveur accepte), paiement des frais de livraison, WhatsApp, une boutique par ville (nom, adresse, horaires, lien Maps, prix de la livraison à domicile) ; ancienne boutique principale tenue à jour ; enregistrements simultanés sans écrasement ; changements de codes marchands signalés dans le journal
+- [x] Villes de livraison (`/api/admin/delivery/cities`) : ajout, modification, suppression ; Yaoundé et Douala protégées (ni renommées, ni masquées, ni supprimées) ; ville avec agences non supprimée (409, message clair) ; ville renommée aussi dans les adresses et profils des clients
+- [x] Agences (`/api/admin/delivery/agencies`) : ajout, modification, suppression ; prix propre ou prix de la ville, boutique de départ, proposée ou masquée ; téléphone mis en forme
+- [x] Pages (`/api/admin/pages`) : les 9 pages en Markdown, publiées à l’enregistrement, passages « [À COMPLÉTER …] » comptés, espaces insécables du français (même règle que le front)
+- [x] Réservé au super admin (règle d’accès et contrôle dans chaque route) ; vendeur : 403
+- [x] Corrections trouvées en relecture : un opérateur désactivé après paiement n’empêche plus l’envoi de la preuve ; carnet d’adresses : livraison à domicile acceptée à Douala ; FAQ et page « Livraison et retrait » à jour pour les deux boutiques
+- [x] Front (non enregistré dans git) : écran des réglages (boutiques de Yaoundé et de Douala, prix de la livraison à domicile), villes et agences (prix, boutique de départ, proposée), pages, messages d’erreur ; réglages publics toujours relus sur le réseau par le service worker (codes de paiement jamais périmés) ; contrat mis à jour (`docs/CONTRAT_API_ADMIN.md` §5)
+- [x] Vérifications :
+  - 10 nouveaux tests (259 au total), aussi dans le désordre ;
+  - relecture adverse : 9 constats (aucun grave), tous corrigés, et un défaut plus ancien du carnet d’adresses ;
+  - navigateur sur la vraie API (écrans réels) : boutique de Douala et prix de la livraison à domicile, code marchand, ville et agence ajoutées puis visibles ou cachées pour les clients, page modifiée et publiée, vendeur refusé — 22/22, aussi après les corrections
+
+À faire en P9 : SEO (pages produits, plan du site), contrôle de sécurité complet et test de bout en bout de tout le parcours.
 
 ## Décisions prises
 
@@ -208,6 +222,7 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 | 2026-11-17 | Boutique de Yaoundé | Mokolo, Dubai Market, Yaoundé ; téléphone +237 678 79 47 17 (aussi pris comme numéro WhatsApp de la boutique) |
 | 2026-11-17 | Notifications push (choix par défaut, P7) | Le client reçoit la référence seulement (jamais son téléphone) ; l’équipe reçoit le nom et le montant ; pas de notification pour la préparation ni l’expiration ; ventes datées par la validation du paiement, « aujourd’hui » depuis minuit à l’heure du Cameroun |
 | 2026-11-17 | Agences d’expédition (données de départ) | Agences réelles relevées par le propriétaire, au prix publié d’un colis de 0 à 5 kg : Travel Lines Cameroun (1 000 FCFA, Yaoundé ↔ Douala), United Express (à partir de 1 000 FCFA, Yaoundé ↔ Douala), Touristique Express (à partir de 3 000 FCFA, Yaoundé, Douala, Bafoussam). Enregistrées mais cachées tant que leur prix n’est pas connu (devis) : MTA Express, JFI Express, GT Transport (G2T SARL) dans les trois villes. Les 31 agences fictives des maquettes sont retirées. À la réservation, seules les villes où le colis peut arriver sont proposées (aujourd’hui Yaoundé, Douala, Bafoussam) |
+| 2026-11-21 | Réglages dans l’administration (choix par défaut, P8) | Super admin seulement ; Yaoundé et Douala ni renommées, ni masquées, ni supprimées ; un opérateur désactivé n’est plus proposé, mais une preuve déjà payée par lui reste acceptée ; textes affichés avec les espaces insécables du français |
 
 ## Points ouverts (à décider)
 
@@ -215,8 +230,8 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 |---|---|---|
 | P10 | Compte Twilio **d’essai** (expéditeur +1) : SMS seulement vers des numéros vérifiés | En attente des clés du compte payant : il suffira de remplacer `TWILIO_*` dans `.env.local` (aucun code à changer). D’ici là : numéros vérifiés dans la console Twilio, ou `OTP_SMS_TRANSPORT=log` en développement |
 | P10 | Domaine de l’app pour le remplissage automatique du code sur Android | `OTP_WEBOTP_HOST=<domaine>` dans `.env.local` |
-| P8 | Textes « [À COMPLÉTER] » des pages légales ; écran des réglages de l’administration (valeurs par défaut « Yaoundé Centre », « +237 690 00 00 00 » encore écrites dans le front) | À saisir dans l'administration (P8) ou à me transmettre pour les données de départ |
-| P8 | Boutique de Douala : adresse exacte, horaires, lien Maps (aujourd'hui « adresse exacte à confirmer ») ; horaires de la boutique de Yaoundé (aujourd’hui « Lun – Sam · 9 h 30 à 19 h 30 », supposés) ; prix de la livraison à domicile dans chaque ville (1 500 FCFA supposé à Yaoundé et à Douala) ; adresses et horaires des agences (« à confirmer par téléphone ») ; prix réels d’United Express et de Touristique Express (prix « à partir de ») ; prix de MTA Express, JFI Express et GT Transport pour les activer ; agences dans les autres villes (Bamenda, Buea, Kribi…), qui ne sont pas proposées tant qu’elles n’en ont pas | À saisir dans l'administration (P8) ou à me transmettre |
+| P10 | Textes « [À COMPLÉTER] » des pages légales et de la FAQ | À saisir dans l’administration (Pages) avant la mise en ligne ; le nombre restant y est affiché |
+| P10 | Boutique de Douala : adresse exacte, horaires, lien Maps (aujourd'hui « adresse exacte à confirmer ») ; horaires de la boutique de Yaoundé (aujourd’hui « Lun – Sam · 9 h 30 à 19 h 30 », supposés) ; prix de la livraison à domicile dans chaque ville (1 500 FCFA supposé à Yaoundé et à Douala) ; adresses et horaires des agences (« à confirmer par téléphone ») ; prix réels d’United Express et de Touristique Express (prix « à partir de ») ; prix de MTA Express, JFI Express et GT Transport pour les activer ; agences dans les autres villes (Bamenda, Buea, Kribi…), qui ne sont pas proposées tant qu’elles n’en ont pas | À saisir dans l’administration (Réglages, Livraison) avant la mise en ligne, ou à me transmettre |
 | P10 | Captures de paiement et photos du colis gardées dans `var/private/proofs` et `var/private/packages` (hors du site public) : à inclure dans les sauvegardes | Sauvegarde avec la base ; conservation de 12 mois décidée (suppression automatique en P10) |
 | P10 | Offre cPanel (PHP, base, SSH, crons) et domaine (.cm ou .com) | — |
 | P10 | Notifications push en production | Créer les clés une fois sur le serveur (`app:push:vapid-keys --write=.env.local`), construire le front avec la clé publique (`VITE_VAPID_PUBLIC_KEY`), tâche `app:push:send` chaque minute ; vérifier que l’hébergeur autorise une tâche par minute |

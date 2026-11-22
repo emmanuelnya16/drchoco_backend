@@ -64,12 +64,19 @@ final class AddressesTest extends AccountTestCase
         self::assertSame(201, $this->httpStatus());
         self::assertSame(['Douala', 'ag-dla-travel-lines', 'Paul Essomba', '+237677889900'], [$data['city'], $data['agencyId'], $data['recipientName'], $data['recipientPhone']]);
 
-        // Agence d'une autre ville, ou pas d'agence : refusé.
+        // Agence d'une autre ville : refusé. Ville par agence sans agence : refusé.
         $data = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Douala', 'district' => 'Douala', 'landmark' => 'x', 'receptionMode' => 'delivery', 'agencyId' => 'ag-yde-travel-lines']);
         self::assertSame(422, $this->httpStatus());
         self::assertArrayHasKey('agencyId', $data['details']);
-        $data = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Douala', 'district' => 'Douala', 'landmark' => 'x', 'receptionMode' => 'delivery']);
+        $data = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Autre', 'city' => 'Bafoussam', 'district' => 'Bafoussam', 'landmark' => 'Carrefour Total', 'receptionMode' => 'delivery']);
+        self::assertSame(422, $this->httpStatus());
         self::assertArrayHasKey('agencyId', $data['details']);
+
+        // Douala, ville d'une boutique : livraison à domicile possible, sans agence.
+        $data = $this->api('POST', '/api/me/addresses', $token, ['label' => 'Maison', 'city' => 'Douala', 'district' => 'Bonapriso', 'landmark' => 'Derrière la boulangerie Saker', 'receptionMode' => 'delivery', 'agencyId' => null]);
+        self::assertSame(201, $this->httpStatus(), json_encode($data));
+        self::assertSame(['Douala', 'Bonapriso'], [$data['city'], $data['district']]);
+        self::assertArrayNotHasKey('agencyId', $data);
     }
 
     public function testAgencyNameAndCityAreFilledInWhenMissing(): void
@@ -136,10 +143,13 @@ final class AddressesTest extends AccountTestCase
         $data = $this->api('PATCH', '/api/me/addresses/' . $address['id'], $token, ['label' => 'Bureau']);
         self::assertSame(['Bureau', 'Bastos', 'Immeuble Mirage 3e étage'], [$data['label'], $data['district'], $data['landmark']]);
 
-        // Passage à une ville par agence sans agence : refusé.
-        $data = $this->api('PATCH', '/api/me/addresses/' . $address['id'], $token, ['city' => 'Douala']);
+        // Passage à une ville par agence sans agence : refusé ; à Douala (boutique) : livraison à domicile.
+        $data = $this->api('PATCH', '/api/me/addresses/' . $address['id'], $token, ['city' => 'Bafoussam']);
         self::assertSame(422, $this->httpStatus());
         self::assertArrayHasKey('agencyId', $data['details']);
+        $data = $this->api('PATCH', '/api/me/addresses/' . $address['id'], $token, ['city' => 'Douala', 'district' => 'Akwa']);
+        self::assertSame([200, 'Douala', 'Akwa'], [$this->httpStatus(), $data['city'], $data['district']]);
+        self::assertArrayNotHasKey('agencyId', $data);
     }
 
     public function testDeletingTheDefaultPromotesTheFirstRemaining(): void

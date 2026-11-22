@@ -34,8 +34,9 @@ final class PurgeCommandTest extends KernelTestCase
 
         $lockDir = static::getContainer()->getParameter('kernel.project_dir') . '/var/lock';
         @mkdir($lockDir, 0777, true);
-        touch($old = $lockDir . '/sf.test-purge-ancien.abc.lock', time() - 3 * 86400);
-        touch($fresh = $lockDir . '/sf.test-purge-recent.abc.lock');
+        // Dates des fichiers par rapport à l'horloge figée du test (et non à la date réelle du passage).
+        touch($old = $lockDir . '/sf.test-purge-ancien.abc.lock', strtotime('2026-11-16 10:00:00 UTC') - 3 * 86400);
+        touch($fresh = $lockDir . '/sf.test-purge-recent.abc.lock', strtotime('2026-11-16 10:00:00 UTC'));
 
         $tester = new CommandTester((new Application(self::$kernel))->find('app:purge'));
         self::assertSame(0, $tester->execute([]));

@@ -4,6 +4,7 @@ namespace App\Account;
 
 use App\Api\ApiException;
 use App\Entity\Address;
+use App\Catalog\ShopCity;
 use App\Entity\Agency;
 use App\Entity\DeliveryCity;
 use App\Entity\User;
@@ -214,7 +215,7 @@ final class AddressBook
 
         if ($city === null) {
             $errors['city'] = 'Choisissez votre ville de livraison.';
-        } elseif (!$city->isLocal() && $city->hasAgencies()) {
+        } elseif ($this->usesAgency($city, $value('agencyId', $current?->getAgencyId()))) {
             $agency = $this->agency($value('agencyId', $current?->getAgencyId()), $city);
             if ($agency === null) {
                 $errors['agencyId'] = 'Choisissez l’agence de transport où récupérer votre colis.';
@@ -296,6 +297,19 @@ final class AddressBook
         $raw = TextInput::clean($raw);
 
         return ($raw === null || $raw === '' || TextInput::length($raw) > 100) ? null : $this->cities->findVisibleByIdOrName($raw);
+    }
+
+    /**
+     * Adresse par agence ou à domicile. Villes des boutiques (Yaoundé, Douala) : les deux, selon la boutique des
+     * articles (P5) — par agence si une agence est choisie, sinon à domicile. Autres villes : selon la ville.
+     */
+    private function usesAgency(DeliveryCity $city, mixed $agencyId): bool
+    {
+        if (ShopCity::normalize($city->getName()) !== null) {
+            return \is_string($agencyId) && $agencyId !== '';
+        }
+
+        return !$city->isLocal() && $city->hasAgencies();
     }
 
     private function agency(mixed $raw, DeliveryCity $city): ?Agency

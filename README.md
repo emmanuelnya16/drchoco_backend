@@ -125,6 +125,17 @@ Trois rôles : **owner** (propriétaire) et **manager** (gérant) sont super adm
 - Chaque minute : `php bin/console app:push:send` (notifications en attente).
 - Chaque jour : `php bin/console app:purge` (codes SMS, sessions, verrous, notifications de plus de 7 jours, appareils inactifs depuis 90 jours).
 
+## Réglages, livraison et pages dans l’administration (P8)
+
+Réservé au super admin (propriétaire, gérant) ; un vendeur reçoit 403. Chaque modification est visible tout de suite par les clients.
+
+- **Réglages** (`GET`/`PATCH /api/admin/settings`, modification partielle, rien n’est enregistré si un champ est invalide) : opérateurs Mobile Money (nom et code marchand — chiffres seulement s’il est composé dans le code USSD —, code USSD qui commence par `*` ou `#`, finit par `#` et contient `{code}` et `{amount}`, image du QR code, étapes, actif ; au moins un actif ; un opérateur désactivé n’est plus proposé, mais une preuve déjà payée par lui reste acceptée), délai de paiement (1 à 72 h), taille maximale d’une capture (1 à 25 Mo, et jamais plus que la limite d’envoi de PHP), paiement des frais de livraison, numéro WhatsApp, **une boutique par ville** (`shops` : nom, adresse, horaires, lien Maps, prix de la livraison à domicile). Les changements de codes marchands sont signalés dans le journal ; deux enregistrements simultanés ne s’écrasent pas.
+- **Villes de livraison** (`/api/admin/delivery/cities`) : ajout, modification, suppression. Yaoundé et Douala (villes des boutiques) ne peuvent être ni renommées, ni masquées, ni supprimées ; une ville qui a encore des agences n’est pas supprimée (409). Une ville renommée l’est aussi dans les adresses et les profils des clients.
+- **Agences** (`/api/admin/delivery/agencies`) : ajout, modification, suppression ; prix propre (vide = prix de la ville), boutique de départ (Yaoundé, Douala ou les deux), proposée aux clients ou masquée. Une agence masquée ou sans agence active : la ville n’est pas proposée à la réservation.
+- **Pages** (`/api/admin/pages`) : les 9 pages légales, d’aide et la FAQ, en Markdown, publiées dès l’enregistrement ; les passages « [À COMPLÉTER …] » restants sont comptés ; les espaces insécables du français sont ajoutées.
+- Textes affichés (horaires, adresses, délais, étapes) : espaces insécables du français ajoutées, comme dans les pages.
+- Carnet d’adresses du client : à Yaoundé et à Douala, livraison à domicile ou par agence (selon l’agence choisie) ; ailleurs, selon la ville.
+
 ## Brancher le front sur cette API
 
 Dans le front (`.env.local`) :
@@ -140,11 +151,13 @@ Réservations (P5) : ajouter `/reservations,/media`.
 
 Administration (P3, P4 et P6) : ajouter `/admin/auth,/admin/sellers,/admin/customers,/admin/search,/admin/dashboard,/admin/products,/admin/categories,/admin/looks,/admin/media,/admin/reservations`.
 
-Notifications push (P7) : ajouter `/push,/admin/push`, construire le front avec `VITE_PWA_ENABLED=true` et `VITE_VAPID_PUBLIC_KEY` = la clé publique du serveur. Les écrans de réglages restent simulés et ne reconnaissent pas le vrai jeton admin : ils afficheront une erreur jusqu’à la phase P8.
+Notifications push (P7) : ajouter `/push,/admin/push`, construire le front avec `VITE_PWA_ENABLED=true` et `VITE_VAPID_PUBLIC_KEY` = la clé publique du serveur.
+
+Réglages, livraison et pages (P8) : ajouter `/admin/settings,/admin/delivery,/admin/pages`.
 
 - `VITE_DEV_API_PROXY` relaie `/api` du serveur Vite vers cette API : même domaine, comme en production, indispensable au cookie de session.
 - **Bascule progressive** : les routes listées dans `VITE_API_REAL_ROUTES` partent vers l’API, le reste reste simulé (tant que `/reservations` est simulé, les mocks montrent les réservations de démonstration).
-- **Tout réel** : `VITE_API_MOCK=false` (les écrans de réglages de l’administration attendent la phase P8).
+- **Tout réel** : `VITE_API_MOCK=false` (tous les écrans utilisent alors l’API).
 
 ## Tests
 

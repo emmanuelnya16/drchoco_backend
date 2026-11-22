@@ -147,14 +147,10 @@ final class ProofUploader
         }
 
         $errors = [];
+        // Tout opérateur connu est accepté, même désactivé depuis dans l'administration (P8) : « actif » ne règle
+        // que les moyens proposés pour payer ; un client qui a déjà payé par cet opérateur doit pouvoir le prouver.
         $operator = (string) $request->request->get('operator', '');
-        $enabled = [];
-        foreach ($this->settings->get()['payment']['operators'] as $op) {
-            if ($op['enabled']) {
-                $enabled[$op['id']] = true;
-            }
-        }
-        if (!isset(self::OPERATOR_NOTES[$operator]) || !isset($enabled[$operator])) {
+        if (!isset(self::OPERATOR_NOTES[$operator])) {
             $errors['operator'] = 'Choisissez l’opérateur utilisé pour payer (Orange Money ou MTN MoMo).';
         }
 

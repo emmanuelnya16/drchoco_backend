@@ -2,6 +2,8 @@
 
 namespace App\Tests\Api\Reservation;
 
+use App\Entity\AppSetting;
+use App\Settings\PublicSettingsProvider;
 use App\Tests\ReservationTestCase;
 
 /**
@@ -9,6 +11,28 @@ use App\Tests\ReservationTestCase;
  */
 final class ProofTest extends ReservationTestCase
 {
+    public function testProofIsAcceptedForAnOperatorDisabledAfterPayment(): void
+    {
+        $token = $this->loginNamed();
+        $ref = $this->reserve($token, $this->pickup())['ref'];
+
+        // Le client a payé par MTN MoMo, puis la boutique désactive MTN MoMo : sa capture reste acceptée.
+        $settings = static::getContainer()->get(PublicSettingsProvider::class)->get();
+        unset($settings['operators'], $settings['reservationExpiryHours']);
+        foreach ($settings['payment']['operators'] as $i => $op) {
+            $settings['payment']['operators'][$i]['enabled'] = $op['id'] !== 'mtn';
+        }
+        $em = $this->em();
+        $setting = $em->find(AppSetting::class, AppSetting::PUBLIC) ?? new AppSetting(AppSetting::PUBLIC);
+        $setting->setValue($settings);
+        $em->persist($setting);
+        $em->flush();
+
+        $data = $this->uploadProof($token, $ref, $this->file(), ['operator' => 'mtn']);
+        self::assertSame(201, $this->httpStatus(), json_encode($data));
+        self::assertSame('mtn', $data['proof']['operator']);
+    }
+
     public function testProofIsStoredPrivatelyWithoutMetadata(): void
     {
         $token = $this->loginNamed();
