@@ -15,22 +15,35 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * enregistrement idempotent par appareil, 10 appareils au plus par compte.
  *
  * Le serveur envoie ensuite des requêtes vers l'endpoint : seuls les services de push des navigateurs sont
- * acceptés (sinon on pourrait lui faire appeler n'importe quelle adresse).
+ * acceptés, en https et sur le port 443 (sinon on pourrait lui faire appeler n'importe quelle adresse).
  */
 final class PushSubscriptions
 {
     public const MAX_DEVICES = 10;
 
-    /** Services de push connus (suffixes d'hôte, en https). */
-    private const PUSH_HOSTS = ['fcm.googleapis.com', '.googleapis.com', '.push.services.mozilla.com', 'web.push.apple.com', '.push.apple.com', '.notify.windows.com'];
+    /** Services de push connus (hôtes exacts, ou suffixes commençant par un point). */
+    private const PUSH_HOSTS = ['fcm.googleapis.com', 'android.googleapis.com', 'jmt17.google.com', '.push.services.mozilla.com', 'web.push.apple.com', '.push.apple.com', '.notify.windows.com'];
 
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $clock,
-        /** Hôtes ajoutés pour les tests de bout en bout (faux service de push local), séparés par des virgules. */
+        private readonly string $appEnv,
+        /** Hôtes ajoutés pour les tests de bout en bout (faux service de push local) ; ignorés en production. */
         #[Autowire('%env(string:default::PUSH_EXTRA_HOSTS)%')]
         private readonly string $extraHosts = '',
     ) {}
+
+    /** Retire tous les appareils d'un membre de l'équipe (mot de passe changé, compte désactivé). */
+    public function forgetAdmin(int $adminId): void
+    {
+        $this->em->getConnection()->executeStatement('DELETE FROM push_subscriptions WHERE owner_kind = ? AND admin_id = ?', [PushSubscription::KIND_ADMIN, $adminId]);
+    }
+
+    /** Retire tous les appareils d'un client (compte bloqué, sessions coupées). */
+    public function forgetUser(int $userId): void
+    {
+        $this->em->getConnection()->executeStatement('DELETE FROM push_subscriptions WHERE owner_kind = ? AND user_id = ?', [PushSubscription::KIND_USER, $userId]);
+    }
 
     /**
      * Enregistre l'appareil pour ce compte (client ou équipe).
@@ -104,12 +117,14 @@ final class PushSubscriptions
             return false;
         }
         $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-        foreach (array_filter(array_map('trim', explode(',', strtolower($this->extraHosts)))) as $extra) {
-            if ($host === $extra && \in_array($scheme, ['http', 'https'], true)) {
-                return true;
+        if ($this->appEnv !== 'prod') {
+            foreach (array_filter(array_map('trim', explode(',', strtolower($this->extraHosts)))) as $extra) {
+                if ($host === $extra && \in_array($scheme, ['http', 'https'], true)) {
+                    return true;
+                }
             }
         }
-        if ($scheme !== 'https') {
+        if ($scheme !== 'https' || !\in_array($parts['port'] ?? 443, [443], true) || preg_match('/^[a-z0-9.-]+\z/', $host) !== 1) {
             return false;
         }
         foreach (self::PUSH_HOSTS as $allowed) {

@@ -64,11 +64,37 @@ final class PushVapidKeysCommand extends Command
         }
         $content = preg_replace('/^VAPID_(PUBLIC|PRIVATE)_KEY=.*\R?/m', '', $content) ?? $content;
         $content = rtrim($content) . ($content !== '' ? "\n" : '') . 'VAPID_PUBLIC_KEY=' . $keys['publicKey'] . "\nVAPID_PRIVATE_KEY=" . $keys['privateKey'] . "\n";
-        file_put_contents($path, $content);
+        if (!self::replaceFile($path, $content)) {
+            $io->error('Écriture impossible dans ' . $file . ' (disque plein ou droits) : rien n’a été modifié.');
+
+            return Command::FAILURE;
+        }
 
         $io->success('Clés VAPID écrites dans ' . $file . '.');
         $io->writeln('Clé publique, à mettre dans le front (VITE_VAPID_PUBLIC_KEY) : ' . $keys['publicKey']);
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Le fichier contient les autres secrets du site : il est remplacé d'un coup par une copie complète, lisible du seul
+     * compte (0600), jamais tronqué en cours d'écriture.
+     */
+    private static function replaceFile(string $path, string $content): bool
+    {
+        $temporary = $path . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        $handle = @fopen($temporary, 'x');
+        if ($handle === false) {
+            return false;
+        }
+        @chmod($temporary, 0600);
+        $complete = fwrite($handle, $content) === \strlen($content) && fflush($handle);
+        fclose($handle);
+        if ($complete && @rename($temporary, $path)) {
+            return true;
+        }
+        @unlink($temporary);
+
+        return false;
     }
 }

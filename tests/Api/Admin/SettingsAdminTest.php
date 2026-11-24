@@ -160,4 +160,57 @@ final class SettingsAdminTest extends AdminTestCase
         $this->api('GET', '/api/admin/settings', $this->adminToken('gerant@drchoco.cm'));
         self::assertSame(200, $this->httpStatus(), 'le gérant est super admin');
     }
+
+    public function testANewMerchantCodeNeverKeepsTheOldQrCode(): void
+    {
+        $token = $this->owner();
+        $patch = fn (array $operator): array => array_column($this->api('PATCH', '/api/admin/settings', $token, ['payment' => ['operators' => [$operator]]])['settings']['payment']['operators'], null, 'id')[$operator['id']];
+        $orange = $patch(['id' => 'orange', 'qrImageUrl' => '/paiement/qr-orange.png', 'steps' => ['Composez #150*14*909935*640073363*Montant#', 'Vérifiez le code 909935.', 'Le numéro 19099350 ne change pas.']]);
+        self::assertSame('/paiement/qr-orange.png', $orange['qrImageUrl']);
+
+        // Rien de changé d'important : le QR code reste.
+        self::assertSame('/paiement/qr-orange.png', $patch(['id' => 'orange', 'merchantCode' => '909935', 'label' => 'Orange Money', 'qrImageUrl' => '/paiement/qr-orange.png'])['qrImageUrl']);
+
+        // Nouveau code sans nouvelle image : QR code retiré, étapes mises à jour.
+        $orange = $patch(['id' => 'orange', 'merchantCode' => '123456', 'qrImageUrl' => '/paiement/qr-orange.png']);
+        self::assertSame(['123456', null], [$orange['merchantCode'], $orange['qrImageUrl']]);
+        self::assertSame(['Composez #150*14*123456*640073363*Montant#', 'Vérifiez le code 123456.', 'Le numéro 19099350 ne change pas.'], $orange['steps']);
+        self::assertSame($orange, array_column($this->publicSettings()['payment']['operators'], null, 'id')['orange']);
+
+        // Nouveau code avec sa nouvelle image : gardée. Nouveau code USSD seul : retirée aussi.
+        self::assertSame('/paiement/qr-2.png', $patch(['id' => 'orange', 'merchantCode' => '654321', 'qrImageUrl' => '/paiement/qr-2.png'])['qrImageUrl']);
+        self::assertNull($patch(['id' => 'orange', 'ussdTemplate' => '#150*15*{code}*{amount}#'])['qrImageUrl']);
+
+        // Étapes écrites dans la même demande : gardées telles quelles.
+        self::assertSame(['Ancien code 654321'], $patch(['id' => 'orange', 'merchantCode' => '111222', 'steps' => ['Ancien code 654321']])['steps']);
+
+        // Une étape modifiée en même temps que le code : les autres suivent quand même le nouveau code.
+        $steps = ['Composez le code 111222.', 'Vérifiez le montant.'];
+        $patch(['id' => 'orange', 'steps' => $steps]);
+        self::assertSame(['Composez le code 333444.', 'Vérifiez bien le montant.'], $patch(['id' => 'orange', 'merchantCode' => '333444', 'steps' => ['Composez le code 111222.', 'Vérifiez bien le montant.']])['steps']);
+
+        // Numéro de compte écrit dans le code USSD (Orange Money) : les étapes qui le citent suivent aussi.
+        $patch(['id' => 'orange', 'ussdTemplate' => '#150*14*{code}*640073363*{amount}#', 'steps' => ['Code 333444, compte 640073363.']]);
+        self::assertSame(['Code 333444, compte 655001122.'], $patch(['id' => 'orange', 'ussdTemplate' => '#150*14*{code}*655001122*{amount}#'])['steps']);
+
+        $records = $this->auditRecords('settings.payment');
+        self::assertSame(['before' => '909935', 'after' => '123456'], $records[1]['data']['operators']['orange']['merchantCode']);
+        self::assertSame(['before' => '/paiement/qr-orange.png', 'after' => null], $records[1]['data']['operators']['orange']['qrImageUrl']);
+        $this->api('PATCH', '/api/admin/settings', $token, ['whatsappNumber' => '690112233']);
+        $updated = $this->auditRecords('settings.updated');
+        self::assertSame(['whatsappNumber'], end($updated)['data']['keys'] ?? null);
+    }
+
+    public function testDeliveryAndPagesAreRecorded(): void
+    {
+        $token = $this->owner();
+        $city = $this->api('POST', '/api/admin/delivery/cities', $token, ['name' => 'Foumban', 'fee' => 2000])['city'];
+        $this->api('PATCH', '/api/admin/delivery/cities/' . $city['id'], $token, ['fee' => 2500]);
+        $this->api('DELETE', '/api/admin/delivery/cities/' . $city['id'], $token);
+        $this->api('PATCH', '/api/admin/delivery/agencies/ag-dla-mta', $token, ['fee' => 3000]);
+        $this->api('PATCH', '/api/admin/pages/mentions-legales', $token, ['title' => 'Mentions légales', 'body' => 'Nouveau texte']);
+        self::assertSame(200, $this->httpStatus());
+        self::assertSame(['delivery.city_created', 'delivery.city_updated', 'delivery.city_deleted', 'delivery.agency_updated', 'page.updated'], array_column(array_values(array_filter($this->auditRecords(), fn (array $r) => !str_starts_with($r['event'], 'admin.'))), 'event'));
+        self::assertSame(['fee' => ['before' => 2000, 'after' => 2500]], $this->auditRecords('delivery.city_updated')[0]['data']['changes']);
+    }
 }

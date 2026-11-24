@@ -3,6 +3,7 @@
 namespace App\Admin\Reservation;
 
 use App\Api\ApiException;
+use App\Audit\AuditLog;
 use App\Entity\Admin;
 use App\Entity\Agency;
 use App\Entity\DeliveryCity;
@@ -49,6 +50,7 @@ final class AdminReservationActions
         private readonly PrivateMediaStorage $storage,
         private readonly PackagePhotoInput $photos,
         private readonly DeliveryOptions $delivery,
+        private readonly AuditLog $audit,
         private readonly EntityManagerInterface $em,
     ) {}
 
@@ -74,22 +76,27 @@ final class AdminReservationActions
     /**
      * Paiement validé : preuve en attente acceptée ; ou validation manuelle (paiement constaté sur le compte
      * marchand sans preuve exploitable) d'une réservation qui attend encore son paiement.
+     *
+     * @param array{expectedStatus?: string, proofSha256?: ?string} $seen ce que l'admin avait sous les yeux
      */
-    public function validatePayment(Admin $admin, Reservation $reservation, ?string $note): void
+    public function validatePayment(Admin $admin, Reservation $reservation, ?string $note, array $seen = []): void
     {
         $this->assertSuperAdmin($admin, 'Seul le super admin peut valider un paiement.');
 
-        $changed = $this->lifecycle->locked($reservation, function (Reservation $r, \DateTimeImmutable $now) use ($admin, $note): bool {
+        $manual = false;
+        $changed = $this->lifecycle->locked($reservation, function (Reservation $r, \DateTimeImmutable $now) use ($admin, $note, $seen, &$manual): bool {
             $this->expireOrFail($r, $now);
             if ($r->getStatus() === Reservation::STATUS_CONFIRMED) {
                 return false; // déjà validé (double clic) : rien à refaire
             }
+            $this->assertStillAsSeen($r, $seen);
             if (!\in_array($r->getStatus(), [Reservation::STATUS_PENDING_VALIDATION, ...Reservation::AWAITING_PAYMENT], true)) {
                 throw $this->invalidStatus($r, 'Le paiement de cette réservation n’est plus à valider.');
             }
 
             $proof = $r->latestProof();
-            if ($proof !== null && $proof->getStatus() === ReservationProof::STATUS_PENDING) {
+            $manual = $proof === null || $proof->getStatus() !== ReservationProof::STATUS_PENDING;
+            if (!$manual) {
                 $proof->setStatus(ReservationProof::STATUS_ACCEPTED);
             }
             $r->setRejection(null, null)->setPaidAt($now);
@@ -99,20 +106,26 @@ final class AdminReservationActions
         }, commitOnError: true);
 
         if ($changed) {
+            $this->audit->record('payment.validated', $admin, ['ref' => $reservation->getRef(), 'total' => $reservation->getTotal(), 'manual' => $manual]);
             $this->notifier->paymentValidated($reservation);
         }
     }
 
-    /** Preuve rejetée : motif montré au client, qui a de nouveau au moins 6 h pour en envoyer une autre. */
-    public function rejectPayment(Admin $admin, Reservation $reservation, string $reason): void
+    /**
+     * Preuve rejetée : motif montré au client, qui a de nouveau au moins 6 h pour en envoyer une autre.
+     *
+     * @param array{expectedStatus?: string, proofSha256?: ?string} $seen ce que l'admin avait sous les yeux
+     */
+    public function rejectPayment(Admin $admin, Reservation $reservation, string $reason, array $seen = []): void
     {
         $this->assertSuperAdmin($admin, 'Seul le super admin peut rejeter un paiement.');
 
-        $changed = $this->lifecycle->locked($reservation, function (Reservation $r, \DateTimeImmutable $now) use ($admin, $reason): bool {
+        $changed = $this->lifecycle->locked($reservation, function (Reservation $r, \DateTimeImmutable $now) use ($admin, $reason, $seen): bool {
             $this->assertNotFinal($r);
             if ($r->getStatus() === Reservation::STATUS_PAYMENT_REJECTED) {
                 return false; // déjà rejeté (double clic)
             }
+            $this->assertStillAsSeen($r, $seen);
             if ($r->getStatus() !== Reservation::STATUS_PENDING_VALIDATION) {
                 throw $this->invalidStatus($r, 'Seule une preuve en attente de vérification peut être rejetée.');
             }
@@ -131,6 +144,7 @@ final class AdminReservationActions
         });
 
         if ($changed) {
+            $this->audit->record('payment.rejected', $admin, ['ref' => $reservation->getRef(), 'total' => $reservation->getTotal(), 'reason' => $reason]);
             $this->notifier->paymentRejected($reservation);
         }
     }
@@ -233,7 +247,36 @@ final class AdminReservationActions
             $r->record(Reservation::STATUS_CANCELLED, Reservation::ACTOR_SHOP, $reason, $now, $admin);
         }, commitOnError: true);
 
+        $this->audit->record('reservation.cancelled', $admin, ['ref' => $reservation->getRef(), 'total' => $reservation->getTotal(), 'reason' => $reason, 'refundDue' => $reservation->isRefundDue()]);
         $this->notifier->cancelledByShop($reservation);
+    }
+
+    /**
+     * Remboursement fait par Mobile Money, hors de l'application (ou rien à rembourser : fausse capture) : la marque
+     * « remboursement à prévoir » disparaît, l'explication reste dans les notes internes.
+     */
+    public function settleRefund(Admin $admin, Reservation $reservation, string $note): void
+    {
+        $this->assertSuperAdmin($admin, 'Seul le super admin peut clore un remboursement.');
+
+        $changed = $this->lifecycle->locked($reservation, function (Reservation $r, \DateTimeImmutable $now) use ($admin, $note): bool {
+            if ($r->getRefundSettledAt() !== null) {
+                return false; // déjà clos (double clic)
+            }
+            if (!$r->isRefundDue()) {
+                throw $this->invalidStatus($r, 'Aucun remboursement n’est à prévoir pour cette réservation.');
+            }
+            $r->settleRefund($now);
+            $internal = new ReservationNote($r, $admin, 'Remboursement clos : ' . $note, $now);
+            $r->addInternalNote($internal);
+            $this->em->persist($internal);
+
+            return true;
+        });
+
+        if ($changed) {
+            $this->audit->record('refund.settled', $admin, ['ref' => $reservation->getRef(), 'total' => $reservation->getTotal(), 'note' => $note]);
+        }
     }
 
     /** Note interne de l'équipe (jamais montrée au client). */
@@ -314,6 +357,21 @@ final class AdminReservationActions
     {
         if (!$admin->isSuperAdmin()) {
             throw ApiException::forbidden($message);
+        }
+    }
+
+    /**
+     * L'admin a jugé une preuve précise : si un collègue a déjà répondu, ou si le client a renvoyé une autre capture
+     * entre-temps, rien n'est fait et l'écran se recharge.
+     *
+     * @param array{expectedStatus?: string, proofSha256?: ?string} $seen
+     */
+    private function assertStillAsSeen(Reservation $r, array $seen): void
+    {
+        $sameStatus = !\array_key_exists('expectedStatus', $seen) || $seen['expectedStatus'] === $r->getStatus();
+        $sameProof = !\array_key_exists('proofSha256', $seen) || $seen['proofSha256'] === $r->latestProof()?->getSha256();
+        if (!$sameStatus || !$sameProof) {
+            throw new ApiException(409, 'STATE_CHANGED', 'Cette réservation a changé depuis que vous l’avez ouverte (autre preuve ou autre décision). Vérifiez-la à nouveau.', ['status' => $r->getStatus()]);
         }
     }
 

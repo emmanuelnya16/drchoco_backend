@@ -18,10 +18,14 @@ final class CatalogInput
         return trim((string) preg_replace('/[^a-z0-9]+/', '-', TextFolder::fold($text)), '-');
     }
 
+    /** Hébergement des photos (POST /api/admin/media) : le seul autorisé par la politique de sécurité du front. */
+    private const IMAGE_HOST = 'res.cloudinary.com';
+
     /**
-     * Adresse d'image acceptée : https (Cloudinary après envoi par POST /api/admin/media, ou autre hébergement)
-     * ou chemin du site (« /images/products/… »). Refusées : « blob: » et « data: » (aperçus locaux du
-     * navigateur, perdus au rechargement), http, chemins « // » et tout autre schéma.
+     * Adresse d'image acceptée : Cloudinary (photo envoyée par POST /api/admin/media) ou chemin du site
+     * (« /images/products/… »). Refusées : un autre hébergement (il verrait passer tous les visiteurs, et pourrait changer
+     * l'image sans que la boutique le sache), « blob: » et « data: » (aperçus locaux du navigateur, perdus au
+     * rechargement), http, chemins « // » et tout autre schéma.
      */
     public static function isImageUrl(string $url): bool
     {
@@ -33,7 +37,7 @@ final class CatalogInput
             return !str_starts_with($url, '//') && !str_starts_with($url, '/mocks/') && !str_contains($url, '\\');
         }
 
-        return str_starts_with($url, 'https://') && filter_var($url, \FILTER_VALIDATE_URL) !== false;
+        return str_starts_with($url, 'https://' . self::IMAGE_HOST . '/') && filter_var($url, \FILTER_VALIDATE_URL) !== false;
     }
 
     /** Message clair pour une adresse d'image refusée (le front affiche le message tel quel). */
@@ -46,7 +50,11 @@ final class CatalogInput
             return sprintf('%s est une photo d’exemple : remplacez-la par une vraie photo.', $what);
         }
 
-        return sprintf('%s : adresse invalide (https://… ou /images/…).', $what);
+        if (str_starts_with($url, 'https://') || str_starts_with($url, 'http://')) {
+            return sprintf('%s vient d’un autre site : importez-la depuis votre appareil (bouton d’envoi de photo).', $what);
+        }
+
+        return sprintf('%s : adresse invalide (photo importée ou /images/…).', $what);
     }
 
     /** Texte nettoyé (espaces réduits), ou null si ce n'est pas une chaîne. */

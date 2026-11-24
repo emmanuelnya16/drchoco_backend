@@ -106,7 +106,10 @@ final class SellersTest extends AdminTestCase
         self::assertSame('Le mot de passe doit contenir au moins 10 caractères.', $data['message'], 'message affiché tel quel par le front');
 
         // Mot de passe pré-rempli par le formulaire du front, mots de passe connus, e-mail ou téléphone : refusés.
-        foreach (['choco2026', 'CHOCO2026', 'motdepasse1', 'aaaaaaaaaaaa', 'bonapriso@drchoco.cm', 'Tel699112233', ' Espace-autour '] as $weak) {
+        foreach ([
+            'choco2026', 'CHOCO2026', 'motdepasse1', 'aaaaaaaaaaaa', 'bonapriso@drchoco.cm', 'Tel699112233', ' Espace-autour ',
+            '12345678901', 'azertyuiop1', 'password1234', 'P@ssw0rd2026', 'Choco2026!', 'drchoco2026!', 'DrChoco.2026', 'Ch0c0-2026', 'chocolat2027', 'abcdefghij', 'aaaaaaaaab', 'azerty1234', 'Yaounde2026', 'Douala2026!', 'Orange-2026',
+        ] as $weak) {
             $data = $this->api('POST', '/api/admin/sellers', $token, ['password' => $weak] + self::NEW_SELLER);
             self::assertSame(422, $this->httpStatus(), $weak);
             self::assertSame(['password'], array_keys($data['details']), $weak);

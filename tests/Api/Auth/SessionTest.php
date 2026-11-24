@@ -67,6 +67,35 @@ final class SessionTest extends AccountTestCase
         self::assertSame(401, $this->httpStatus());
     }
 
+    public function testRefreshLoopIsLimitedWithoutClosingTheSession(): void
+    {
+        $this->login();
+        for ($i = 0; $i < 60; ++$i) {
+            $this->postJson('/api/auth/refresh', '');
+            self::assertSame(200, $this->httpStatus(), "rafraîchissement n°$i");
+        }
+        $cookie = $this->refreshCookie()->getValue();
+        $data = $this->postJson('/api/auth/refresh', '');
+        self::assertSame(429, $this->httpStatus());
+        self::assertSame('RATE_LIMITED', $data['code']);
+        self::assertGreaterThan(0, $data['details']['retryAfter']);
+        self::assertNull($this->header('Set-Cookie'), 'le cookie n’est ni changé ni effacé');
+
+        // La session n'est pas fermée : le même cookie est accepté dès que la limite est passée.
+        static::getContainer()->get('cache.rate_limiter')->clear();
+        $this->setRefreshCookie($cookie);
+        $this->postJson('/api/auth/refresh', '');
+        self::assertSame(200, $this->httpStatus());
+    }
+
+    public function testNeitherIpAddressNorBrowserIsKeptWithTheSession(): void
+    {
+        $this->login();
+        $this->postJson('/api/auth/refresh', '', ['HTTP_USER_AGENT' => 'Navigateur de test', 'REMOTE_ADDR' => '10.1.2.3']);
+        self::assertSame(200, $this->httpStatus());
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM refresh_tokens WHERE created_from_ip IS NOT NULL OR user_agent IS NOT NULL'));
+    }
+
     public function testRefreshWithoutValidCookieIsRefusedAndClearsIt(): void
     {
         $this->postJson('/api/auth/refresh', '');

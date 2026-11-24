@@ -71,13 +71,19 @@ class RefreshTokenRepository extends ServiceEntityRepository
             ->execute();
     }
 
-    /** Supprime les jetons expirés (appelé par la tâche planifiée de purge). */
-    public function deleteExpired(\DateTimeImmutable $now): int
+    /**
+     * Supprime les jetons expirés, et ceux des sessions fermées depuis $doneBefore (appelé par la tâche planifiée de purge).
+     * Les jetons déjà utilisés d'une session ouverte restent jusqu'à leur expiration : présentés à nouveau, ils révèlent
+     * un cookie volé et ferment la session.
+     */
+    public function deleteExpired(\DateTimeImmutable $now, \DateTimeImmutable $doneBefore): int
     {
         return $this->createQueryBuilder('rt')
             ->delete()
             ->where('rt.expiresAt < :now')
+            ->orWhere('rt.isRevoked = true AND rt.createdAt < :done')
             ->setParameter('now', $now)
+            ->setParameter('done', $doneBefore)
             ->getQuery()
             ->execute();
     }

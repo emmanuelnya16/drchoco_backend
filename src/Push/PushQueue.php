@@ -17,6 +17,9 @@ use Psr\Log\LoggerInterface;
  */
 class PushQueue
 {
+    /** Appareil de l'équipe dont l'administration n'a pas été ouverte depuis 30 jours : plus aucune notification. */
+    public const ADMIN_DEVICE_IDLE_DAYS = 30;
+
     private int $queued = 0;
 
     public function __construct(
@@ -49,8 +52,8 @@ class PushQueue
         }
 
         return $this->insert(
-            'FROM push_subscriptions s INNER JOIN admins a ON a.id = s.admin_id WHERE s.owner_kind = ? AND a.is_active = 1 AND s.admin_id IN (' . implode(', ', $adminIds) . ')',
-            [PushSubscription::KIND_ADMIN],
+            'FROM push_subscriptions s INNER JOIN admins a ON a.id = s.admin_id WHERE s.owner_kind = ? AND a.is_active = 1 AND s.last_seen_at >= ? AND s.admin_id IN (' . implode(', ', $adminIds) . ')',
+            [PushSubscription::KIND_ADMIN, (new \DateTimeImmutable('@' . $this->clock->now()->getTimestamp()))->modify(sprintf('-%d days', self::ADMIN_DEVICE_IDLE_DAYS))->format('Y-m-d H:i:s')],
             $message,
             $reservationId,
         );

@@ -218,16 +218,73 @@ final class PushNotificationsTest extends AdminReservationTestCase
         self::assertSame(0, (int) $connection->fetchOne("SELECT COUNT(*) FROM push_subscriptions WHERE endpoint = ?", [self::CLIENT_DEVICE]));
         self::assertSame(0, (int) $connection->fetchOne("SELECT COUNT(*) FROM push_outbox WHERE type IN ('payment_validated', 'package_ready', 'delivered')"));
 
-        // Après 5 essais, la notification est abandonnée (nouvelle réservation et preuve reçue : 10 réponses en erreur).
+        // Après 5 essais, la notification est abandonnée.
         $this->transport()->respondWith(array_fill(0, 12, 500));
         $awa = $this->loginNamed('+237690000003', 'Awa');
-        $awaRef = $this->reserve($awa, $this->pickup(self::DLA_VARIANT, override: ['phone' => '+237690000003']))['ref'];
-        $this->uploadProof($awa, $awaRef, $this->file(self::pngWithText('Comment', 'awa')));
+        $this->reserve($awa, $this->pickup(self::DLA_VARIANT, override: ['phone' => '+237690000003']));
         for ($i = 0; $i < 6; ++$i) {
             $this->clock->sleep(3601);
             $sender->sendDue();
         }
-        self::assertSame(['dropped', 5], array_map(fn ($v) => is_numeric($v) ? (int) $v : $v, array_values($connection->fetchAssociative("SELECT status, attempts FROM push_outbox WHERE type = 'proof_received' ORDER BY id DESC LIMIT 1"))));
+        self::assertSame(['dropped', 5], array_map(fn ($v) => is_numeric($v) ? (int) $v : $v, array_values($connection->fetchAssociative("SELECT status, attempts FROM push_outbox WHERE type = 'new_reservation' ORDER BY id DESC LIMIT 1"))));
+    }
+
+    public function testAnUnreachableDeviceNeitherDelaysTheOthersNorStaysForever(): void
+    {
+        ['client' => $client, 'owner' => $owner] = $this->subscribedReservation();
+        $connection = $this->em()->getConnection();
+        $sender = static::getContainer()->get(PushSender::class);
+        $ownerDevice = (int) $connection->fetchOne('SELECT id FROM push_subscriptions WHERE endpoint = ?', [self::OWNER_DEVICE]);
+        $connection->executeStatement('DELETE FROM push_outbox');
+
+        // Cinq messages pour un appareil qui ne répond pas : un seul essai par passage, les autres attendent.
+        for ($i = 0; $i < 5; ++$i) {
+            $connection->executeStatement("INSERT INTO push_outbox (subscription_id, type, payload, ttl, urgency, status, attempts, next_attempt_at, expires_at, created_at)
+                VALUES (?, 'new_reservation', '{}', 86400, 'normal', 'pending', 0, ?, ?, ?)", [$ownerDevice, $now = $this->clock->now()->format('Y-m-d H:i:s'), $this->clock->now()->modify('+1 day')->format('Y-m-d H:i:s'), $now]);
+        }
+        $this->transport()->reset();
+        $this->transport()->respondWith(array_fill(0, 40, 0));
+        $sender->sendDue();
+        self::assertCount(1, $this->transport()->sent());
+        self::assertSame(1, (int) $connection->fetchOne('SELECT SUM(attempts) FROM push_outbox'));
+
+        // Panne de quelques heures, même avec beaucoup d'échecs : l'appareil est gardé.
+        for ($i = 0; $i < 12; ++$i) {
+            $this->clock->sleep(3601);
+            $sender->sendDue();
+        }
+        $kept = fn (): int => (int) $connection->fetchOne('SELECT COUNT(*) FROM push_subscriptions WHERE id = ?', [$ownerDevice]);
+        self::assertSame(1, $kept());
+        self::assertGreaterThanOrEqual(10, (int) $connection->fetchOne('SELECT failure_count FROM push_subscriptions WHERE id = ?', [$ownerDevice]));
+
+        // Injoignable depuis plus de 7 jours : retiré, avec ses messages.
+        $queue = function () use ($connection, $ownerDevice): void {
+            $connection->executeStatement("INSERT INTO push_outbox (subscription_id, type, payload, ttl, urgency, status, attempts, next_attempt_at, expires_at, created_at)
+                VALUES (?, 'new_reservation', '{}', 86400, 'normal', 'pending', 0, ?, ?, ?)", [$ownerDevice, $now = $this->clock->now()->format('Y-m-d H:i:s'), $this->clock->now()->modify('+1 day')->format('Y-m-d H:i:s'), $now]);
+        };
+        $this->clock->modify('+8 days');
+        $queue();
+        $this->transport()->respondWith([0]);
+        $sender->sendDue();
+        self::assertSame(0, $kept());
+        self::assertNotSame('', $client . $owner);
+    }
+
+    public function testRefusedKeysNeverRemoveADevice(): void
+    {
+        $this->subscribedReservation();
+        $connection = $this->em()->getConnection();
+        $sender = static::getContainer()->get(PushSender::class);
+        $device = (int) $connection->fetchOne('SELECT id FROM push_subscriptions WHERE endpoint = ?', [self::OWNER_DEVICE]);
+        foreach ([401, 403, 429, 401, 403, 429, 401, 403, 429, 401, 403, 429] as $status) {
+            $connection->executeStatement('DELETE FROM push_outbox');
+            $connection->executeStatement("INSERT INTO push_outbox (subscription_id, type, payload, ttl, urgency, status, attempts, next_attempt_at, expires_at, created_at)
+                VALUES (?, 'new_reservation', '{}', 86400, 'normal', 'pending', 0, ?, ?, ?)", [$device, $now = $this->clock->now()->format('Y-m-d H:i:s'), $this->clock->now()->modify('+1 day')->format('Y-m-d H:i:s'), $now]);
+            $this->transport()->respondWith([$status]);
+            $sender->sendDue();
+            $this->clock->modify('+1 day');
+        }
+        self::assertSame([1, 0], array_map('intval', array_values((array) $connection->fetchAssociative('SELECT COUNT(*), MAX(failure_count) FROM push_subscriptions WHERE id = ?', [$device]))));
     }
 
     public function testNothingIsLostWhileVapidKeysAreMissing(): void
@@ -280,5 +337,46 @@ final class PushNotificationsTest extends AdminReservationTestCase
 
         $body = $this->transport()->sentTo(self::CLIENT_DEVICE)[0]['payload']['body'] ?? '';
         self::assertStringStartsWith("$ref : Capture envoyée déjà. Renvoyez votre preuve avant ", $body);
+    }
+
+    public function testAnUnusedTeamDeviceStopsReceivingNames(): void
+    {
+        $owner = $this->ownerToken();
+        $this->subscribe('/api/admin/push/subscribe', $owner, self::OWNER_DEVICE);
+        $db = $this->em()->getConnection();
+
+        // Administration non ouverte depuis 31 jours sur cet appareil (téléphone perdu, ancien employé) : plus rien.
+        $db->executeStatement('UPDATE push_subscriptions SET last_seen_at = ?', [$this->clock->now()->modify('-31 days')->format('Y-m-d H:i:s')]);
+        $this->reserve($this->loginNamed(), $this->pickup());
+        self::assertSame([], $this->transport()->sentTo(self::OWNER_DEVICE));
+
+        $db->executeStatement('UPDATE push_subscriptions SET last_seen_at = ?', [$this->clock->now()->modify('-29 days')->format('Y-m-d H:i:s')]);
+        $this->reserve($this->loginNamed('+237690000002', 'Paul'), $this->pickup(self::DLA_VARIANT, override: ['phone' => '+237690000002']));
+        self::assertCount(1, $this->transport()->sentTo(self::OWNER_DEVICE));
+    }
+
+    public function testACancellationBeforeTheProofIsCheckedWarnsTheTeam(): void
+    {
+        ['client' => $client, 'owner' => $owner, 'ref' => $ref] = $this->subscribedReservation();
+        $this->transport()->reset();
+        $this->api('POST', "/api/reservations/$ref/cancel", $client, []);
+        self::assertSame(200, $this->httpStatus());
+        $team = $this->transport()->sentTo(self::OWNER_DEVICE);
+        self::assertSame(["$ref · preuve de paiement envoyée (45\u{202F}000\u{202F}FCFA) : à vérifier puis rembourser.", 'high'], [$team[0]['payload']['body'], $team[0]['urgency']]);
+
+        // Annulée par la boutique avant d'avoir examiné la preuve : le client est prévenu du remboursement.
+        $other = $this->reserve($client, $this->pickup())['ref'];
+        $this->uploadProof($client, $other, $this->file(self::pngWithText('Comment', 'preuve ' . $other)));
+        $this->transport()->reset();
+        $this->adminApi('POST', "/api/admin/reservations/$other/cancel", $owner, ['reason' => 'Rupture de stock']);
+        self::assertSame("$other a été annulée par la boutique : Rupture de stock. Si vous avez payé, la boutique vous contacte pour le remboursement.", $this->transport()->sentTo(self::CLIENT_DEVICE)[0]['payload']['body']);
+
+        // Preuve rejetée puis annulation : rien à rembourser, personne n'est dérangé.
+        $third = $this->reserve($client, $this->pickup())['ref'];
+        $this->uploadProof($client, $third, $this->file(self::pngWithText('Comment', 'preuve ' . $third)));
+        $this->adminApi('POST', "/api/admin/reservations/$third/reject-payment", $owner, ['reason' => 'Montant incorrect']);
+        $this->transport()->reset();
+        $this->api('POST', "/api/reservations/$third/cancel", $client, []);
+        self::assertSame([], $this->transport()->sent());
     }
 }

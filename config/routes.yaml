@@ -4,6 +4,30 @@ controllers:
     resource: routing.controllers
     prefix: /api
 
+# Référencement (P9), hors de /api : fiche produit avec ses balises de partage et plans du site, à la racine du domaine
+# (public/.htaccess du front les confie à l'API). Contrôleurs sans attribut Route : jamais sous /api.
+seo_product_page:
+    path: /produit/{slug}
+    controller: App\Controller\Seo\ProductPageController
+    methods: [GET]
+    requirements:
+        slug: '[^/]+'
+
+seo_sitemap_index:
+    path: /sitemap-index.xml
+    controller: App\Controller\Seo\SitemapController::index
+    methods: [GET]
+
+seo_sitemap_categories:
+    path: /sitemap-categories.xml
+    controller: App\Controller\Seo\SitemapController::categories
+    methods: [GET]
+
+seo_sitemap_products:
+    path: /sitemap-produits.xml
+    controller: App\Controller\Seo\SitemapController::products
+    methods: [GET]
+
 # Routes de sonde, chargées uniquement pendant les tests automatisés.
 when@test:
     test_probe:

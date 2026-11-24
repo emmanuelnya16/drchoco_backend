@@ -11,6 +11,8 @@ use Symfony\Component\Serializer\Attribute\Ignore;
  *
  * Une ligne par code envoyé. Seul le dernier code d'un numéro compte : un nouveau code annule le
  * précédent et remet les essais à 5. Le code n'est jamais stocké en clair (empreinte HMAC-SHA256).
+ * Tant que le SMS n'est pas accepté par le fournisseur (sentAt vide), le code ne peut pas être saisi : personne ne
+ * peut le deviner pendant l'envoi, ni après un envoi refusé (la ligne est alors effacée).
  * Les lignes servent aussi de compteur pour les limites (3 demandes en 10 min, 10 par jour) ;
  * elles sont effacées après 48 h (commande app:purge).
  */
@@ -40,6 +42,10 @@ class OtpCode
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $expiresAt;
+
+    // SMS accepté par le fournisseur : le code peut être saisi à partir de cette date.
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $sentAt = null;
 
     #[ORM\Column(type: 'smallint', options: ['default' => self::MAX_ATTEMPTS])]
     private int $attemptsLeft = self::MAX_ATTEMPTS;
@@ -100,6 +106,11 @@ class OtpCode
         $this->consumedAt = $now;
     }
 
+    public function markSent(\DateTimeImmutable $now): void
+    {
+        $this->sentAt = $now;
+    }
+
     // ── Getters ───────────────────────────────────────────────────────────
 
     public function getId(): ?int { return $this->id; }
@@ -110,6 +121,7 @@ class OtpCode
 
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getExpiresAt(): \DateTimeImmutable { return $this->expiresAt; }
+    public function getSentAt(): ?\DateTimeImmutable { return $this->sentAt; }
     public function getAttemptsLeft(): int { return $this->attemptsLeft; }
     public function getLockedUntil(): ?\DateTimeImmutable { return $this->lockedUntil; }
     public function getConsumedAt(): ?\DateTimeImmutable { return $this->consumedAt; }

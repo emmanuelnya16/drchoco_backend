@@ -42,6 +42,11 @@ final class ReservationPushMessages
         return $this->team($r, 'reservation_cancelled', 'Réservation annulée par le client', sprintf('%s · paiement déjà validé (%s) : remboursement à prévoir.', $r->getRef(), self::fcfa($r->getTotal())), PushMessage::URGENCY_HIGH);
     }
 
+    public function cancelledByClientWithProof(Reservation $r): PushMessage
+    {
+        return $this->team($r, 'reservation_cancelled', 'Réservation annulée par le client', sprintf('%s · preuve de paiement envoyée (%s) : à vérifier puis rembourser.', $r->getRef(), self::fcfa($r->getTotal())), PushMessage::URGENCY_HIGH);
+    }
+
     // --- Client ---
 
     public function paymentValidated(Reservation $r): PushMessage
@@ -110,8 +115,10 @@ final class ReservationPushMessages
         $body = $reason !== ''
             ? sprintf('%s a été annulée par la boutique : %s.', $r->getRef(), $reason)
             : sprintf('%s a été annulée par la boutique.', $r->getRef());
-        if ($r->getPaidAt() !== null) {
-            $body .= ' La boutique vous contacte pour le remboursement.';
+        if ($r->isRefundDue()) {
+            $body .= $r->getPaidAt() !== null
+                ? ' La boutique vous contacte pour le remboursement.'
+                : ' Si vous avez payé, la boutique vous contacte pour le remboursement.';
         }
 
         return $this->client($r, 'reservation_cancelled', 'Réservation annulée', $body, PushMessage::URGENCY_HIGH);

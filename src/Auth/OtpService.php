@@ -5,6 +5,7 @@ namespace App\Auth;
 use App\Account\PhoneNumber;
 use App\Api\ApiException;
 use App\Api\ClientIp;
+use App\Audit\AuditLog;
 use App\Entity\OtpCode;
 use App\Entity\User;
 use App\Repository\OtpCodeRepository;
@@ -29,8 +30,12 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
  *  - 5 codes faux : numéro verrouillé 10 min (OTP_LOCKED à la vérification, TOO_MANY_ATTEMPTS à la demande).
  * Protections ajoutées contre l'envoi massif de SMS payants et les tentatives à la chaîne :
  *  - 10 codes au plus par numéro sur 24 h ;
- *  - 30 demandes par heure et par adresse IP, et 30 codes faux en 10 min par adresse IP (préfixe /64 en IPv6) ;
- *  - plafond quotidien de SMS pour toute la boutique (OTP_DAILY_SMS_LIMIT) : au-delà, plus aucun envoi.
+ *  - 30 SMS par heure et par adresse IP, et 30 codes faux en 10 min par adresse IP (préfixe /64 en IPv6). Seuls les
+ *    SMS réellement demandés et les codes faux sur un code en cours comptent : au Cameroun, beaucoup de clients
+ *    partagent une même adresse (réseau mobile), une demande sans effet ne doit pas les bloquer ;
+ *  - plafond quotidien de SMS pour toute la boutique (OTP_DAILY_SMS_LIMIT) : au-delà, plus aucun envoi. Un tiers est
+ *    réservé aux numéros qui ont déjà un compte : des numéros pris au hasard ne peuvent pas priver les clients de
+ *    connexion.
  * Une nouvelle demande dans les 60 s qui suivent un envoi ne renvoie pas de SMS : le code déjà envoyé reste
  * valable et l'app reçoit le temps d'attente restant.
  */
@@ -43,6 +48,12 @@ final class OtpService
     public const DAY_SECONDS = 86400;
     public const MAX_REQUESTS_PER_DAY = 10;
     public const LOCK_SECONDS = 600;
+
+    /** Part du plafond quotidien de SMS réservée aux numéros qui ont déjà un compte. */
+    public const KNOWN_PHONES_SHARE = 1 / 3;
+
+    /** Attente d'une autre demande du même numéro avant de répondre comme elle (l'envoi dure 10 s au plus). */
+    private const LOCK_WAIT_MILLISECONDS = 3000;
 
     public function __construct(
         private readonly OtpCodeRepository $otpCodes,
@@ -57,6 +68,7 @@ final class OtpService
         #[Autowire(service: 'limiter.otp_verify_ip')]
         private readonly RateLimiterFactoryInterface $verifyIpLimiter,
         private readonly LoggerInterface $logger,
+        private readonly AuditLog $audit,
         #[Autowire('%kernel.secret%')]
         private readonly string $secret,
         #[Autowire('%env(int:OTP_DAILY_SMS_LIMIT)%')]
@@ -72,23 +84,32 @@ final class OtpService
      */
     public function request(string $phone, ?string $ip): array
     {
-        $limit = $this->requestIpLimiter->create(ClientIp::limiterKey($ip, $this->secret))->consume();
-        if (!$limit->isAccepted()) {
-            throw $this->tooManyRequests(max(1, $limit->getRetryAfter()->getTimestamp() - time()));
-        }
-
         $user = $this->users->findByPhone($phone);
         if ($user !== null && $user->isBlocked()) {
             throw $this->blocked();
         }
 
+        // Demande sans effet (code déjà envoyé, limite atteinte) : réponse immédiate, sans verrou. Chaque verrou est un
+        // fichier : une machine qui essaie des milliers de numéros ne doit pas en créer un par numéro.
+        $knownPhone = $user !== null;
+        $answer = $this->answerWithoutSms($phone, $ip, $knownPhone);
+        if ($answer !== null) {
+            return $answer;
+        }
+
         // Une demande à la fois par numéro (double appui, deux onglets) : la seconde voit l'envoi de la première.
         // Le nom du verrou (un fichier) contient une empreinte secrète (HMAC) du numéro, jamais le numéro lui-même.
         $lock = $this->lockFactory->createLock('otp-request-' . substr(hash_hmac('sha256', $phone, $this->secret), 0, 32), 30);
-        $lock->acquire(true);
+        for ($waited = 0; !$lock->acquire(); $waited += 100) {
+            if ($waited >= self::LOCK_WAIT_MILLISECONDS) {
+                // Envoi toujours en cours (fournisseur lent) : même réponse que lui, sans occuper un processus PHP.
+                return ['expiresIn' => self::CODE_TTL_SECONDS, 'resendIn' => self::RESEND_AFTER_SECONDS];
+            }
+            usleep(100_000);
+        }
 
         try {
-            return $this->sendNewCode($phone, $ip);
+            return $this->answerWithoutSms($phone, $ip, $knownPhone) ?? $this->sendNewCode($phone, $ip);
         } finally {
             $lock->release();
         }
@@ -137,6 +158,7 @@ final class OtpService
         try {
             $now = $this->now();
             $otp = $this->otpCodes->findLatestForPhone($phone, forUpdate: true);
+            $wrongGuess = false;
 
             $failure = match (true) {
                 $otp === null             => $this->expired(),
@@ -147,9 +169,10 @@ final class OtpService
 
             if ($failure === null && !hash_equals($otp->getCodeHash(), $this->hash($phone, $code))) {
                 $attemptsLeft = $otp->registerFailure($now, self::LOCK_SECONDS);
+                $wrongGuess = true;
                 $failure = $attemptsLeft === 0 ? $this->locked(self::LOCK_SECONDS) : $this->invalidCode($attemptsLeft);
                 if ($attemptsLeft === 0) {
-                    $this->logger->notice('Numéro {phone} verrouillé 10 min après 5 codes faux.', ['phone' => PhoneNumber::mask($phone)]);
+                    $this->audit->record('otp.locked', null, ['phone' => PhoneNumber::mask($phone)], withIp: false);
                 }
             }
 
@@ -157,7 +180,9 @@ final class OtpService
                 // L'essai raté est enregistré AVANT de répondre : il compte même si le client recommence aussitôt.
                 $this->em->flush();
                 $connection->commit();
-                $verifyLimiter->consume();
+                if ($wrongGuess) {
+                    $verifyLimiter->consume();
+                }
 
                 throw $failure;
             }
@@ -200,8 +225,14 @@ final class OtpService
 
     // ── Interne ───────────────────────────────────────────────────────────
 
-    /** @return array{expiresIn: int, resendIn: int} */
-    private function sendNewCode(string $phone, ?string $ip): array
+    /**
+     * Réponse à une demande qui n'enverra pas de SMS (contrôles en lecture seule), ou null si un SMS doit partir.
+     *
+     * @return array{expiresIn: int, resendIn: int}|null
+     *
+     * @throws ApiException 429 ou 503
+     */
+    private function answerWithoutSms(string $phone, ?string $ip, bool $knownPhone): ?array
     {
         $now = $this->now();
         $latest = $this->otpCodes->findLatestForPhone($phone);
@@ -225,13 +256,32 @@ final class OtpService
         $this->assertBelowLimit($phone, $now, self::WINDOW_SECONDS, self::MAX_REQUESTS_PER_WINDOW);
         $this->assertBelowLimit($phone, $now, self::DAY_SECONDS, self::MAX_REQUESTS_PER_DAY);
 
-        if ($this->otpCodes->countAllSince($now->modify('-1 day')) >= $this->dailySmsLimit) {
-            $this->logger->critical('Plafond quotidien de SMS atteint ({limit}) : plus aucun code envoyé (OTP_DAILY_SMS_LIMIT).', [
-                'limit' => $this->dailySmsLimit,
+        $limit = $this->requestIpLimiter->create(ClientIp::limiterKey($ip, $this->secret))->consume(0); // lecture seule
+        if ($limit->getRemainingTokens() <= 0) {
+            throw $this->tooManyRequests(max(1, $limit->getRetryAfter()->getTimestamp() - time()));
+        }
+
+        $ceiling = $knownPhone ? $this->dailySmsLimit : (int) floor($this->dailySmsLimit * (1 - self::KNOWN_PHONES_SHARE));
+        if ($this->otpCodes->countAllSince($now->modify('-1 day')) >= $ceiling) {
+            $this->logger->critical('Plafond quotidien de SMS atteint ({limit}{scope}) : plus aucun code envoyé (OTP_DAILY_SMS_LIMIT).', [
+                'limit' => $ceiling,
+                'scope' => $knownPhone ? '' : ', nouveaux numéros',
             ]);
             throw $this->smsUnavailable();
         }
 
+        return null;
+    }
+
+    /** @return array{expiresIn: int, resendIn: int} */
+    private function sendNewCode(string $phone, ?string $ip): array
+    {
+        $limit = $this->requestIpLimiter->create(ClientIp::limiterKey($ip, $this->secret))->consume();
+        if (!$limit->isAccepted()) {
+            throw $this->tooManyRequests(max(1, $limit->getRetryAfter()->getTimestamp() - time()));
+        }
+
+        $now = $this->now();
         $code = str_pad((string) random_int(0, 999999), 6, '0', \STR_PAD_LEFT);
         $otp = new OtpCode($phone, $this->hash($phone, $code), $now, $now->modify(sprintf('+%d seconds', self::CODE_TTL_SECONDS)), $ip);
         $this->em->persist($otp);
@@ -257,6 +307,10 @@ final class OtpService
 
             throw $this->smsUnavailable();
         }
+
+        // SMS accepté : le code peut maintenant être saisi.
+        $otp->markSent($this->now());
+        $this->em->flush();
 
         $this->logger->info('Code de connexion envoyé à {phone}.', ['phone' => PhoneNumber::mask($phone)]);
 

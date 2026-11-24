@@ -204,6 +204,7 @@ final class RefreshTokenServiceTest extends KernelTestCase
             $jwt,
             $this->em,
             $c->get(ClockInterface::class),
+            $c->get('limiter.session_refresh'),
             'test',
             90,
             12,

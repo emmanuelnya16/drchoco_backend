@@ -5,6 +5,7 @@ namespace App\Reservation;
 use App\Account\PhoneNumber;
 use App\Account\TextInput;
 use App\Api\ApiException;
+use App\Controller\Account\ProfileController;
 use App\Entity\Agency;
 use App\Entity\DeliveryCity;
 use App\Entity\ProductVariant;
@@ -18,6 +19,9 @@ use App\Repository\ReservationRepository;
 use App\Settings\PublicSettingsProvider;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\RateLimiter\LimiterInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * POST /api/reservations (contrat §10.1, décisions du 2026-11-16).
@@ -29,9 +33,21 @@ use Psr\Clock\ClockInterface;
  * - Le stock est retiré sous verrou : deux clients ne peuvent pas réserver la dernière pièce (409 STOCK_CONFLICT,
  *   avec les lignes au format de /cart/validate).
  * - Idempotency-Key : la même demande renvoyée (réseau coupé, double appui) donne la même réservation.
+ * - Montant vu par le client (`expectedTotal`) différent du montant calculé : 409 PRICE_CHANGED, rien n'est réservé.
+ * - Un seul compte ne peut pas bloquer le stock des boutiques (P9) : pièces par article, par réservation et en tout dans
+ *   les réservations non payées ou à vérifier, nombre de ces réservations, créations par heure et par jour.
  */
 final class ReservationCreator
 {
+    /** Pièces d'un même article (taille et couleur) dans une réservation. */
+    public const MAX_PER_VARIANT = 10;
+    /** Pièces d'une réservation. */
+    public const MAX_PIECES = 30;
+    /** Réservations ouvertes d'un client : paiement attendu, preuve à vérifier ou paiement rejeté. */
+    public const MAX_OPEN = 5;
+    /** Pièces de toutes ces réservations ouvertes. */
+    public const MAX_OPEN_PIECES = 60;
+
     private const MAX_LINES = 100;
     private const MAX_QUANTITY = 999;
 
@@ -45,6 +61,10 @@ final class ReservationCreator
         private readonly PublicSettingsProvider $settings,
         private readonly ReservationNotifier $notifier,
         private readonly ClockInterface $clock,
+        #[Autowire(service: 'limiter.reservation_create')]
+        private readonly RateLimiterFactoryInterface $hourLimiter,
+        #[Autowire(service: 'limiter.reservation_create_day')]
+        private readonly RateLimiterFactoryInterface $dayLimiter,
     ) {}
 
     /**
@@ -64,7 +84,8 @@ final class ReservationCreator
         }
 
         $lines = $this->lines($body['items'] ?? null);
-        $found = $this->variants->findWithProducts(array_keys($lines));
+        $this->assertReasonable($lines);
+        $found = $this->variants->findWithProducts(array_map('strval', array_keys($lines)));
 
         $shopCity = $this->shopCity($lines, $found);
         $errors = [];
@@ -80,8 +101,11 @@ final class ReservationCreator
             }
         }
 
+        $plan['amounts'] = $this->amounts($lines, $found, (int) $plan['fee']);
+        $this->assertExpectedTotal($body, $plan['amounts'], $lines, $found);
+
         $now = $this->now();
-        $ids = array_keys($lines);
+        $ids = array_map('strval', array_keys($lines));
         sort($ids, \SORT_STRING);
         $connection = $this->em->getConnection();
         $connection->beginTransaction();
@@ -122,6 +146,10 @@ final class ReservationCreator
         if (($replay = $this->replay($user, $key, $hash)) !== null) {
             return ['reservation' => $replay, 'replayed' => true];
         }
+        // Sous le verrou du client : le compte est juste même avec des demandes en parallèle.
+        $this->assertWithinOpenLimits($user, $lines, $now);
+        $limiters = [$this->hourLimiter->create('user-' . $user->getId()), $this->dayLimiter->create('user-' . $user->getId())];
+        $this->assertNotTooMany($limiters);
 
         // Popularité (tri « les plus réservés ») : articles verrouillés avant leurs variantes, dans le même ordre
         // que l'enregistrement d'un article par l'administration (pas d'interblocage entre les deux).
@@ -150,6 +178,9 @@ final class ReservationCreator
         $this->em->flush();
         $reservation->setRef(sprintf('RES-%06d', $reservation->getId()));
         $this->em->flush();
+        foreach ($limiters as $limiter) {
+            $limiter->consume();
+        }
 
         return ['reservation' => $reservation, 'replayed' => false];
     }
@@ -161,7 +192,8 @@ final class ReservationCreator
             return null;
         }
         if (!hash_equals($existing->getRequestHash(), $hash)) {
-            throw new ApiException(422, 'IDEMPOTENCY_KEY_REUSED', 'Cette demande a déjà été envoyée avec un autre contenu. Rechargez la page puis réessayez.');
+            // Réservation déjà créée (réponse perdue) puis formulaire modifié : l'app ouvre cette réservation.
+            throw new ApiException(422, 'IDEMPOTENCY_KEY_REUSED', 'Votre réservation est déjà enregistrée.', ['ref' => $existing->getRef()]);
         }
 
         return $existing;
@@ -199,6 +231,147 @@ final class ReservationCreator
         }
 
         return $lines;
+    }
+
+    /** @param array<string, array{variantId: string, quantity: int}> $lines */
+    private function assertReasonable(array $lines): void
+    {
+        $quantities = array_column($lines, 'quantity');
+        if (max($quantities) > self::MAX_PER_VARIANT || array_sum($quantities) > self::MAX_PIECES) {
+            throw new ApiException(
+                422,
+                'TOO_MANY_ITEMS',
+                sprintf('Une réservation contient au plus %d pièces, dont %d d’un même article (taille et couleur). Pour une plus grande quantité, écrivez-nous sur WhatsApp.', self::MAX_PIECES, self::MAX_PER_VARIANT),
+                ['max' => self::MAX_PIECES, 'perLine' => self::MAX_PER_VARIANT],
+            );
+        }
+    }
+
+    /**
+     * Réservations ouvertes du client (ni payées, ni terminées, ni échues) et leurs pièces.
+     *
+     * @param array<string, array{variantId: string, quantity: int}> $lines
+     */
+    private function assertWithinOpenLimits(User $user, array $lines, \DateTimeImmutable $now): void
+    {
+        $row = $this->em->getConnection()->fetchAssociative(
+            'SELECT COUNT(DISTINCT r.id) AS n, COUNT(DISTINCT CASE WHEN r.status <> ? THEN r.id END) AS unpaid, COALESCE(SUM(i.quantity), 0) AS pieces
+             FROM reservations r LEFT JOIN reservation_items i ON i.reservation_id = r.id
+             WHERE r.user_id = ? AND (r.status = ? OR (r.status IN (?, ?) AND r.expires_at > ?))',
+            [Reservation::STATUS_PENDING_VALIDATION, $user->getId(), Reservation::STATUS_PENDING_VALIDATION, ...Reservation::AWAITING_PAYMENT, $now->format('Y-m-d H:i:s')],
+        ) ?: ['n' => 0, 'unpaid' => 0, 'pieces' => 0];
+        // Ne jamais conseiller de payer ou d'annuler une réservation déjà payée, en cours de vérification.
+        $advice = (int) $row['unpaid'] > 0
+            ? 'Payez celles qui attendent un paiement ou annulez-en une : la place se libère dès que la boutique a vérifié le paiement.'
+            : 'Vos paiements sont en cours de vérification : réessayez ensuite, ou écrivez-nous sur WhatsApp.';
+
+        $open = (int) $row['n'];
+        if ($open >= self::MAX_OPEN) {
+            throw new ApiException(
+                422,
+                'TOO_MANY_OPEN_RESERVATIONS',
+                sprintf('Vous avez déjà %d réservations en attente de paiement ou de vérification. %s', $open, $advice),
+                ['max' => self::MAX_OPEN, 'open' => $open],
+            );
+        }
+        $pieces = (int) $row['pieces'];
+        if ($pieces + array_sum(array_column($lines, 'quantity')) > self::MAX_OPEN_PIECES) {
+            throw new ApiException(
+                422,
+                'TOO_MANY_ITEMS',
+                sprintf('Vos réservations en attente de paiement ou de vérification contiennent déjà %d pièces (%d au plus en tout). %s', $pieces, self::MAX_OPEN_PIECES, $advice),
+                ['max' => self::MAX_OPEN_PIECES, 'perLine' => self::MAX_PER_VARIANT, 'open' => $pieces],
+            );
+        }
+    }
+
+    /** @param list<LimiterInterface> $limiters */
+    private function assertNotTooMany(array $limiters): void
+    {
+        foreach ($limiters as $limiter) {
+            $check = $limiter->consume(0); // lecture seule : seule une réservation créée compte
+            if ($check->getRemainingTokens() > 0) {
+                continue;
+            }
+            $retryAfter = max(1, $check->getRetryAfter()->getTimestamp() - time());
+
+            throw ApiException::tooManyRequests('RATE_LIMITED', sprintf('Trop de réservations en peu de temps. Réessayez dans %s.', self::delay($retryAfter)), $retryAfter);
+        }
+    }
+
+    private static function delay(int $seconds): string
+    {
+        $minutes = max(1, (int) ceil($seconds / 60));
+
+        return $minutes < 60 ? sprintf("%d\u{00A0}min", $minutes) : sprintf("%d\u{00A0}h", (int) ceil($minutes / 60));
+    }
+
+    /**
+     * Montants de la réservation (prix et frais actuels, jamais ceux du front).
+     *
+     * @param array<string, array{variantId: string, quantity: int}> $lines
+     * @param array<string, ProductVariant>                        $found
+     *
+     * @return array{subtotal: int, deliveryFee: int, feePayment: string, total: int}
+     */
+    private function amounts(array $lines, array $found, int $fee): array
+    {
+        $subtotal = 0;
+        foreach ($lines as $id => $line) {
+            $subtotal += $found[$id]->getProduct()->getPrice() * $line['quantity'];
+        }
+        $feePayment = (string) $this->settings->get()['deliveryFeePayment'];
+
+        return [
+            'subtotal'    => $subtotal,
+            'deliveryFee' => $fee,
+            'feePayment'  => $feePayment,
+            // Frais payés à la livraison : pas dans le montant à payer maintenant (Reservation::setAmounts).
+            'total'       => $feePayment === 'on_delivery' ? $subtotal : $subtotal + $fee,
+        ];
+    }
+
+    /**
+     * Le client a confirmé un montant précis : s'il n'est plus juste (prix, frais ou réglage changé entre-temps), rien
+     * n'est réservé et l'app lui montre le nouveau montant. Champ absent : ancienne version de l'app.
+     *
+     * @param array<string, mixed>                                                                 $body
+     * @param array{subtotal: int, deliveryFee: int, feePayment: string, total: int}               $amounts
+     * @param array<string, array{variantId: string, quantity: int}>                               $lines
+     * @param array<string, ProductVariant>                                                        $found
+     */
+    private function assertExpectedTotal(array $body, array $amounts, array $lines, array $found): void
+    {
+        $expected = $body['expectedTotal'] ?? null;
+        if ($expected === null) {
+            return;
+        }
+        if (\is_float($expected) && is_finite($expected) && floor($expected) === $expected && abs($expected) < 2 ** 53) {
+            $expected = (int) $expected; // « 45000.0 » : même nombre
+        }
+        if (!\is_int($expected) || $expected < 0) {
+            throw ApiException::validation(['expectedTotal' => 'Montant affiché invalide.'], 'La demande est incomplète : rechargez la page puis réessayez.');
+        }
+        if ($expected === $amounts['total']) {
+            return;
+        }
+
+        $items = [];
+        foreach ($lines as $id => $line) {
+            $items[] = ['variantId' => (string) $id, 'unitPrice' => $found[$id]->getProduct()->getPrice()];
+        }
+
+        throw new ApiException(
+            409,
+            'PRICE_CHANGED',
+            sprintf('Le montant a changé : %s au lieu de %s. Vérifiez votre réservation puis confirmez à nouveau.', self::fcfa($amounts['total']), self::fcfa($expected)),
+            ['expectedTotal' => $expected, 'total' => $amounts['total'], 'subtotal' => $amounts['subtotal'], 'deliveryFee' => $amounts['deliveryFee'], 'items' => $items],
+        );
+    }
+
+    private static function fcfa(int $amount): string
+    {
+        return number_format($amount, 0, ',', "\u{202F}") . "\u{00A0}FCFA";
     }
 
     /**
@@ -353,11 +526,11 @@ final class ReservationCreator
             ->setIdempotency($key, $hash);
 
         // Profil sans nom (étape « Plus tard » à la connexion) : le nom donné pour la réservation le complète.
-        // Un nom déjà enregistré n'est jamais remplacé.
+        // Un nom déjà enregistré n'est jamais remplacé (mêmes longueurs que le formulaire du profil).
         if (($user->getFirstName() ?? '') === '') {
-            $user->setFirstName($plan['firstName']);
+            $user->setFirstName(mb_substr($plan['firstName'], 0, ProfileController::NAME_MAX_LENGTH));
             if (($user->getLastName() ?? '') === '' && $plan['lastName'] !== '') {
-                $user->setLastName($plan['lastName']);
+                $user->setLastName(mb_substr($plan['lastName'], 0, ProfileController::NAME_MAX_LENGTH));
             }
         }
 
@@ -387,14 +560,11 @@ final class ReservationCreator
             }
         }
 
-        $subtotal = 0;
         $position = 0;
         foreach ($lines as $id => $line) {
-            $item = new ReservationItem($reservation, $position++, $found[$id], $line['quantity']);
-            $reservation->addItem($item);
-            $subtotal += $item->getLineTotal();
+            $reservation->addItem(new ReservationItem($reservation, $position++, $found[$id], $line['quantity']));
         }
-        $reservation->setAmounts($subtotal, (int) $plan['fee'], (string) $settings['deliveryFeePayment']);
+        $reservation->setAmounts($plan['amounts']['subtotal'], $plan['amounts']['deliveryFee'], $plan['amounts']['feePayment']);
 
         $note = $plan['mode'] === Reservation::MODE_PICKUP
             ? sprintf('Réservation enregistrée : retrait à la boutique de %s.', $shopCity)
@@ -444,6 +614,9 @@ final class ReservationCreator
 
     private static function canonical(mixed $value): mixed
     {
+        if (\is_float($value) && !is_finite($value)) {
+            return (string) $value; // « 1e999 » : infini, impossible à écrire en JSON
+        }
         if (!\is_array($value)) {
             return $value;
         }

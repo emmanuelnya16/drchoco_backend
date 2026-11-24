@@ -42,9 +42,8 @@ final class AdminReservationsListTest extends AdminReservationTestCase
         self::assertSame([$yde, $dla], array_column($data['items'], 'ref'), 'preuve à vérifier d’abord');
 
         [$first, $second] = $data['items'];
-        self::assertSame(['ref', 'status', 'createdAt', 'updatedAt', 'expiresAt', 'total', 'itemsCount', 'firstItemSummary', 'receptionMode', 'city', 'shopCity', 'customer', 'operator', 'proofThumbnailUrl', 'hasProof', 'hasPackagePhotos'], array_keys($first));
+        self::assertSame(['ref', 'status', 'createdAt', 'updatedAt', 'expiresAt', 'total', 'itemsCount', 'firstItemSummary', 'receptionMode', 'city', 'shopCity', 'customer', 'operator', 'hasProof', 'hasPackagePhotos', 'refundDue'], array_keys($first));
         self::assertSame(['pending_validation', 'pickup', 'Yaoundé', 'Yaoundé', 'orange', true, false], [$first['status'], $first['receptionMode'], $first['city'], $first['shopCity'], $first['operator'], $first['hasProof'], $first['hasPackagePhotos']]);
-        self::assertStringContainsString('/api/media/private/proofs/', $first['proofThumbnailUrl']);
         self::assertSame(['firstName' => 'Junior', 'lastName' => 'Mbarga', 'phone' => self::PHONE], $first['customer']);
         self::assertSame('Hoodie Barbelé Noir (S · Noir Charbon)', $first['firstItemSummary']);
         self::assertSame(['delivery', 'Douala', 'Douala', 2, false], [$second['receptionMode'], $second['city'], $second['shopCity'], $second['itemsCount'], $second['hasProof']]);
@@ -76,7 +75,7 @@ final class AdminReservationsListTest extends AdminReservationTestCase
         $owner = $this->ownerToken();
 
         $data = $this->adminDetail($owner, strtolower($yde));
-        self::assertSame(['reservation', 'duplicateProofRefs', 'internalNotes', 'availableAgencies'], array_keys($data));
+        self::assertSame(['reservation', 'duplicateProofRefs', 'duplicateTransactionRefs', 'internalNotes', 'availableAgencies'], array_keys($data));
         self::assertSame([[], [], []], [$data['duplicateProofRefs'], $data['internalNotes'], $data['availableAgencies']]);
         $reservation = $data['reservation'];
         self::assertSame([$yde, 'pending', 'Yaoundé'], [$reservation['ref'], $reservation['proof']['status'], $reservation['pickupShop']['city']]);

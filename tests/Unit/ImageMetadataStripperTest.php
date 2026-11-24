@@ -26,8 +26,48 @@ final class ImageMetadataStripperTest extends TestCase
         self::assertNotNull($clean);
         self::assertStringNotContainsString('GPS', $clean);
         self::assertStringNotContainsString('secret', $clean);
-        self::assertSame($jpeg, $clean, 'le reste du fichier est recopié tel quel');
+        self::assertSame(self::withEoi($jpeg), $clean, 'le reste du fichier est recopié tel quel');
         self::assertSame([1, 1], \array_slice((array) getimagesizefromstring($clean), 0, 2));
+    }
+
+    public function testNothingHidesAfterTheImageNorBetweenItsScans(): void
+    {
+        $jpeg = self::withEoi(base64_decode(self::JPEG));
+        $exif = "\xFF\xE1" . pack('n', 32) . "Exif\0\0GPS 3.8480,11.5021 xxxx";
+        $exif = substr($exif, 0, 2) . pack('n', \strlen($exif) - 2) . substr($exif, 4);
+
+        // Seconde image, vidéo ou texte ajoutés après la fin (photos animées, HDR, données cachées).
+        foreach (["\xFF\xD8" . $exif . "\xFF\xD9", "\0\0\0\x18ftypmp42moovudtaloci GPS", str_repeat('A', 100_000)] as $appended) {
+            self::assertSame($jpeg, ImageMetadataStripper::strip($jpeg . $appended, 'image/jpeg'));
+        }
+
+        // Image en plusieurs passages : les métadonnées placées entre deux passages sont retirées, les tables gardées.
+        $sos = strpos($jpeg, "\xFF\xDA");
+        $body = substr($jpeg, 0, -2); // sans la fin
+        $scan = substr($body, $sos);
+        $tables = "\xFF\xC4" . pack('n', 4) . "\x10\x20";
+        $restart = "\x12\xFF\x00\x34\xFF\xD3\x56"; // FF00 et marqueur de redémarrage : données de l'image
+        $multi = $body . $restart . $tables . $exif . "\xFF\xFE" . pack('n', 9) . 'secret!' . $scan . "\xFF\xD9";
+        $expected = $body . $restart . $tables . $scan . "\xFF\xD9";
+        self::assertSame($expected, ImageMetadataStripper::strip($multi, 'image/jpeg'));
+
+        // Autres images annoncées (MPF), miniatures (JFXX, JFIF) : retirées ; profil de couleurs : gardé.
+        $segment = static fn (int $marker, string $data): string => "\xFF" . \chr($marker) . pack('n', \strlen($data) + 2) . $data;
+        $icc = $segment(0xE2, "ICC_PROFILE\0\x01\x01profil");
+        $header = substr($jpeg, 0, 2) . $segment(0xE0, "JFIF\0\x01\x01\x01\0\x48\0\x48\x02\x01" . 'miniature') . $segment(0xE0, "JFXX\0\x10miniature") . $segment(0xE2, "MPF\0autres images") . $icc;
+        $rest = substr($jpeg, 2 + 18); // après le JFIF de départ
+        $clean = (string) ImageMetadataStripper::strip($header . $rest, 'image/jpeg');
+        self::assertSame(substr($jpeg, 0, 2) . $segment(0xE0, "JFIF\0\x01\x01\x01\0\x48\0\x48\0\0") . $icc . $rest, $clean);
+        self::assertSame([1, 1], \array_slice((array) getimagesizefromstring($clean), 0, 2));
+
+        // Fichier coupé : gardé jusqu'où il va ; sans aucune donnée d'image : refusé.
+        self::assertSame($jpeg, ImageMetadataStripper::strip(substr($jpeg, 0, -2), 'image/jpeg'));
+        self::assertNull(ImageMetadataStripper::strip(substr($jpeg, 0, $sos) . "\xFF\xD9", 'image/jpeg'));
+    }
+
+    private static function withEoi(string $jpeg): string
+    {
+        return str_ends_with($jpeg, "\xFF\xD9") ? $jpeg : $jpeg . "\xFF\xD9";
     }
 
     public function testPngLosesTextChunks(): void

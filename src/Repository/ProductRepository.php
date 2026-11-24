@@ -38,7 +38,9 @@ class ProductRepository extends ServiceEntityRepository
         $this->applyScope($qb, $f);
         $this->applyFilters($qb, $f, $lookSlugs);
 
-        $total = (int) (clone $qb)->select('COUNT(p.id)')->getQuery()->getSingleScalarResult();
+        // Forme de la requête différente à chaque combinaison de filtres : pas gardée dans le cache des requêtes (il
+        // grossirait sans fin sur le disque).
+        $total = (int) (clone $qb)->select('COUNT(p.id)')->getQuery()->useQueryCache(false)->getSingleScalarResult();
         if ($total === 0 || ($f->page - 1) * $f->pageSize >= $total) {
             return ['items' => [], 'total' => $total];
         }
@@ -65,6 +67,7 @@ class ProductRepository extends ServiceEntityRepository
             ->setFirstResult(($f->page - 1) * $f->pageSize)
             ->setMaxResults($f->pageSize)
             ->getQuery()
+            ->useQueryCache(false)
             ->getSingleColumnResult();
 
         return ['items' => $this->findWithDetails($ids), 'total' => $total];
@@ -214,6 +217,54 @@ class ProductRepository extends ServiceEntityRepository
         }
 
         return $ordered;
+    }
+
+    /**
+     * Articles du plan du site : tous ceux que le client peut voir (les épuisés aussi), du plus récent au plus ancien.
+     *
+     * @return list<array{slug: string, lastmod: \DateTimeImmutable, gallery: list<array<string, string>>}>
+     */
+    public function sitemapProducts(int $limit): array
+    {
+        $rows = $this->visible()
+            ->select('p.slug', 'p.createdAt', 'p.updatedAt', 'p.mediaGallery')
+            ->addOrderBy('p.createdAt', 'DESC')
+            ->addOrderBy('p.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): array => [
+            'slug'    => (string) $row['slug'],
+            'lastmod' => $row['updatedAt'] ?? $row['createdAt'],
+            'gallery' => \is_array($row['mediaGallery']) ? $row['mediaGallery'] : [],
+        ], $rows);
+    }
+
+    /**
+     * Catégories et sous-catégories du plan du site : celles qui ont au moins un article visible, avec la date du
+     * dernier changement d'un de leurs articles.
+     *
+     * @return list<array{slug: string, lastmod: \DateTimeImmutable}>
+     */
+    public function sitemapCategories(): array
+    {
+        $entries = [];
+        foreach (['c', 's'] as $alias) {
+            $rows = $this->visible()
+                ->select("$alias.slug AS slug", "$alias.position AS HIDDEN place", 'MAX(COALESCE(p.updatedAt, p.createdAt)) AS lastmod')
+                ->andWhere("$alias.id IS NOT NULL")
+                ->groupBy("$alias.id")
+                ->addOrderBy('place', 'ASC')
+                ->addOrderBy("$alias.id", 'ASC')
+                ->getQuery()
+                ->getArrayResult();
+            foreach ($rows as $row) {
+                $entries[] = ['slug' => (string) $row['slug'], 'lastmod' => new \DateTimeImmutable((string) $row['lastmod'], new \DateTimeZone('UTC'))];
+            }
+        }
+
+        return $entries;
     }
 
     /**
@@ -566,5 +617,25 @@ class ProductRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getSingleColumnResult());
+    }
+
+    /**
+     * Prix actuels, par identifiant d'article (article disparu : absent).
+     *
+     * @param list<string> $ids
+     *
+     * @return array<string, int>
+     */
+    public function prices(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return array_map('intval', $this->getEntityManager()->getConnection()->fetchAllKeyValue(
+            'SELECT id, price FROM products WHERE id IN (?)',
+            [array_values(array_unique($ids))],
+            [\Doctrine\DBAL\ArrayParameterType::STRING],
+        ));
     }
 }

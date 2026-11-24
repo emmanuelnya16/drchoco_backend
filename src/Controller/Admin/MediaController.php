@@ -4,12 +4,16 @@ namespace App\Controller\Admin;
 
 use App\Api\ApiException;
 use App\Api\ApiJson;
+use App\Entity\Admin;
 use App\Service\Media\CloudinaryService;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 /**
  * POST /api/admin/media — envoie une image du catalogue vers Cloudinary (service repris du backend de référence)
@@ -17,6 +21,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Corps multipart : `file` (JPEG, PNG ou WebP, 5 Mo au plus) et `kind` (product, category ou look).
  * Toute l'équipe peut envoyer des images (le front laisse aussi les vendeurs gérer catégories et looks).
+ * Limites par compte : 60 images par 10 min et 300 par jour (quota du compte Cloudinary).
  * Réponse 201 : `{ url, publicId, width, height }`.
  */
 final class MediaController
@@ -27,11 +32,22 @@ final class MediaController
     public function __construct(
         private readonly CloudinaryService $cloudinary,
         private readonly LoggerInterface $logger,
+        #[Autowire(service: 'limiter.admin_media')]
+        private readonly RateLimiterFactoryInterface $limiter,
+        #[Autowire(service: 'limiter.admin_media_day')]
+        private readonly RateLimiterFactoryInterface $dailyLimiter,
     ) {}
 
     #[Route('/admin/media', name: 'api_admin_media_upload', methods: ['POST'])]
-    public function upload(Request $request): JsonResponse
+    public function upload(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
+        foreach ([$this->limiter, $this->dailyLimiter] as $factory) {
+            $limit = $factory->create('admin-' . $admin->getId())->consume();
+            if (!$limit->isAccepted()) {
+                throw ApiException::tooManyRequests('RATE_LIMITED', 'Trop d’images envoyées. Réessayez plus tard.', max(1, $limit->getRetryAfter()->getTimestamp() - time()));
+            }
+        }
+
         // Corps plus lourd que post_max_size : PHP vide le formulaire et le fichier.
         if ($request->files->count() === 0 && $request->request->count() === 0 && (int) $request->headers->get('Content-Length', '0') > 0) {
             throw new ApiException(413, 'FILE_TOO_LARGE', 'Image trop lourde : 5 Mo au maximum.');

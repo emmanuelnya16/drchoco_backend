@@ -21,11 +21,17 @@ final class AdminHardeningTest extends AdminTestCase
             self::assertSame('INVALID_CREDENTIALS', $this->adminLogin($variant)['code'], $variant);
         }
 
-        // E-mail et téléphone : un seul compteur (3 + 2 échecs = blocage).
+        // E-mail et téléphone : un seul compteur (3 + 2 échecs = blocage). La réponse reste celle d'un mot de passe faux,
+        // même avec le bon : rien n'indique que l'e-mail et le téléphone sont ceux du même compte.
         foreach (['owner@drchoco.cm', 'OWNER@drchoco.cm', 'owner@drchoco.cm', '690000000', '+237 690 00 00 00'] as $identifier) {
             $this->adminLogin($identifier, 'faux-mot-de-passe');
             self::assertSame(401, $this->httpStatus());
         }
+        self::assertSame('INVALID_CREDENTIALS', $this->adminLogin('690000000')['code']);
+
+        // Le même identifiant tapé 5 fois : 429, avec le délai.
+        $this->adminLogin('owner@drchoco.cm', 'faux-mot-de-passe');
+        $this->adminLogin('owner@drchoco.cm', 'faux-mot-de-passe');
         $data = $this->adminLogin('owner@drchoco.cm');
         self::assertSame(429, $this->httpStatus());
         self::assertSame('TOO_MANY_ATTEMPTS', $data['code']);

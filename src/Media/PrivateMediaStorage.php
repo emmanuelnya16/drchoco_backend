@@ -2,6 +2,8 @@
 
 namespace App\Media;
 
+use App\Api\ApiException;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -17,6 +19,9 @@ class PrivateMediaStorage
     private const LIFETIME = 3600;
     private const ROUNDING = 600;
 
+    /** Espace gardé libre sur le disque (base de données, sessions, journaux) : en dessous, plus d'image enregistrée. */
+    private const MIN_FREE_BYTES = 200 * 1024 * 1024;
+
     /** Photo du colis dans une notification push : lien valable 25 h (durée de vie d'une notification : 24 h). */
     public const KIND_PACKAGE_PUSH = 'package-push';
     private const LIFETIMES = [self::KIND_PACKAGE_PUSH => 90000];
@@ -27,29 +32,50 @@ class PrivateMediaStorage
         #[Autowire('%kernel.secret%')]
         private readonly string $secret,
         private readonly UrlGeneratorInterface $urls,
+        private readonly LoggerInterface $logger,
     ) {}
 
-    /** Enregistre le contenu et renvoie son chemin relatif. */
+    /**
+     * Enregistre le contenu et renvoie son chemin relatif.
+     *
+     * @throws ApiException 507 disque plein ou dossier impossible à écrire (rien n'est gardé)
+     */
     public function store(string $folder, string $extension, string $bytes): string
     {
         $relative = trim($folder, '/') . '/' . bin2hex(random_bytes(16)) . '.' . $extension;
         $path = $this->absolute($relative);
-        if (!is_dir(\dirname($path)) && !mkdir(\dirname($path), 0770, true) && !is_dir(\dirname($path))) {
-            throw new \RuntimeException('Dossier privé impossible à créer.');
+        if (!is_dir(\dirname($path)) && !@mkdir(\dirname($path), 0770, true) && !is_dir(\dirname($path))) {
+            throw $this->full('dossier impossible à créer');
         }
-        if (file_put_contents($path, $bytes, \LOCK_EX) !== \strlen($bytes)) {
-            throw new \RuntimeException('Fichier privé impossible à écrire.');
+        $free = \function_exists('disk_free_space') ? @disk_free_space(\dirname($path)) : false; // désactivée chez certains hébergeurs
+        if ($free !== false && $free < self::MIN_FREE_BYTES + \strlen($bytes)) {
+            throw $this->full(sprintf('%d Mo libres', intdiv((int) $free, 1024 * 1024)));
+        }
+        if (@file_put_contents($path, $bytes, \LOCK_EX) !== \strlen($bytes)) {
+            @unlink($path); // écriture partielle : elle n'occupe pas le peu de place qui reste
+            throw $this->full('écriture incomplète');
         }
 
         return $relative;
     }
 
-    public function delete(string $relative): void
+    private function full(string $reason): ApiException
+    {
+        $this->logger->critical('Image non enregistrée dans le dossier privé ({reason}) : libérer de la place ou vérifier les droits.', ['reason' => $reason]);
+
+        return new ApiException(507, 'STORAGE_FULL', 'L’envoi des images est momentanément indisponible. Écrivez-nous sur WhatsApp.');
+    }
+
+    /** Supprime le fichier (et son dossier s'il est vide). @return bool le fichier n'existe plus */
+    public function delete(string $relative): bool
     {
         $path = $this->absolute($relative);
-        if (is_file($path)) {
-            @unlink($path);
+        if (is_file($path) && !@unlink($path)) {
+            return false;
         }
+        @rmdir(\dirname($path)); // ignoré s'il reste d'autres fichiers
+
+        return true;
     }
 
     public function absolute(string $relative): string

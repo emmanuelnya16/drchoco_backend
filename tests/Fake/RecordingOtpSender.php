@@ -14,11 +14,17 @@ final class RecordingOtpSender implements OtpSenderInterface
 
     public bool $fail = false;
 
+    /** @var (\Closure(string, string): void)|null appelé pendant l'envoi (le fournisseur n'a pas encore répondu) */
+    public ?\Closure $whileSending = null;
+
     /** Simule un envoi qui lève une exception (ne devrait jamais arriver avec le vrai envoi). */
     public bool $throw = false;
 
     public function send(string $phone, string $code): bool
     {
+        if ($this->whileSending !== null) {
+            ($this->whileSending)($phone, $code);
+        }
         if ($this->throw) {
             throw new \RuntimeException('Panne simulée du fournisseur de SMS');
         }
@@ -46,5 +52,6 @@ final class RecordingOtpSender implements OtpSenderInterface
         $this->sent = [];
         $this->fail = false;
         $this->throw = false;
+        $this->whileSending = null;
     }
 }

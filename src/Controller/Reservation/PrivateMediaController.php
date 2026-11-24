@@ -12,7 +12,6 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Routing\Requirement\Requirement;
 
 /**
  * Images privées, par lien signé et temporaire (balise <img> : pas d'en-tête Authorization possible) :
@@ -28,7 +27,7 @@ final class PrivateMediaController
         private readonly ClockInterface $clock,
     ) {}
 
-    #[Route('/media/private/proofs/{id}', name: 'api_private_proof', requirements: ['id' => Requirement::DIGITS], methods: ['GET'])]
+    #[Route('/media/private/proofs/{id}', name: 'api_private_proof', requirements: ['id' => '\d{1,10}'], methods: ['GET'])]
     public function proof(int $id, Request $request): BinaryFileResponse
     {
         $expires = $this->assertSigned(['proof'], $id, $request);
@@ -37,7 +36,7 @@ final class PrivateMediaController
         return $this->file($proof?->getStoragePath(), $proof?->getMimeType(), 'preuve-' . $proof?->getReservation()->getRef(), $expires);
     }
 
-    #[Route('/media/private/package-photos/{id}', name: 'api_private_package_photo', requirements: ['id' => Requirement::DIGITS], methods: ['GET'])]
+    #[Route('/media/private/package-photos/{id}', name: 'api_private_package_photo', requirements: ['id' => '\d{1,10}'], methods: ['GET'])]
     public function packagePhoto(int $id, Request $request): BinaryFileResponse
     {
         // Lien de l'écran (1 h) ou d'une notification push (25 h).

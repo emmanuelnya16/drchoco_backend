@@ -6,6 +6,7 @@ use App\Entity\Admin;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Monolog\Handler\TestHandler;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -20,6 +21,9 @@ abstract class ApiTestCase extends WebTestCase
     {
         parent::setUp();
         $this->client = static::createClient();
+        $audit = static::getContainer()->get('test.audit_handler');
+        $audit->clear();
+        $audit->setSkipReset(true); // gardé d'une requête à l'autre (le noyau remet ses services à zéro entre deux)
 
         $connection = $this->em()->getConnection();
         // Les adresses, favoris et appareils abonnés partent avec les comptes (clé étrangère ON DELETE CASCADE) ;
@@ -61,6 +65,20 @@ abstract class ApiTestCase extends WebTestCase
     protected function tokenFor(User|Admin $account): string
     {
         return static::getContainer()->get(JWTTokenManagerInterface::class)->create($account);
+    }
+
+    /**
+     * Journal d'audit de la requête en cours et des précédentes (App\Audit\AuditLog).
+     *
+     * @return list<array{event: string, admin?: array<string, mixed>, ip: string, data?: array<string, mixed>}>
+     */
+    protected function auditRecords(?string $event = null): array
+    {
+        /** @var TestHandler $handler */
+        $handler = static::getContainer()->get('test.audit_handler');
+        $records = array_map(fn ($r) => ['event' => $r->message] + $r->context, $handler->getRecords());
+
+        return $event === null ? $records : array_values(array_filter($records, fn (array $r) => $r['event'] === $event));
     }
 
     /** @return array<string, mixed> */

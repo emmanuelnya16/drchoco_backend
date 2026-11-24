@@ -52,26 +52,26 @@ final class AdminReservationController
         return ApiJson::noStore($this->detailResponse($reservation, $admin));
     }
 
-    /** POST /api/admin/reservations/{ref}/validate-payment — `{note?}` (super admin). */
+    /** POST /api/admin/reservations/{ref}/validate-payment — `{note?, expectedStatus?, proofSha256?}` (super admin). */
     #[Route('/admin/reservations/{ref}/validate-payment', name: 'api_admin_reservations_validate', methods: ['POST'])]
     public function validatePayment(string $ref, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $reservation = $this->actions->find($admin, $ref);
         $body = JsonBody::object($request, allowEmpty: true);
-        $this->actions->validatePayment($admin, $reservation, $this->text($body, 'note', 0, 200, 'La note'));
+        $this->actions->validatePayment($admin, $reservation, $this->text($body, 'note', 0, 200, 'La note'), $this->seen($body));
 
-        return $this->reservation($reservation);
+        return $this->reservation($reservation, $admin);
     }
 
-    /** POST /api/admin/reservations/{ref}/reject-payment — `{reason}` 3 à 200 caractères (super admin). */
+    /** POST /api/admin/reservations/{ref}/reject-payment — `{reason, expectedStatus?, proofSha256?}` (super admin). */
     #[Route('/admin/reservations/{ref}/reject-payment', name: 'api_admin_reservations_reject', methods: ['POST'])]
     public function rejectPayment(string $ref, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $reservation = $this->actions->find($admin, $ref);
         $body = JsonBody::object($request);
-        $this->actions->rejectPayment($admin, $reservation, (string) $this->text($body, 'reason', 3, 200, 'Le motif du rejet'));
+        $this->actions->rejectPayment($admin, $reservation, (string) $this->text($body, 'reason', 3, 200, 'Le motif du rejet'), $this->seen($body));
 
-        return $this->reservation($reservation);
+        return $this->reservation($reservation, $admin);
     }
 
     /** POST /api/admin/reservations/{ref}/status — `{status, note?}` : preparing, in_delivery, delivered, picked_up. */
@@ -86,7 +86,7 @@ final class AdminReservationController
         }
         $this->actions->advance($admin, $reservation, $status, $this->text($body, 'note', 0, 200, 'La note'));
 
-        return $this->reservation($reservation);
+        return $this->reservation($reservation, $admin);
     }
 
     /** POST /api/admin/reservations/{ref}/package-ready — multipart `photos[]` (1 à 3), `note?`, `agencyId?`. */
@@ -99,7 +99,7 @@ final class AdminReservationController
         $agencyId = TextInput::clean($fields['agencyId']);
         $this->actions->packageReady($admin, $reservation, $request, $note, $agencyId !== null && $agencyId !== '' ? mb_substr($agencyId, 0, 40) : null);
 
-        return $this->reservation($reservation);
+        return $this->reservation($reservation, $admin);
     }
 
     /** POST /api/admin/reservations/{ref}/cancel — `{reason}` 3 à 200 caractères (super admin). */
@@ -110,7 +110,18 @@ final class AdminReservationController
         $body = JsonBody::object($request);
         $this->actions->cancel($admin, $reservation, (string) $this->text($body, 'reason', 3, 200, 'Le motif de l’annulation'));
 
-        return $this->reservation($reservation);
+        return $this->reservation($reservation, $admin);
+    }
+
+    /** POST /api/admin/reservations/{ref}/refund-settled — `{note}` 3 à 200 caractères (super admin). */
+    #[Route('/admin/reservations/{ref}/refund-settled', name: 'api_admin_reservations_refund_settled', methods: ['POST'])]
+    public function refundSettled(string $ref, Request $request, #[CurrentUser] Admin $admin): JsonResponse
+    {
+        $reservation = $this->actions->find($admin, $ref);
+        $body = JsonBody::object($request);
+        $this->actions->settleRefund($admin, $reservation, (string) $this->text($body, 'note', 3, 200, 'L’explication du remboursement'));
+
+        return $this->reservation($reservation, $admin);
     }
 
     /** POST /api/admin/reservations/{ref}/notes — `{text}` 2 à 1 000 caractères ; 201 `{note, internalNotes}`. */
@@ -125,11 +136,31 @@ final class AdminReservationController
     }
 
     /** `{reservation}` relue en base après l'action (historique, preuves et photos à jour). */
-    private function reservation(Reservation $reservation): JsonResponse
+    private function reservation(Reservation $reservation, Admin $admin): JsonResponse
     {
         $this->em->refresh($reservation);
 
-        return ApiJson::noStore(['reservation' => $this->normalizer->detail($reservation, $this->lifecycle->now())]);
+        return ApiJson::noStore(['reservation' => $this->normalizer->detail($reservation, $this->lifecycle->now(), $admin->isSuperAdmin())]);
+    }
+
+    /**
+     * Statut et preuve affichés à l'admin quand il a cliqué (facultatifs : absents, rien n'est comparé).
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return array{expectedStatus?: string, proofSha256?: ?string}
+     */
+    private function seen(array $body): array
+    {
+        $seen = [];
+        if (\is_string($body['expectedStatus'] ?? null) && $body['expectedStatus'] !== '') {
+            $seen['expectedStatus'] = $body['expectedStatus'];
+        }
+        if (\array_key_exists('proofSha256', $body) && ($body['proofSha256'] === null || \is_string($body['proofSha256']))) {
+            $seen['proofSha256'] = $body['proofSha256'];
+        }
+
+        return $seen;
     }
 
     /** @return array<string, mixed> */

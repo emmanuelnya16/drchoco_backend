@@ -18,7 +18,7 @@ use Psr\Log\LoggerInterface;
  * Événements des réservations : écrits dans le journal de l'application et, depuis la P7, notifications push
  * mises en file (ReservationPushMessages pour les textes, PushQueue pour la file) :
  *  - équipe : nouvelle réservation (super admins et vendeurs concernés), preuve reçue (super admins),
- *    annulation par le client d'une réservation déjà payée (super admins) ;
+ *    annulation par le client d'une réservation payée ou dont la preuve attendait (super admins) ;
  *  - client : paiement validé ou rejeté, colis prêt (avec sa photo), en route, livré ou retiré, bientôt expirée,
  *    annulée par la boutique.
  * Appelé après l'enregistrement : une panne ici n'annule jamais l'action.
@@ -59,9 +59,11 @@ class ReservationNotifier
     public function cancelledByClient(Reservation $r): void
     {
         $this->log('Réservation annulée par le client', $r);
-        if ($r->getPaidAt() !== null) {
-            // Paiement déjà validé : la boutique doit rembourser.
-            $this->toTeam($r, fn () => $this->messages->cancelledByClientAfterPayment($r));
+        if ($r->isRefundDue()) {
+            // Paiement validé, ou preuve envoyée et jamais examinée : la boutique doit vérifier et rembourser.
+            $this->toTeam($r, fn () => $r->getPaidAt() !== null
+                ? $this->messages->cancelledByClientAfterPayment($r)
+                : $this->messages->cancelledByClientWithProof($r));
         }
     }
 

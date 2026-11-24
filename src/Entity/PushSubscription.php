@@ -67,6 +67,10 @@ class PushSubscription
     #[ORM\Column(type: 'smallint', options: ['default' => 0])]
     private int $failureCount = 0;
 
+    /** Premier échec de la série en cours (service de push ou réseau) ; vide dès qu'un envoi réussit. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $failingSince = null;
+
     #[ORM\Column(type: 'smallint', nullable: true)]
     private ?int $lastStatus = null;
 
@@ -112,6 +116,7 @@ class PushSubscription
         }
         $this->lastSeenAt = $now;
         $this->failureCount = 0;
+        $this->failingSince = null;
 
         return $this;
     }

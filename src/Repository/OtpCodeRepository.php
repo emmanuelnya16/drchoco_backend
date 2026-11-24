@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\OtpCode;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -18,7 +19,8 @@ class OtpCodeRepository extends ServiceEntityRepository
     }
 
     /**
-     * Dernier code envoyé à ce numéro (le seul qui compte).
+     * Dernier code envoyé à ce numéro (le seul qui compte). Un code dont le SMS est encore en cours d'envoi n'existe
+     * pas encore : il ne peut être ni saisi, ni deviné.
      * Avec $forUpdate, la ligne est verrouillée jusqu'à la fin de la transaction : deux vérifications
      * simultanées du même numéro passent l'une après l'autre (pas d'essai gratuit, pas de double compte).
      */
@@ -26,10 +28,12 @@ class OtpCodeRepository extends ServiceEntityRepository
     {
         $query = $this->createQueryBuilder('o')
             ->where('o.phone = :phone')
+            ->andWhere('o.sentAt IS NOT NULL')
             ->setParameter('phone', $phone)
             ->orderBy('o.id', 'DESC')
             ->setMaxResults(1)
-            ->getQuery();
+            ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true); // toujours l'état en base, même si la ligne a déjà été lue
 
         if ($forUpdate) {
             $query->setLockMode(LockMode::PESSIMISTIC_WRITE);

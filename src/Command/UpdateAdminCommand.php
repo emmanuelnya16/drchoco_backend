@@ -4,8 +4,10 @@ namespace App\Command;
 
 use App\Admin\AdminLogin;
 use App\Admin\SellerManager;
+use App\Audit\AuditLog;
 use App\Entity\Admin;
 use App\Entity\RefreshToken;
+use App\Push\PushSubscriptions;
 use App\Repository\AdminRepository;
 use App\Service\Auth\RefreshTokenService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -36,6 +38,8 @@ final class UpdateAdminCommand extends Command
         private readonly AdminRepository $admins,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly RefreshTokenService $refreshTokens,
+        private readonly PushSubscriptions $pushDevices,
+        private readonly AuditLog $audit,
         private readonly EntityManagerInterface $em,
     ) {
         parent::__construct();
@@ -94,10 +98,14 @@ final class UpdateAdminCommand extends Command
             $admin->setIsActive(true);
         }
 
-        $this->em->flush();
-        $this->refreshTokens->revokeAll((int) $admin->getId(), RefreshToken::TYPE_ADMIN);
+        $this->em->wrapInTransaction(function () use ($admin): void {
+            $this->em->flush();
+            $this->refreshTokens->revokeAll((int) $admin->getId(), RefreshToken::TYPE_ADMIN);
+            $this->pushDevices->forgetAdmin((int) $admin->getId());
+        });
+        $this->audit->record('admin.updated', null, ['account' => $admin->getId(), 'password' => (bool) $input->getOption('password'), 'active' => $admin->isActive(), 'by' => 'ligne de commande']);
 
-        $io->success(sprintf('Compte %s mis à jour (%s). Toutes ses sessions sont coupées.', $admin->getEmail(), $admin->isActive() ? 'actif' : 'désactivé'));
+        $io->success(sprintf('Compte %s mis à jour (%s). Toutes ses sessions sont coupées, ses appareils ne reçoivent plus de notifications.', $admin->getEmail(), $admin->isActive() ? 'actif' : 'désactivé'));
 
         return Command::SUCCESS;
     }

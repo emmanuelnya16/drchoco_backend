@@ -1,6 +1,6 @@
 # Plan de construction — API DR Choco L’Incompris
 
-Avancement total : **89 %** (P0 à P8 terminées)
+Avancement total : **95 %** (P0 à P9 terminées)
 
 | Phase | Contenu | Routes | Poids | État |
 |---|---|---|---|---|
@@ -13,7 +13,7 @@ Avancement total : **89 %** (P0 à P8 terminées)
 | **P6** | Gestion des réservations (admin) | 10 | 10 % | ✅ Terminée |
 | **P7** | Notifications push et tableau de bord | 4 + déclencheurs | 8 % | ✅ Terminée |
 | **P8** | Réglages, livraison et pages (admin) | 13 | 6 % | ✅ Terminée |
-| **P9** | SEO, sécurité, tests de bout en bout | — | 6 % | ⏳ À faire |
+| **P9** | SEO, sécurité, tests de bout en bout | 5 + pages | 6 % | ✅ Terminée |
 | **P10** | Mise en ligne sur cPanel | — | 5 % | ⏳ À faire |
 
 ---
@@ -206,7 +206,37 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
   - relecture adverse : 9 constats (aucun grave), tous corrigés, et un défaut plus ancien du carnet d’adresses ;
   - navigateur sur la vraie API (écrans réels) : boutique de Douala et prix de la livraison à domicile, code marchand, ville et agence ajoutées puis visibles ou cachées pour les clients, page modifiée et publiée, vendeur refusé — 22/22, aussi après les corrections
 
-À faire en P9 : SEO (pages produits, plan du site), contrôle de sécurité complet et test de bout en bout de tout le parcours.
+## P9 — SEO, sécurité, tests de bout en bout ✅
+
+**Référencement et partage** (domaine `drchoco.com`)
+
+- [x] Fiche produit servie avec ses balises (titre, prix, photo, description, données structurées) : aperçu correct dans WhatsApp, Facebook et Google ; 404 pour un article inconnu ou retiré
+- [x] Plans du site calculés (`/sitemap-index.xml`, catégories, articles), `robots.txt`, image de partage par défaut
+- [x] `.htaccess` : `_api` jamais accessible directement, projet refusé s’il est copié dans le site
+
+**Contrôle de sécurité complet** (8 relecteurs, 130 constats lus ; corrigés ou décidés)
+
+- [x] Connexion des clients : SMS comptés seulement quand ils partent, code impossible à deviner pendant l’envoi, un tiers du plafond réservé aux clients connus, aucune adresse IP ni navigateur gardés avec les sessions
+- [x] Connexion de l’équipe : compteurs par adresse, par compte et par appareil connu ; mots de passe plus stricts ; changement de mot de passe ; sessions et notifications coupées ensemble
+- [x] Réservations : plafonds par client, montant confirmé vérifié, popularité rendue en cas d’annulation, alerte et marque « remboursement à prévoir »
+- [x] Paiement : décision prise sur la capture réellement affichée, transaction déclarée deux fois signalée, capture réservée aux super admins, nouveau code marchand = ancien QR code retiré, codes toujours relus
+- [x] Images : dimensions limitées, métadonnées cachées retirées partout, disque plein géré, effacement après 12 mois
+- [x] Journal d’audit de 400 jours ; client bloqué, déconnecté, exporté ou effacé (`app:customer`)
+- [x] Garde-fous de production : secret obligatoire, mode développement fermé au public, `app:diagnostic --production`, `app:seed` sans articles fictifs, clés VAPID écrites d’un coup
+- [x] JWT et Cloudinary **inchangés**
+- [x] Front (non enregistré dans git) : données d’un client effacées à la déconnexion ou au changement de compte, déconnexion terminée même hors connexion, paiement jamais proposé pour une réservation annulée, codes de paiement récents, écrans de l’administration (mot de passe, clients, remboursements, preuves), politique de sécurité du contenu (CSP) appliquée
+
+**Vérifications**
+
+- [x] Serveur : 359 tests automatiques, aussi dans le désordre ; front : 591 tests
+- [x] Relectures adverses : serveur, puis front (19 constats, 15 réels), puis dernières corrections (7 constats, dont 4 déjà corrigés entre-temps) ; tout est corrigé, sauf un point mineur gardé volontairement (brouillon du formulaire effacé quand la session est refusée : téléphone partagé)
+- [x] Parcours complet dans Chrome, téléphone et ordinateur, sur la vraie API (front construit pour la mise en ligne, HTTPS, CSP appliquée) : 18 étapes, 123/123 — client, propriétaire, gérant et vendeur ; réservation, paiement, preuve, rejet, colis, retrait, livraison, expiration, annulation, remboursement, client bloqué, téléphone partagé, hors connexion, stock, notifications déchiffrées
+- [x] Affichage : 300 contrôles (toutes les pages, de 320 à 1 366 px), aucun débordement — 6 débordements trouvés et corrigés
+- [x] Mode production (`APP_ENV=prod`) : 53/53 — en-têtes, adresses fermées, plans du site, erreurs sans détail technique, redirections HTTPS et www
+- [x] Données de test supprimées (base et fichiers) ; base de développement mise à jour
+- [ ] iPhone (Safari) : à vérifier sur de vrais appareils à la mise en ligne, ce navigateur n’existe pas sur le poste de développement
+
+Reste avant l’ouverture : la mise en ligne elle-même (P10).
 
 ## Décisions prises
 
@@ -218,21 +248,34 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 | 2026-11-16 | Délai après un paiement rejeté ? | 6 h de plus pour renvoyer une preuve, sans jamais raccourcir le délai d’origine |
 | 2026-11-17 | Que voit et fait un vendeur sur les réservations ? (choix par défaut, P6) | Les réservations qui contiennent ses articles (ou des articles sans vendeur de sa ville) : préparation, photos, remise, notes ; pas de paiement ni d’annulation |
 | 2026-11-17 | Annulation par la boutique ? (choix par défaut, P6) | Super admin seulement ; articles remis en vente tout de suite (comme le dit l’écran) ; remboursement d’un paiement validé fait par Mobile Money hors de l’application |
-| 2026-11-17 | Durée de conservation des captures de paiement (et photos du colis) | 12 mois (suppression automatique à mettre en place en P10, avec `app:purge`) |
+| 2026-11-17 | Durée de conservation des captures de paiement (et photos du colis) | 12 mois, effacement automatique par `app:purge` (P9) ; l’empreinte d’une capture reste, contre une réutilisation |
 | 2026-11-17 | Boutique de Yaoundé | Mokolo, Dubai Market, Yaoundé ; téléphone +237 678 79 47 17 (aussi pris comme numéro WhatsApp de la boutique) |
 | 2026-11-17 | Notifications push (choix par défaut, P7) | Le client reçoit la référence seulement (jamais son téléphone) ; l’équipe reçoit le nom et le montant ; pas de notification pour la préparation ni l’expiration ; ventes datées par la validation du paiement, « aujourd’hui » depuis minuit à l’heure du Cameroun |
 | 2026-11-17 | Agences d’expédition (données de départ) | Agences réelles relevées par le propriétaire, au prix publié d’un colis de 0 à 5 kg : Travel Lines Cameroun (1 000 FCFA, Yaoundé ↔ Douala), United Express (à partir de 1 000 FCFA, Yaoundé ↔ Douala), Touristique Express (à partir de 3 000 FCFA, Yaoundé, Douala, Bafoussam). Enregistrées mais cachées tant que leur prix n’est pas connu (devis) : MTA Express, JFI Express, GT Transport (G2T SARL) dans les trois villes. Les 31 agences fictives des maquettes sont retirées. À la réservation, seules les villes où le colis peut arriver sont proposées (aujourd’hui Yaoundé, Douala, Bafoussam) |
 | 2026-11-21 | Réglages dans l’administration (choix par défaut, P8) | Super admin seulement ; Yaoundé et Douala ni renommées, ni masquées, ni supprimées ; un opérateur désactivé n’est plus proposé, mais une preuve déjà payée par lui reste acceptée ; textes affichés avec les espaces insécables du français |
+
+| 2026-11-24 | Nom de domaine | `drchoco.com` |
+| 2026-11-24 | Limites par client (choix par défaut, P9) | 10 pièces par article, 30 par réservation, 5 réservations ouvertes et 60 pièces en tout, 10 réservations par heure et 30 par jour |
+| 2026-11-24 | Captures de paiement vues par les vendeurs ? (choix par défaut, P9) | Non : capture, numéro payeur et transaction pour les super admins seulement |
+| 2026-11-24 | Photos du catalogue (choix par défaut, P9) | Seulement les photos importées (Cloudinary) ou du site ; 30 catégories au plus |
+| 2026-11-24 | Nouveau code marchand ou USSD (choix par défaut, P9) | L’ancien QR code est retiré tant qu’une nouvelle image n’est pas fournie |
+| 2026-11-24 | Taille ou couleur ajoutée par un collègue pendant une modification (choix par défaut, P9) | Son stock est gardé (il n’est plus remis à 0) |
 
 ## Points ouverts (à décider)
 
 | Avant | Question | Proposition |
 |---|---|---|
 | P10 | Compte Twilio **d’essai** (expéditeur +1) : SMS seulement vers des numéros vérifiés | En attente des clés du compte payant : il suffira de remplacer `TWILIO_*` dans `.env.local` (aucun code à changer). D’ici là : numéros vérifiés dans la console Twilio, ou `OTP_SMS_TRANSPORT=log` en développement |
-| P10 | Domaine de l’app pour le remplissage automatique du code sur Android | `OTP_WEBOTP_HOST=<domaine>` dans `.env.local` |
+| P10 | Domaine de l’app pour le remplissage automatique du code sur Android | `OTP_WEBOTP_HOST=drchoco.com` dans `.env.local` |
+| Quand vous voulez | Code de retrait en boutique : la référence (RES-000124) est facile à deviner | Aujourd’hui : pièce d’identité demandée au comptoir (rappel à l’écran). Mieux : un code de 4 à 6 chiffres par réservation, montré au client quand le colis est prêt |
+| Quand vous voulez | Numéro de téléphone réattribué par l’opérateur : le nouveau propriétaire ouvre l’ancien compte | Archiver un compte sans activité depuis 12 mois quand son numéro se reconnecte |
+| Quand vous voulez | Réponse perdue au moment où la session est renouvelée (réseau coupé) : le client doit parfois se reconnecter | Tolérer un second renouvellement ; assouplit un peu la protection contre le vol de session |
+| P10 | Dépôts GitHub | Les passer en privé (l’historique contient un ancien secret de développement, refusé en production) |
 | P10 | Textes « [À COMPLÉTER] » des pages légales et de la FAQ | À saisir dans l’administration (Pages) avant la mise en ligne ; le nombre restant y est affiché |
 | P10 | Boutique de Douala : adresse exacte, horaires, lien Maps (aujourd'hui « adresse exacte à confirmer ») ; horaires de la boutique de Yaoundé (aujourd’hui « Lun – Sam · 9 h 30 à 19 h 30 », supposés) ; prix de la livraison à domicile dans chaque ville (1 500 FCFA supposé à Yaoundé et à Douala) ; adresses et horaires des agences (« à confirmer par téléphone ») ; prix réels d’United Express et de Touristique Express (prix « à partir de ») ; prix de MTA Express, JFI Express et GT Transport pour les activer ; agences dans les autres villes (Bamenda, Buea, Kribi…), qui ne sont pas proposées tant qu’elles n’en ont pas | À saisir dans l’administration (Réglages, Livraison) avant la mise en ligne, ou à me transmettre |
-| P10 | Captures de paiement et photos du colis gardées dans `var/private/proofs` et `var/private/packages` (hors du site public) : à inclure dans les sauvegardes | Sauvegarde avec la base ; conservation de 12 mois décidée (suppression automatique en P10) |
-| P10 | Offre cPanel (PHP, base, SSH, crons) et domaine (.cm ou .com) | — |
+| P10 | Captures de paiement et photos du colis gardées dans `var/private/proofs` et `var/private/packages` (hors du site public) : à inclure dans les sauvegardes | Sauvegarde avec la base ; conservation de 12 mois (effacement automatique fait en P9) |
+| P10 | Domaine `drchoco.com` | Pas encore enregistré le 24/11/2026 (aucune réponse DNS) : à réserver |
+| P10 | Compte propriétaire | Aucun dans la base de développement (seulement un vendeur) : `php bin/console app:create-owner` |
+| P10 | Offre cPanel (PHP 8.3 ou plus, base, SSH, crons) | À choisir |
 | P10 | Notifications push en production | Créer les clés une fois sur le serveur (`app:push:vapid-keys --write=.env.local`), construire le front avec la clé publique (`VITE_VAPID_PUBLIC_KEY`), tâche `app:push:send` chaque minute ; vérifier que l’hébergeur autorise une tâche par minute |
 | P10 | Montage sur cPanel : les routes gardent le préfixe `/api` | Projet hors de `public_html`, son dossier `public/` exposé sous `public_html/_api` (lien), et règle du `.htaccess` du front : `^api(/.*)?$ → _api/index.php` |

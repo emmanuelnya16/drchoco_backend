@@ -50,7 +50,7 @@ final class AdminProductController
     #[Route('/admin/products', name: 'api_admin_products_create', methods: ['POST'])]
     public function create(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
-        $product = $this->editor->create(JsonBody::object($request), $admin);
+        $product = $this->editor->create(JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR), $admin);
 
         return ApiJson::noStore(['product' => $this->normalizer->adminProduct($this->reload($product))], 201);
     }
@@ -59,7 +59,7 @@ final class AdminProductController
     #[Route('/admin/products/{id}', name: 'api_admin_products_update', methods: ['PATCH'])]
     public function update(string $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
-        $product = $this->editor->update($this->find($id, $admin), JsonBody::object($request), $admin);
+        $product = $this->editor->update($this->find($id, $admin), JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR), $admin);
 
         return ApiJson::noStore(['product' => $this->normalizer->adminProduct($this->reload($product))]);
     }
@@ -68,7 +68,7 @@ final class AdminProductController
     #[Route('/admin/products/{id}/stock', name: 'api_admin_products_stock', methods: ['PATCH'])]
     public function stock(string $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
-        $product = $this->editor->updateStock($this->find($id, $admin), JsonBody::object($request));
+        $product = $this->editor->updateStock($this->find($id, $admin), JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR), $admin);
 
         return ApiJson::noStore(['product' => $this->normalizer->adminProduct($product)]);
     }
@@ -77,7 +77,7 @@ final class AdminProductController
     #[Route('/admin/products/{id}', name: 'api_admin_products_delete', methods: ['DELETE'])]
     public function delete(string $id, #[CurrentUser] Admin $admin): Response
     {
-        $this->editor->delete($this->find($id, $admin));
+        $this->editor->delete($this->find($id, $admin), $admin);
 
         $response = new Response(null, Response::HTTP_NO_CONTENT);
         $response->headers->set('Cache-Control', 'no-store');

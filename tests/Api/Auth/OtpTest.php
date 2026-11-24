@@ -4,6 +4,7 @@ namespace App\Tests\Api\Auth;
 
 use App\Api\ApiDate;
 use App\Entity\User;
+use App\Repository\OtpCodeRepository;
 use App\Tests\AccountTestCase;
 
 /**
@@ -259,20 +260,66 @@ final class OtpTest extends AccountTestCase
         }
     }
 
+    public function testCodeCannotBeGuessedWhileItsSmsIsBeingSentNorAfterARefusedSms(): void
+    {
+        $hashes = [];
+        $latest = [];
+        $this->sms()->fail = true;
+        $this->sms()->whileSending = function () use (&$hashes, &$latest): void {
+            // Pendant l'appel au fournisseur : la ligne existe, mais aucun code ne peut être saisi.
+            $hashes[] = $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM otp_codes WHERE phone = ? AND sent_at IS NULL', [self::PHONE]);
+            $latest[] = static::getContainer()->get(OtpCodeRepository::class)->findLatestForPhone(self::PHONE);
+        };
+        $this->requestCode();
+        self::assertSame(503, $this->httpStatus());
+        self::assertSame([1], array_map('intval', $hashes));
+        self::assertSame([null], $latest); // vérifié ici : une exception levée pendant l'envoi serait prise pour un SMS non parti
+        self::assertSame('OTP_EXPIRED', $this->verifyCode('123456')['code']);
+
+        // Un nouvel envoi refusé n'efface pas le code déjà reçu par le client.
+        $this->sms()->whileSending = null;
+        $this->sms()->fail = false;
+        $this->requestCode();
+        $code = $this->sms()->lastCodeFor(self::PHONE);
+        $this->wait(61);
+        $this->sms()->fail = true;
+        $this->requestCode();
+        self::assertSame(503, $this->httpStatus());
+        $this->verifyCode($code);
+        self::assertSame(200, $this->httpStatus());
+    }
+
     public function testShopWideDailySmsCap(): void
     {
-        $connection = $this->em()->getConnection();
-        $values = [];
-        $twoHoursAgo = $this->clock->now()->modify('-2 hours')->format('Y-m-d H:i:s');
-        for ($i = 0; $i < 300; ++$i) {
-            $values[] = sprintf("('+2376%08d', '%s', '%s', '%s', 5)", $i + 1000, str_repeat('a', 64), $twoHoursAgo, $twoHoursAgo);
-        }
-        $connection->executeStatement('INSERT INTO otp_codes (phone, code_hash, created_at, expires_at, attempts_left) VALUES ' . implode(',', $values));
+        $this->fillSmsOfTheDay(300);
 
         $data = $this->requestCode();
         self::assertSame(503, $this->httpStatus());
         self::assertSame('SMS_UNAVAILABLE', $data['code']);
         self::assertSame([], $this->sms()->sent);
+    }
+
+    public function testAThirdOfTheDailyCapIsKeptForExistingAccounts(): void
+    {
+        $this->createUser('+237690000002');
+        $this->fillSmsOfTheDay(200);
+
+        // Numéro inconnu : refusé ; client qui a déjà un compte : servi jusqu'au plafond.
+        $this->requestCode('+237690000003');
+        self::assertSame(503, $this->httpStatus());
+        $this->requestCode('+237690000002');
+        self::assertSame(200, $this->httpStatus());
+        self::assertSame(['+237690000002'], array_column($this->sms()->sent, 'phone'));
+    }
+
+    private function fillSmsOfTheDay(int $count): void
+    {
+        $values = [];
+        $twoHoursAgo = $this->clock->now()->modify('-2 hours')->format('Y-m-d H:i:s');
+        for ($i = 0; $i < $count; ++$i) {
+            $values[] = sprintf("('+2376%08d', '%s', '%s', '%s', '%s', 5)", $i + 1000, str_repeat('a', 64), $twoHoursAgo, $twoHoursAgo, $twoHoursAgo);
+        }
+        $this->em()->getConnection()->executeStatement('INSERT INTO otp_codes (phone, code_hash, created_at, expires_at, sent_at, attempts_left) VALUES ' . implode(',', $values));
     }
 
     public function testThirtyRequestsPerHourPerIpAddress(): void
@@ -290,6 +337,18 @@ final class OtpTest extends AccountTestCase
         // Une autre adresse IP n'est pas concernée.
         $this->requestCode('+237699999999', ['REMOTE_ADDR' => '10.0.0.8']);
         self::assertSame(200, $this->httpStatus());
+    }
+
+    public function testRequestsWithoutSmsDoNotUseTheIpLimit(): void
+    {
+        // Même numéro en boucle : un seul SMS part, les autres clients de la même adresse (réseau mobile) ne sont pas bloqués.
+        for ($i = 0; $i < 40; ++$i) {
+            $this->requestCode();
+        }
+        self::assertCount(1, $this->sms()->sent);
+        $this->requestCode('+237690000002');
+        self::assertSame(200, $this->httpStatus());
+        self::assertCount(2, $this->sms()->sent);
     }
 
     public function testBlockedAccountCanNeitherReceiveNorUseACode(): void
@@ -347,12 +406,23 @@ final class OtpTest extends AccountTestCase
 
     public function testFailedVerificationsAreLimitedPerIpAddress(): void
     {
-        // Aucun code demandé : 30 vérifications « expiré » depuis la même adresse, puis refus.
-        for ($i = 0; $i < 30; ++$i) {
+        // Aucun code demandé : réponse « expiré », qui ne compte pas (ce n'est pas un essai).
+        for ($i = 0; $i < 35; ++$i) {
             $this->verifyCode('123456', sprintf('+2376900%05d', $i));
             self::assertSame(410, $this->httpStatus(), "essai n°$i");
         }
-        $data = $this->verifyCode('123456', '+237699999999');
+
+        // 30 codes faux depuis la même adresse (6 numéros × 5 essais), puis refus.
+        for ($i = 0; $i < 30; ++$i) {
+            $phone = sprintf('+2376920%05d', intdiv($i, 5));
+            if ($i % 5 === 0) {
+                $this->requestCode($phone, ['REMOTE_ADDR' => '10.0.0.7']);
+            }
+            $this->verifyCode($this->sms()->lastCodeFor($phone) === '123456' ? '654321' : '123456', $phone);
+            self::assertContains($this->httpStatus(), [422, 429], "essai n°$i");
+        }
+        $this->requestCode('+237692000099', ['REMOTE_ADDR' => '10.0.0.7']);
+        $data = $this->verifyCode($this->sms()->lastCodeFor('+237692000099'), '+237692000099');
         self::assertSame(429, $this->httpStatus());
         self::assertSame('TOO_MANY_ATTEMPTS', $data['code']);
         self::assertGreaterThan(0, $data['details']['retryAfter']);
@@ -387,5 +457,43 @@ final class OtpTest extends AccountTestCase
         $this->requestCode();
         self::assertSame(200, $this->httpStatus());
         self::assertCount(1, $this->sms()->sent);
+    }
+
+    public function testARefusedAddressCreatesNoLockFileForNewNumbers(): void
+    {
+        $files = fn (): int => \count(glob(static::getContainer()->getParameter('kernel.project_dir') . '/var/lock/sf.otp-request-*') ?: []);
+        $phones = fn (int $from, int $to): array => array_map(fn (int $i) => sprintf('+2376950%05d', $i), range($from, $to));
+        foreach ($phones(1, 30) as $phone) {
+            $this->requestCode($phone);
+            self::assertSame(200, $this->httpStatus());
+        }
+        $before = $files();
+
+        // Adresse au plafond : les numéros suivants sont refusés sans rien écrire sur le disque.
+        foreach ($phones(31, 40) as $phone) {
+            $data = $this->requestCode($phone);
+            self::assertSame([429, 'TOO_MANY_OTP_REQUESTS'], [$this->httpStatus(), $data['code']]);
+            self::assertGreaterThan(0, $data['details']['retryAfter']);
+        }
+        self::assertSame($before, $files());
+        self::assertCount(30, $this->sms()->sent);
+
+        // Un numéro qui vient de recevoir son code n'est pas concerné.
+        $this->wait(20);
+        $data = $this->requestCode($phones(30, 30)[0]);
+        self::assertSame([200, 40], [$this->httpStatus(), $data['resendIn'] ?? null]);
+    }
+
+    public function testALockedNumberIsWrittenInTheAuditLog(): void
+    {
+        $this->requestCode();
+        $wrong = $this->sms()->lastCodeFor(self::PHONE) === '000000' ? '111111' : '000000';
+        foreach (range(1, 5) as $n) {
+            $this->verifyCode($wrong);
+        }
+        $records = $this->auditRecords('otp.locked');
+        self::assertCount(1, $records);
+        self::assertStringNotContainsString('690000001', json_encode($records));
+        self::assertArrayNotHasKey('ip', $records[0], 'jamais l’adresse d’un client dans un journal de 400 jours');
     }
 }

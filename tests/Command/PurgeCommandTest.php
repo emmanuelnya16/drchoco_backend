@@ -30,23 +30,29 @@ final class PurgeCommandTest extends KernelTestCase
             ('+237690000001', '$hash', '2026-11-15 12:00:00', '2026-11-15 12:05:00', 5)");
         $db->executeStatement("INSERT INTO refresh_tokens (token_hash, user_type, user_id, family_id, expires_at, created_at, is_used, is_revoked) VALUES
             ('h1', 'user', 1, 'f1', '2026-11-15 00:00:00', '2026-08-01 00:00:00', 0, 0),
-            ('h2', 'user', 1, 'f2', '2027-02-01 00:00:00', '2026-11-01 00:00:00', 0, 0)");
+            ('h2', 'user', 1, 'f2', '2027-02-01 00:00:00', '2026-11-01 00:00:00', 0, 0),
+            ('h3', 'user', 1, 'f2', '2027-02-01 00:00:00', '2026-11-01 00:00:00', 1, 0),
+            ('h4', 'user', 1, 'f3', '2027-02-01 00:00:00', '2026-11-01 00:00:00', 0, 1),
+            ('h5', 'user', 1, 'f3', '2027-02-01 00:00:00', '2026-11-15 00:00:00', 0, 1)");
+        $db->executeStatement("UPDATE refresh_tokens SET used_at = '2026-11-02 00:00:00' WHERE token_hash = 'h3'");
 
         $lockDir = static::getContainer()->getParameter('kernel.project_dir') . '/var/lock';
         @mkdir($lockDir, 0777, true);
         // Dates des fichiers par rapport à l'horloge figée du test (et non à la date réelle du passage).
-        touch($old = $lockDir . '/sf.test-purge-ancien.abc.lock', strtotime('2026-11-16 10:00:00 UTC') - 3 * 86400);
-        touch($fresh = $lockDir . '/sf.test-purge-recent.abc.lock', strtotime('2026-11-16 10:00:00 UTC'));
+        touch($old = $lockDir . '/sf.test-purge-ancien.abc.lock', strtotime('2026-11-16 10:00:00 UTC') - 3 * 3600);
+        touch($fresh = $lockDir . '/sf.test-purge-recent.abc.lock', strtotime('2026-11-16 10:00:00 UTC') - 3600);
 
         $tester = new CommandTester((new Application(self::$kernel))->find('app:purge'));
         self::assertSame(0, $tester->execute([]));
-        self::assertStringContainsString('1 code(s) SMS, 1 session(s)', $tester->getDisplay());
+        self::assertStringContainsString('1 code(s) SMS, 2 session(s)', $tester->getDisplay());
         self::assertFileDoesNotExist($old);
         self::assertFileExists($fresh);
         unlink($fresh);
 
         self::assertSame(['2026-11-15 12:00:00'], $db->fetchFirstColumn('SELECT created_at FROM otp_codes'));
-        self::assertSame(['h2'], $db->fetchFirstColumn('SELECT token_hash FROM refresh_tokens'));
+        // h3 : déjà utilisé, session encore ouverte (détection d'un cookie volé) ; h4 : session fermée depuis 15 jours.
+        self::assertSame(['h2', 'h3', 'h5'], $db->fetchFirstColumn('SELECT token_hash FROM refresh_tokens ORDER BY token_hash'));
+        $db->executeStatement('DELETE FROM refresh_tokens');
     }
 
     public function testOldNotificationsAndIdleDevicesAreDeleted(): void

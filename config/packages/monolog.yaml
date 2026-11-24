@@ -2,7 +2,16 @@ monolog:
     channels:
         - deprecation
         - client_errors
+        - audit
     handlers:
+        # Actions sensibles de l'équipe (App\Audit\AuditLog) : journal dédié, 400 jours, dans tous les environnements.
+        audit:
+            type: rotating_file
+            path: "%kernel.logs_dir%/audit.log"
+            level: info
+            max_files: 400
+            channels: [audit]
+            formatter: monolog.formatter.json
         # Erreurs remontées par l'application (POST /client-errors) : journal dédié, 30 jours.
         client_errors:
             type: rotating_file
@@ -19,11 +28,11 @@ when@dev:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
-                channels: ["!event", "!client_errors"]
+                channels: ["!event", "!client_errors", "!audit"]
             console:
                 type: console
                 process_psr_3_messages: false
-                channels: ["!event", "!doctrine", "!console", "!client_errors"]
+                channels: ["!event", "!doctrine", "!console", "!client_errors", "!audit"]
 
 when@test:
     monolog:
@@ -33,7 +42,11 @@ when@test:
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                channels: ["!event", "!client_errors"]
+                channels: ["!event", "!client_errors", "!audit"]
+            # Journal d'audit des tests : gardé en mémoire (service test.audit_handler).
+            audit:
+                type: test
+                channels: [audit]
             nested:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
@@ -49,14 +62,14 @@ when@prod:
                 handler: nested
                 excluded_http_codes: [404, 405]
                 buffer_size: 50
-                channels: ["!client_errors"]
+                # Jamais les adresses complètes des services de push (http_client), ni les avertissements de versions
+                # futures des bibliothèques (deprecation : une ligne par requête, utile seulement en développement).
+                channels: ["!client_errors", "!audit", "!deprecation", "!http_client"]
             nested:
                 type: rotating_file
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: info
                 max_files: 14
             deprecation:
-                type: rotating_file
+                type: "null"
                 channels: [deprecation]
-                path: "%kernel.logs_dir%/%kernel.environment%.deprecations.log"
-                max_files: 7

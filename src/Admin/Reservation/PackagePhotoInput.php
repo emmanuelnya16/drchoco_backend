@@ -3,6 +3,7 @@
 namespace App\Admin\Reservation;
 
 use App\Api\ApiException;
+use App\Media\ImageLimits;
 use App\Media\ImageMetadataStripper;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -65,8 +66,11 @@ final class PackagePhotoInput
         $original = (string) file_get_contents($file->getPathname());
         $mime = (new \finfo(\FILEINFO_MIME_TYPE))->buffer($original) ?: '';
         $info = isset(self::MIME_EXTENSIONS[$mime]) ? @getimagesizefromstring($original) : false;
-        if (!isset(self::MIME_EXTENSIONS[$mime]) || $info === false || $info[0] < 1 || $info[1] < 1) {
+        if (!isset(self::MIME_EXTENSIONS[$mime]) || $info === false) {
             throw new ApiException(415, 'UNSUPPORTED_MEDIA_TYPE', 'Format non accepté : envoyez des photos JPEG, PNG ou WebP.');
+        }
+        if (!ImageLimits::accepts((int) $info[0], (int) $info[1])) {
+            throw new ApiException(415, 'UNSUPPORTED_MEDIA_TYPE', 'Photo trop grande : reprenez-la en qualité normale puis réessayez.');
         }
         $clean = ImageMetadataStripper::strip($original, $mime);
         if ($clean === null) {

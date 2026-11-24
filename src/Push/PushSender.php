@@ -17,6 +17,8 @@ use Psr\Log\LoggerInterface;
  *  - 2xx : envoyée ;
  *  - 404/410 : appareil désabonné, supprimé (ses lignes en attente avec lui) ;
  *  - 429, 5xx, réseau : nouvel essai après 1, 5, 15 puis 60 min (5 essais au plus, jamais après la durée de vie) ;
+ *    les nouveaux messages passent avant les nouveaux essais ; un appareil injoignable depuis plus de 7 jours (et 10 échecs
+ *    de suite au moins) est retiré : une panne d'une heure, ou de notre hébergement, n'en supprime aucun ;
  *  - 401/403 : clés VAPID refusées, échec et alerte (l'appareil est gardé) ;
  *  - autre : échec (contenu refusé).
  */
@@ -24,6 +26,10 @@ class PushSender
 {
     public const MAX_ATTEMPTS = 5;
     private const BACKOFF = [60, 300, 900, 3600];
+    /** Appareil injoignable retiré : ce nombre d'échecs de suite, étalés sur plus de ce nombre de jours. */
+    public const MAX_FAILURES = 10;
+    public const UNREACHABLE_DAYS = 7;
+
     private const CLAIM_SECONDS = 120;
     private const BATCH = 10;
 
@@ -47,7 +53,7 @@ class PushSender
         if (!$this->transport->isConfigured()) {
             if (!$this->warnedNotConfigured) {
                 $this->warnedNotConfigured = true;
-                $this->logger->warning('Notifications push non envoyées : clés VAPID absentes (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT).');
+                $this->logger->error('Notifications push non envoyées : clés VAPID absentes (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT).');
             }
 
             return $stats;
@@ -55,6 +61,7 @@ class PushSender
 
         $deadline = microtime(true) + $seconds;
         $done = 0;
+        $unreachable = []; // appareils qui n'ont pas répondu pendant cet envoi : leurs autres messages attendent
         while ($done < $limit && microtime(true) < $deadline) {
             $rows = $this->claim(min(self::BATCH, $limit - $done));
             if ($rows === []) {
@@ -65,7 +72,18 @@ class PushSender
                     $this->release(\array_slice($rows, $index)); // pas le temps : rendues tout de suite à la file
                     break 2;
                 }
-                ++$stats[$this->deliver($row)];
+                $subscriptionId = (int) $row['subscription_id'];
+                if (isset($unreachable[$subscriptionId])) {
+                    $this->postpone($row);
+                    ++$stats['retried'];
+                    ++$done;
+                    continue;
+                }
+                $result = $this->deliver($row);
+                if ($result === 'retried' || $result === 'removed') {
+                    $unreachable[$subscriptionId] = true;
+                }
+                ++$stats[$result];
                 ++$done;
             }
         }
@@ -81,7 +99,7 @@ class PushSender
         $this->db->executeStatement(
             'UPDATE push_outbox SET claim = ?, locked_until = ?, attempts = attempts + 1
              WHERE status = ? AND next_attempt_at <= ? AND (locked_until IS NULL OR locked_until < ?)
-             ORDER BY id LIMIT ' . max(1, $count),
+             ORDER BY attempts, id LIMIT ' . max(1, $count),
             [$claim, $this->sql($now->modify('+' . self::CLAIM_SECONDS . ' seconds')), PushOutbox::STATUS_PENDING, $this->sql($now), $this->sql($now)],
         );
 
@@ -128,7 +146,7 @@ class PushSender
 
         if ($result->isSuccess()) {
             $this->finish((int) $row['id'], PushOutbox::STATUS_SENT, $result->status, null, $now);
-            $this->db->executeStatement('UPDATE push_subscriptions SET last_success_at = ?, failure_count = 0, last_status = ? WHERE id = ?', [$this->sql($now), $result->status, $subscriptionId]);
+            $this->db->executeStatement('UPDATE push_subscriptions SET last_success_at = ?, failure_count = 0, failing_since = NULL, last_status = ? WHERE id = ?', [$this->sql($now), $result->status, $subscriptionId]);
 
             return 'sent';
         }
@@ -140,7 +158,22 @@ class PushSender
             return 'removed';
         }
 
-        $this->db->executeStatement('UPDATE push_subscriptions SET failure_count = failure_count + 1, last_status = ? WHERE id = ?', [$result->status, $subscriptionId]);
+        // Seules les pannes (réseau, 5xx) comptent : ni un refus des clés (401, 403), ni un « trop d'envois » (429).
+        $unreachable = $result->isTemporary() && $result->status !== 429;
+        $this->db->executeStatement(
+            $unreachable
+                ? 'UPDATE push_subscriptions SET failure_count = failure_count + 1, failing_since = COALESCE(failing_since, ?), last_status = ? WHERE id = ?'
+                : 'UPDATE push_subscriptions SET last_status = ? WHERE id = ?',
+            $unreachable ? [$this->sql($now), $result->status, $subscriptionId] : [$result->status, $subscriptionId],
+        );
+        if ($unreachable && (int) $this->db->executeStatement(
+            'DELETE FROM push_subscriptions WHERE id = ? AND failure_count >= ? AND failing_since < ?',
+            [$subscriptionId, self::MAX_FAILURES, $this->sql($now->modify(sprintf('-%d days', self::UNREACHABLE_DAYS)))],
+        ) > 0) {
+            $this->logger->warning('Appareil injoignable depuis plusieurs jours : retiré des notifications.', ['service' => parse_url((string) $row['endpoint'], \PHP_URL_HOST), 'status' => $result->status]);
+
+            return 'removed';
+        }
         if ($result->isTemporary()) {
             $attempts = (int) $row['attempts'];
             $delay = $result->retryAfter !== null ? max(60, min(3600, $result->retryAfter)) : self::BACKOFF[min($attempts - 1, \count(self::BACKOFF) - 1)];
@@ -167,6 +200,15 @@ class PushSender
         $this->finish((int) $row['id'], PushOutbox::STATUS_FAILED, $result->status, $result->error);
 
         return 'failed';
+    }
+
+    /** Autre message d'un appareil qui vient de ne pas répondre : rendu à la file, une minute plus tard. @param array<string, mixed> $row */
+    private function postpone(array $row): void
+    {
+        $this->db->executeStatement(
+            'UPDATE push_outbox SET claim = NULL, locked_until = NULL, attempts = GREATEST(0, attempts - 1), next_attempt_at = ? WHERE id = ?',
+            [$this->sql($this->now()->modify('+60 seconds')), (int) $row['id']],
+        );
     }
 
     /** @param list<array<string, mixed>> $rows */

@@ -17,6 +17,9 @@ class ReservationRepository extends ServiceEntityRepository
 {
     public const PAGE_SIZE = 10;
 
+    /** Séparateurs ignorés dans une référence de transaction Mobile Money. */
+    private const TRANSACTION_SEPARATORS = ['.', '-', '_', ' ', '/', ':', '#'];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Reservation::class);
@@ -88,7 +91,7 @@ class ReservationRepository extends ServiceEntityRepository
      *
      * @return list<Reservation>
      */
-    public function findForUserByStatus(User $user, array $statuses): array
+    public function findForUserByStatus(User $user, array $statuses, ?int $limit = null): array
     {
         return $this->createQueryBuilder('r')
             ->where('r.user = :user')
@@ -97,8 +100,32 @@ class ReservationRepository extends ServiceEntityRepository
             ->setParameter('statuses', $statuses)
             ->orderBy('r.createdAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Charge d'un coup les articles, l'historique, les preuves… de plusieurs réservations (une requête par liste au lieu
+     * d'une par réservation).
+     *
+     * @param list<Reservation>                                       $reservations
+     * @param list<'items'|'events'|'proofs'|'packagePhotos'> $collections
+     */
+    public function preload(array $reservations, array $collections): void
+    {
+        if ($reservations === []) {
+            return;
+        }
+        foreach ($collections as $collection) {
+            $this->createQueryBuilder('r')
+                ->addSelect('c')
+                ->leftJoin('r.' . $collection, 'c')
+                ->where('r IN (:reservations)')
+                ->setParameter('reservations', $reservations)
+                ->getQuery()
+                ->getResult();
+        }
     }
 
     /**
@@ -333,6 +360,31 @@ class ReservationRepository extends ServiceEntityRepository
             'SELECT DISTINCT r.ref FROM reservation_proofs p INNER JOIN reservations r ON r.id = p.reservation_id
              WHERE p.sha256 = ? AND p.reservation_id <> ? AND r.ref IS NOT NULL ORDER BY r.ref LIMIT ' . max(1, $limit),
             [$sha256, $exceptId],
+        ));
+    }
+
+    /**
+     * Autres réservations dont une preuve déclare la même référence de transaction (contrôle anti-fraude de
+     * l'administration) : comparée sans casse, espaces ni ponctuation (« MP2411.1234.A1 » = « mp24111234a1 »).
+     *
+     * @return list<string>
+     */
+    public function refsWithTransaction(string $transactionId, int $exceptId, int $limit = 10): array
+    {
+        $normalized = strtoupper(str_replace(self::TRANSACTION_SEPARATORS, '', $transactionId));
+        if (\strlen($normalized) < 6) {
+            return []; // trop court pour être une vraie référence
+        }
+        $column = 'UPPER(p.transaction_id)';
+        foreach (self::TRANSACTION_SEPARATORS as $separator) {
+            $column = sprintf("REPLACE(%s, '%s', '')", $column, $separator);
+        }
+
+        return array_map('strval', $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT r.ref FROM reservation_proofs p INNER JOIN reservations r ON r.id = p.reservation_id
+             WHERE p.transaction_id IS NOT NULL AND p.reservation_id <> ? AND r.ref IS NOT NULL AND ' . $column . ' = ?
+             ORDER BY r.ref LIMIT ' . max(1, $limit),
+            [$exceptId, $normalized],
         ));
     }
 

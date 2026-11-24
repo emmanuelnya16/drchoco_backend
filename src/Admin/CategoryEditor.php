@@ -6,6 +6,7 @@ use App\Api\ApiException;
 use App\Entity\Category;
 use App\Entity\SubCategory;
 use App\Repository\CategoryRepository;
+use App\Repository\ProductRepository;
 use App\Repository\SubCategoryRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,16 +18,19 @@ use Doctrine\ORM\EntityManagerInterface;
  * - Les sous-catégories sont envoyées en entier à chaque enregistrement : reconnues par leur slug, ajoutées,
  *   renommées ou retirées. Une sous-catégorie retirée laisse ses articles dans la catégorie (sans sous-catégorie).
  * - Un slug de sous-catégorie est unique dans toute la boutique.
+ * - 30 catégories au plus ; une catégorie sans article en vente peut être retirée par un super admin.
  */
 final class CategoryEditor
 {
     public const DEFAULT_COVER = '/images/categories/vetements.webp';
     public const DEFAULT_FALLBACK = '/images/fallback/mood-vetements.svg';
     public const MAX_SUBCATEGORIES = 40;
+    public const MAX_CATEGORIES = 30;
 
     public function __construct(
         private readonly CategoryRepository $categories,
         private readonly SubCategoryRepository $subCategories,
+        private readonly ProductRepository $products,
         private readonly EntityManagerInterface $em,
     ) {}
 
@@ -53,20 +57,28 @@ final class CategoryEditor
         $cover = $this->image($body['coverImage'] ?? null, self::DEFAULT_COVER, 'L’image de couverture', $errors);
         $this->throwIfInvalid($errors);
 
-        if ($this->categories->findOneBy(['slug' => $slug]) !== null) {
+        $existing = $this->categories->findOneBy(['slug' => $slug]);
+        if ($existing !== null && $existing->isActive()) {
             throw new ApiException(409, 'DUPLICATE_CATEGORY', sprintf('La catégorie « %s » existe déjà.', $slug));
+        }
+        if ($this->categories->count(['isActive' => true]) >= self::MAX_CATEGORIES) {
+            throw ApiException::validation(['name' => 'Trop de catégories.'], sprintf('%d catégories au plus.', self::MAX_CATEGORIES));
         }
         // Le filtre du site (?category=) accepte une catégorie ou une sous-catégorie : jamais le même slug.
         if ($this->subCategories->findOneBy(['slug' => $slug]) !== null) {
             throw new ApiException(409, 'DUPLICATE_CATEGORY', sprintf('« %s » est déjà le nom d’une sous-catégorie.', $slug));
         }
 
-        $id = 'cat-' . $slug;
-        if (\strlen($id) > 40 || $this->categories->find($id) !== null) {
-            $id = CatalogInput::newId('cat');
+        // Catégorie retirée autrefois (masquée, à cause de ses anciens articles) : elle revient, au lieu de bloquer son nom.
+        if ($existing === null) {
+            $id = 'cat-' . $slug;
+            if (\strlen($id) > 40 || $this->categories->find($id) !== null) {
+                $id = CatalogInput::newId('cat');
+            }
+            $existing = new Category($id, $slug, $name);
         }
-
-        $category = (new Category($id, $slug, $name))
+        $category = $existing->setName($name)
+            ->setIsActive(true)
             ->setDescription($description !== '' ? $description : sprintf('Sélection %s signée DR Choco L’Incompris.', $name))
             ->setCoverImage($cover)
             ->setImage($cover)
@@ -114,6 +126,34 @@ final class CategoryEditor
     }
 
     /**
+     * Retire une catégorie qui n'a plus d'article en vente. Si d'anciens articles (retirés) y sont rattachés, elle est
+     * seulement masquée : leur historique reste lisible, ses sous-catégories sont supprimées (leurs noms redeviennent
+     * libres), et créer une catégorie du même nom la fait revenir.
+     */
+    public function delete(Category $category): void
+    {
+        $active = $this->products->count(['category' => $category, 'isActive' => true]);
+        if ($active > 0) {
+            throw new ApiException(
+                409,
+                'CATEGORY_HAS_PRODUCTS',
+                sprintf('Cette catégorie a encore %d article%s en vente : changez d’abord leur catégorie.', $active, $active > 1 ? 's' : ''),
+                ['productsCount' => $active],
+            );
+        }
+
+        if ($this->products->count(['category' => $category]) > 0) {
+            foreach ($category->getSubCategories()->toArray() as $sub) {
+                $category->removeSubCategory($sub);
+            }
+            $category->setIsActive(false);
+        } else {
+            $this->em->remove($category);
+        }
+        $this->em->flush();
+    }
+
+    /**
      * Liste complète des sous-catégories, reconnues par leur slug (l'identifiant envoyé par le front est ignoré :
      * il en invente pour les nouvelles).
      *
@@ -121,6 +161,10 @@ final class CategoryEditor
      */
     private function syncSubCategories(Category $category, array $entries): void
     {
+        if (\count($entries) > self::MAX_SUBCATEGORIES) {
+            throw ApiException::validation(['subCategories' => 'Trop de sous-catégories.'], sprintf('%d sous-catégories au plus.', self::MAX_SUBCATEGORIES));
+        }
+
         $existing = [];
         foreach ($category->getSubCategories()->toArray() as $sub) {
             $existing[$sub->getSlug()] = $sub;

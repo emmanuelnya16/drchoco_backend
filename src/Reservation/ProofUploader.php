@@ -8,6 +8,7 @@ use App\Api\ApiException;
 use App\Entity\Reservation;
 use App\Entity\ReservationProof;
 use App\Entity\User;
+use App\Media\ImageLimits;
 use App\Media\ImageMetadataStripper;
 use App\Media\PrivateMediaStorage;
 use App\Repository\ReservationRepository;
@@ -39,6 +40,8 @@ final class ProofUploader
         private readonly LoggerInterface $logger,
         #[Autowire(service: 'limiter.proof_upload')]
         private readonly RateLimiterFactory $limiter,
+        #[Autowire(service: 'limiter.proof_accepted_day')]
+        private readonly RateLimiterFactory $acceptedLimiter,
     ) {}
 
     public function upload(User $user, string $ref, Request $request): Reservation
@@ -49,6 +52,11 @@ final class ProofUploader
         $limit = $this->limiter->create('user-' . $user->getId())->consume();
         if (!$limit->isAccepted()) {
             throw ApiException::tooManyRequests('TOO_MANY_REQUESTS', 'Trop d’envois de captures. Réessayez dans quelques minutes.', max(1, $limit->getRetryAfter()->getTimestamp() - time()));
+        }
+        $accepted = $this->acceptedLimiter->create('user-' . $user->getId());
+        $today = $accepted->consume(0); // lecture seule : seule une capture acceptée compte
+        if ($today->getRemainingTokens() <= 0) {
+            throw ApiException::tooManyRequests('TOO_MANY_REQUESTS', 'Trop de captures envoyées aujourd’hui. Écrivez-nous sur WhatsApp.', max(1, $today->getRetryAfter()->getTimestamp() - time()));
         }
 
         $stored = null;
@@ -98,6 +106,7 @@ final class ProofUploader
             throw $e;
         }
 
+        $accepted->consume();
         $this->notifier->proofReceived($reservation);
 
         return $reservation;
@@ -138,8 +147,11 @@ final class ProofUploader
         $original = (string) file_get_contents($file->getPathname());
         $mime = (new \finfo(\FILEINFO_MIME_TYPE))->buffer($original) ?: '';
         $info = isset(self::MIME_EXTENSIONS[$mime]) ? @getimagesizefromstring($original) : false;
-        if (!isset(self::MIME_EXTENSIONS[$mime]) || $info === false || $info[0] < 1 || $info[1] < 1) {
+        if (!isset(self::MIME_EXTENSIONS[$mime]) || $info === false) {
             throw new ApiException(415, 'UNSUPPORTED_MEDIA_TYPE', 'Format non accepté : envoyez la capture en JPEG, PNG ou WebP.');
+        }
+        if (!ImageLimits::accepts((int) $info[0], (int) $info[1])) {
+            throw new ApiException(415, 'UNSUPPORTED_MEDIA_TYPE', 'Image trop grande : refaites la capture d’écran puis réessayez.');
         }
         $clean = ImageMetadataStripper::strip($original, $mime);
         if ($clean === null) {
@@ -178,8 +190,9 @@ final class ProofUploader
             'extension'     => self::MIME_EXTENSIONS[$mime],
             'width'         => (int) $info[0],
             'height'        => (int) $info[1],
-            // Empreinte calculée ici sur le fichier reçu (celle du front n'est qu'indicative).
-            'sha256'        => hash('sha256', $original),
+            // Empreinte de l'image sans ses métadonnées (celle du front n'est qu'indicative) : ajouter un commentaire au
+            // fichier ne fait pas passer la même capture pour une autre.
+            'sha256'        => hash('sha256', $clean),
             'operator'      => $operator,
             'payerPhone'    => $payerPhone,
             'transactionId' => $transactionId !== '' ? $transactionId : null,

@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\ProductVariant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -33,7 +34,8 @@ class ProductVariantRepository extends ServiceEntityRepository
             ->innerJoin('v.product', 'p')
             ->innerJoin('p.category', 'c')
             ->where('v.id IN (:ids)')
-            ->setParameter('ids', array_values(array_unique($ids)))
+            // Toujours du texte : un identifiant « 1 » passé en nombre ferait comparer toute la colonne à un nombre.
+            ->setParameter('ids', array_values(array_unique(array_map('strval', $ids))), ArrayParameterType::STRING)
             ->getQuery()
             ->getResult();
 

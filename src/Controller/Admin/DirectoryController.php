@@ -2,13 +2,19 @@
 
 namespace App\Controller\Admin;
 
+use App\Account\TextInput;
 use App\Admin\AdminNormalizer;
+use App\Admin\CustomerManager;
 use App\Admin\Reservation\AdminReservationList;
 use App\Admin\Reservation\CustomerDirectory;
+use App\Api\ApiException;
 use App\Api\ApiJson;
+use App\Api\JsonBody;
 use App\Catalog\TextFolder;
 use App\Entity\Admin;
+use App\Entity\User;
 use App\Repository\ProductRepository;
+use App\Repository\UserRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -31,6 +37,8 @@ final class DirectoryController
         private readonly AdminNormalizer $normalizer,
         private readonly AdminReservationList $reservations,
         private readonly CustomerDirectory $customers,
+        private readonly CustomerManager $manager,
+        private readonly UserRepository $users,
     ) {}
 
     /** GET /api/admin/search?q= — 2 caractères au moins ; réservations et articles, 6 de chaque au plus. */
@@ -55,5 +63,38 @@ final class DirectoryController
     public function customers(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         return ApiJson::noStore($this->customers->list($admin, (string) $request->query->get('q', '')));
+    }
+
+    /** POST /api/admin/customers/{id}/block — `{reason?}` (super admin) : sessions et notifications coupées aussitôt. */
+    #[Route('/admin/customers/{id}/block', name: 'api_admin_customers_block', requirements: ['id' => '\d{1,10}'], methods: ['POST'])]
+    public function block(int $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
+    {
+        $customer = $this->customer($admin, $id);
+        $reason = TextInput::clean(JsonBody::object($request, allowEmpty: true)['reason'] ?? null) ?? '';
+        if (TextInput::length($reason) > 200) {
+            throw ApiException::validation(['reason' => 'Le motif ne doit pas dépasser 200 caractères.'], 'Le motif ne doit pas dépasser 200 caractères.');
+        }
+        $this->manager->block($customer, $admin, $reason !== '' ? $reason : null);
+
+        return ApiJson::noStore(['customer' => $this->customers->one($admin, $customer)]);
+    }
+
+    /** POST /api/admin/customers/{id}/unblock (super admin). */
+    #[Route('/admin/customers/{id}/unblock', name: 'api_admin_customers_unblock', requirements: ['id' => '\d{1,10}'], methods: ['POST'])]
+    public function unblock(int $id, #[CurrentUser] Admin $admin): JsonResponse
+    {
+        $customer = $this->customer($admin, $id);
+        $this->manager->unblock($customer, $admin);
+
+        return ApiJson::noStore(['customer' => $this->customers->one($admin, $customer)]);
+    }
+
+    private function customer(Admin $admin, int $id): User
+    {
+        if (!$admin->isSuperAdmin()) {
+            throw ApiException::forbidden('Réservé au super admin (propriétaire ou gérant).');
+        }
+
+        return $this->users->find($id) ?? throw ApiException::notFound('CUSTOMER_NOT_FOUND', 'Ce client est introuvable.');
     }
 }

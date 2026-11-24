@@ -6,7 +6,8 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Choisit l'envoi selon `PUSH_TRANSPORT` : `webpush` (réel, par défaut) ou `log` (journal, développement).
+ * Choisit l'envoi selon `PUSH_TRANSPORT` : `webpush` (réel, par défaut) ou `log` (journal, développement ; ignoré en
+ * production, où les messages contiennent des noms de clients).
  */
 #[AsAlias(PushTransportInterface::class)]
 final class ConfiguredPushTransport implements PushTransportInterface
@@ -16,6 +17,7 @@ final class ConfiguredPushTransport implements PushTransportInterface
         private readonly string $transport,
         private readonly WebPushTransport $webPush,
         private readonly LogPushTransport $log,
+        private readonly string $appEnv,
     ) {}
 
     public function isConfigured(): bool
@@ -30,6 +32,6 @@ final class ConfiguredPushTransport implements PushTransportInterface
 
     private function inner(): PushTransportInterface
     {
-        return strtolower(trim($this->transport)) === 'log' ? $this->log : $this->webPush;
+        return strtolower(trim($this->transport)) === 'log' && $this->appEnv !== 'prod' ? $this->log : $this->webPush;
     }
 }

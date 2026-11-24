@@ -157,6 +157,10 @@ class Reservation
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $paidAt = null;
 
+    /** Remboursement fait, ou constaté inutile (fausse capture), par un super admin (P9). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $refundSettledAt = null;
+
     /** Photos du colis prêt envoyées (P6). */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $packageReadyAt = null;
@@ -219,6 +223,21 @@ class Reservation
     public function isCancellableByClient(): bool { return \in_array($this->status, self::CLIENT_CANCELLABLE, true); }
     public function isOverdue(\DateTimeImmutable $now): bool { return $this->isAwaitingPayment() && $this->expiresAt <= $now; }
 
+    /**
+     * Annulée alors que le paiement était validé, ou qu'une preuve attendait encore d'être examinée (même effacée depuis) :
+     * la boutique doit vérifier et rembourser, jusqu'à ce qu'un super admin close le remboursement.
+     */
+    public function isRefundDue(): bool
+    {
+        $last = $this->proofs->last();
+
+        return $this->status === self::STATUS_CANCELLED && $this->refundSettledAt === null
+            && ($this->paidAt !== null || ($last instanceof ReservationProof && $last->getStatus() === ReservationProof::STATUS_PENDING));
+    }
+
+    public function getRefundSettledAt(): ?\DateTimeImmutable { return $this->refundSettledAt; }
+    public function settleRefund(\DateTimeImmutable $now): static { $this->refundSettledAt = $now; return $this; }
+
     /** Nouveau statut et sa ligne d'historique. */
     public function record(string $status, string $actor, ?string $note, \DateTimeImmutable $now, ?Admin $admin = null): ReservationEvent
     {
@@ -233,11 +252,12 @@ class Reservation
     public function addItem(ReservationItem $item): void { $this->items->add($item); }
     public function addProof(ReservationProof $proof): void { $this->proofs->add($proof); }
 
+    /** Dernière preuve envoyée (null si aucune, ou si elle a été effacée après 12 mois). */
     public function latestProof(): ?ReservationProof
     {
         $last = $this->proofs->last();
 
-        return $last instanceof ReservationProof ? $last : null;
+        return $last instanceof ReservationProof && !$last->isPurged() ? $last : null;
     }
 
     /** Quantité totale (Σ des quantités). */

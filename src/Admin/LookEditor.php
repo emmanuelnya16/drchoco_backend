@@ -106,6 +106,9 @@ final class LookEditor
                 }
             }
             $wanted = array_values(array_unique($wanted));
+            if (\count($wanted) > self::MAX_PRODUCTS * 4) {
+                throw ApiException::validation(['productSlugs' => 'Trop d’articles.'], sprintf('%d articles au plus par look.', self::MAX_PRODUCTS));
+            }
             // Articles inconnus ou retirés de la vente : ignorés (le front renvoie parfois d'anciennes adresses).
             $existing = $this->products->activeSlugSet($wanted);
             $slugs = array_values(array_filter($wanted, fn (string $slug) => isset($existing[$slug])));

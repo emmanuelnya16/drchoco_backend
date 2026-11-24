@@ -10,7 +10,7 @@ use Symfony\Component\Serializer\Attribute\Ignore;
  * Jeton de rafraîchissement (session longue), stocké haché.
  *
  * Repris du backend de référence (jeton opaque de 64 caractères, hash SHA-256, usage unique,
- * révocation, IP et navigateur), avec en plus :
+ * révocation ; l'adresse IP et le navigateur ne sont plus enregistrés depuis P9), avec en plus :
  *  - une famille (familyId) : tous les jetons issus d'une même connexion, sur un même appareil ;
  *  - la date d'utilisation (usedAt) : délai de grâce de 30 s quand deux onglets rafraîchissent ensemble ;
  *  - une fin de session absolue (sessionExpiresAt) : utilisée pour l'admin (12 h après la connexion).

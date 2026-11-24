@@ -84,7 +84,7 @@ final class WebPushTransport implements PushTransportInterface
     private function client(): WebPush
     {
         if ($this->webPush === null) {
-            $http = new Psr18Client($this->httpClient->withOptions(['timeout' => 4, 'max_duration' => 6]));
+            $http = new Psr18Client($this->httpClient->withOptions(['timeout' => 4, 'max_duration' => 6, 'max_redirects' => 0]));
             $this->webPush = new WebPush(
                 ['VAPID' => ['subject' => trim($this->subject), 'publicKey' => trim($this->publicKey), 'privateKey' => trim($this->privateKey)]],
                 [],

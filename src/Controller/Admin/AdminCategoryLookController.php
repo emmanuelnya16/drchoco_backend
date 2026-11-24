@@ -8,6 +8,8 @@ use App\Admin\LookEditor;
 use App\Api\ApiException;
 use App\Api\ApiJson;
 use App\Api\JsonBody;
+use App\Audit\AuditLog;
+use App\Entity\Admin;
 use App\Entity\Category;
 use App\Entity\Look;
 use App\Repository\CategoryRepository;
@@ -18,6 +20,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 /**
  * Catégories et looks de l'administration (écran « Looks & Catégories »). Chaque écriture renvoie aussi la
@@ -32,6 +35,7 @@ final class AdminCategoryLookController
         private readonly LookRepository $looks,
         private readonly ProductRepository $products,
         private readonly AdminNormalizer $normalizer,
+        private readonly AuditLog $audit,
         private readonly EntityManagerInterface $em,
     ) {}
 
@@ -44,21 +48,40 @@ final class AdminCategoryLookController
     }
 
     #[Route('/admin/categories', name: 'api_admin_categories_create', methods: ['POST'])]
-    public function createCategory(Request $request): JsonResponse
+    public function createCategory(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
-        $category = $this->categoryEditor->create(JsonBody::object($request));
+        $category = $this->categoryEditor->create(JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('category.created', $admin, ['slug' => $category->getSlug()]);
 
         return ApiJson::noStore($this->categoryPayload($category), 201);
     }
 
     #[Route('/admin/categories/{id}', name: 'api_admin_categories_update', methods: ['PATCH'])]
-    public function updateCategory(string $id, Request $request): JsonResponse
+    public function updateCategory(string $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $category = $this->categoryEditor->find($id)
             ?? throw ApiException::notFound('CATEGORY_NOT_FOUND', 'Cette catégorie est introuvable.');
-        $category = $this->categoryEditor->update($category, JsonBody::object($request));
+        $category = $this->categoryEditor->update($category, JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('category.updated', $admin, ['slug' => $category->getSlug()]);
 
         return ApiJson::noStore($this->categoryPayload($category));
+    }
+
+    /** DELETE /api/admin/categories/{id} — super admin ; 409 si elle a encore des articles en vente. */
+    #[Route('/admin/categories/{id}', name: 'api_admin_categories_delete', methods: ['DELETE'])]
+    public function deleteCategory(string $id, #[CurrentUser] Admin $admin): JsonResponse
+    {
+        if (!$admin->isSuperAdmin()) {
+            throw ApiException::forbidden('Seul le Super Admin peut retirer une catégorie.');
+        }
+        $category = $this->categoryEditor->find($id)
+            ?? throw ApiException::notFound('CATEGORY_NOT_FOUND', 'Cette catégorie est introuvable.');
+        $slug = $category->getSlug();
+        $this->categoryEditor->delete($category);
+        $this->audit->record('category.deleted', $admin, ['slug' => $slug]);
+        $this->em->clear();
+
+        return ApiJson::noStore(['categories' => $this->allCategories()]);
     }
 
     // ── Looks ─────────────────────────────────────────────────────────────
@@ -70,25 +93,28 @@ final class AdminCategoryLookController
     }
 
     #[Route('/admin/looks', name: 'api_admin_looks_create', methods: ['POST'])]
-    public function createLook(Request $request): JsonResponse
+    public function createLook(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
-        $look = $this->lookEditor->create(JsonBody::object($request));
+        $look = $this->lookEditor->create(JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('look.created', $admin, ['look' => $look->getId()]);
 
         return ApiJson::noStore(['look' => $this->normalizer->adminLook($look), 'looks' => $this->allLooks()], 201);
     }
 
     #[Route('/admin/looks/{id}', name: 'api_admin_looks_update', methods: ['PATCH'])]
-    public function updateLook(string $id, Request $request): JsonResponse
+    public function updateLook(string $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
-        $look = $this->lookEditor->update($this->findLook($id), JsonBody::object($request));
+        $look = $this->lookEditor->update($this->findLook($id), JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('look.updated', $admin, ['look' => $look->getId()]);
 
         return ApiJson::noStore(['look' => $this->normalizer->adminLook($look), 'looks' => $this->allLooks()]);
     }
 
     #[Route('/admin/looks/{id}', name: 'api_admin_looks_delete', methods: ['DELETE'])]
-    public function deleteLook(string $id): Response
+    public function deleteLook(string $id, #[CurrentUser] Admin $admin): Response
     {
         $this->lookEditor->delete($this->findLook($id));
+        $this->audit->record('look.deleted', $admin, ['look' => $id]);
 
         $response = new Response(null, Response::HTTP_NO_CONTENT);
         $response->headers->set('Cache-Control', 'no-store');
@@ -120,9 +146,10 @@ final class AdminCategoryLookController
     {
         $counts ??= $this->products->countActiveByCategory();
 
+        // Catégories retirées (masquées) : plus affichées dans l'administration.
         return array_map(
             fn (Category $c) => $this->normalizer->adminCategory($c, $counts),
-            $this->categories->findBy([], ['position' => 'ASC', 'name' => 'ASC']),
+            $this->categories->findBy(['isActive' => true], ['position' => 'ASC', 'name' => 'ASC']),
         );
     }
 

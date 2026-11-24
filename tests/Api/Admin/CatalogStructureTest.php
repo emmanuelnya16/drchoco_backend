@@ -242,4 +242,86 @@ final class CatalogStructureTest extends AdminTestCase
 
         return json_decode((string) $this->client->getResponse()->getContent(), true) ?? [];
     }
+
+    public function testCategoriesAreCappedAndDeletedOnlyWhenEmpty(): void
+    {
+        $token = $this->owner();
+        $data = $this->api('POST', '/api/admin/categories', $token, ['name' => 'Accessoires']);
+        $id = $data['category']['id'];
+
+        // Vendeur : il gère les catégories mais ne les retire pas.
+        $this->account(Admin::ROLE_SELLER, 'vendeur@drchoco.cm', 'Yaoundé');
+        $seller = $this->adminToken('vendeur@drchoco.cm');
+        $data = $this->api('DELETE', '/api/admin/categories/' . $id, $seller);
+        self::assertSame([403, 'FORBIDDEN'], [$this->httpStatus(), $data['code']]);
+
+        // Encore des articles en vente : refusé.
+        $data = $this->api('DELETE', '/api/admin/categories/cat-vetements', $token);
+        if ($this->httpStatus() === 404) {
+            $vetements = $this->api('GET', '/api/admin/categories', $token)['categories'][0]['id'];
+            $data = $this->api('DELETE', '/api/admin/categories/' . $vetements, $token);
+        }
+        self::assertSame([409, 'CATEGORY_HAS_PRODUCTS'], [$this->httpStatus(), $data['code']]);
+        self::assertGreaterThan(0, $data['details']['productsCount']);
+
+        $data = $this->api('DELETE', '/api/admin/categories/' . $id, $token);
+        self::assertSame([200, ['vetements', 'chaussures', 'babouches']], [$this->httpStatus(), array_column($data['categories'], 'slug')]);
+        self::assertNotContains('accessoires', array_column($this->getJson('/api/categories'), 'slug'));
+        $data = $this->api('DELETE', '/api/admin/categories/' . $id, $token);
+        self::assertSame([404, 'CATEGORY_NOT_FOUND'], [$this->httpStatus(), $data['code']]);
+
+        // 30 catégories au plus.
+        static::getContainer()->get('cache.rate_limiter')->clear();
+        for ($i = 4; $i <= 30; ++$i) {
+            $this->api('POST', '/api/admin/categories', $token, ['name' => 'Rayon ' . $i]);
+            self::assertSame(201, $this->httpStatus(), (string) $i);
+        }
+        $data = $this->api('POST', '/api/admin/categories', $token, ['name' => 'Rayon de trop']);
+        self::assertContains($this->httpStatus(), [409, 422]);
+        self::assertStringContainsString('30', $data['message']);
+        self::assertSame(['category.created', 'category.deleted'], array_column(\array_slice(array_values(array_filter($this->auditRecords(), fn (array $r) => str_starts_with($r['event'], 'category.'))), 0, 2), 'event'));
+    }
+
+    public function testAWithdrawnCategoryCanComeBackAndFreesItsNames(): void
+    {
+        $token = $this->owner();
+        $category = $this->api('POST', '/api/admin/categories', $token, ['name' => 'Casquettes', 'subCategories' => [['name' => 'Bob', 'slug' => 'bob']]])['category'];
+        self::assertSame(201, $this->httpStatus());
+        // Un article y a été vendu puis retiré : la catégorie est seulement masquée.
+        $this->api('PATCH', '/api/admin/products/prod-01', $token, ['categorySlug' => 'casquettes', 'subCategorySlug' => 'bob']);
+        self::assertSame(200, $this->httpStatus());
+        self::assertSame([409, 'CATEGORY_HAS_PRODUCTS'], [$this->api('DELETE', '/api/admin/categories/' . $category['id'], $token) !== [] ? $this->httpStatus() : 0, json_decode((string) $this->client->getResponse()->getContent(), true)['code']]);
+        $this->api('DELETE', '/api/admin/products/prod-01', $token);
+        $this->api('DELETE', '/api/admin/categories/' . $category['id'], $token);
+        self::assertSame(200, $this->httpStatus());
+        self::assertNotContains('casquettes', array_column($this->api('GET', '/api/admin/categories', $token)['categories'], 'slug'));
+
+        // Un article ne peut pas y être rangé tant qu'elle est masquée.
+        $this->api('PATCH', '/api/admin/products/prod-03', $token, ['categorySlug' => 'casquettes']);
+        self::assertSame(422, $this->httpStatus());
+
+        // Le nom de sa sous-catégorie est libre ailleurs ; la même catégorie recréée revient, vide et visible.
+        $shoes = array_column($this->api('GET', '/api/admin/categories', $token)['categories'], null, 'slug')['chaussures'];
+        $this->api('PATCH', '/api/admin/categories/' . $shoes['id'], $token, ['subCategories' => [...$shoes['subCategories'], ['name' => 'Bob', 'slug' => 'bob']]]);
+        self::assertSame(200, $this->httpStatus(), (string) $this->client->getResponse()->getContent());
+        $data = $this->api('POST', '/api/admin/categories', $token, ['name' => 'Casquettes', 'description' => 'De retour']);
+        self::assertSame([201, $category['id'], 'De retour', []], [$this->httpStatus(), $data['category']['id'] ?? null, $data['category']['description'] ?? null, $data['category']['subCategories'] ?? null], json_encode($data));
+        self::assertContains('casquettes', array_column($this->getJson('/api/categories'), 'slug'));
+    }
+
+    public function testOnlyOwnPhotosAreAccepted(): void
+    {
+        $token = $this->owner();
+        foreach (['https://evil.example/photo.jpg', 'https://res.cloudinary.com.evil.example/a.jpg', 'https://res.cloudinary.com@evil.example/a.jpg', 'http://res.cloudinary.com/x/a.jpg', '//evil.example/a.jpg', '/\\evil.example/a.jpg', 'javascript:alert(1)', 'data:image/png;base64,AAAA'] as $url) {
+            $data = $this->api('POST', '/api/admin/categories', $token, ['name' => 'Rayon test', 'coverImage' => $url]);
+            self::assertSame(422, $this->httpStatus(), $url);
+            self::assertNotSame('', $data['message']);
+            $this->api('POST', '/api/admin/looks', $token, ['title' => 'Look test', 'image' => $url, 'productSlugs' => ['hoodie-barbele-noir']]);
+            self::assertSame(422, $this->httpStatus(), $url);
+        }
+        foreach (['https://res.cloudinary.com/compte/image/upload/v1/a.jpg', '/images/categories/vetements.webp'] as $i => $url) {
+            $data = $this->api('POST', '/api/admin/categories', $token, ['name' => 'Rayon ' . $i, 'coverImage' => $url]);
+            self::assertSame([201, $url], [$this->httpStatus(), $data['category']['coverImage'] ?? null], json_encode($data));
+        }
+    }
 }

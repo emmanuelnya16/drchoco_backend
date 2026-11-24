@@ -14,9 +14,6 @@ abstract class ReservationTestCase extends AccountTestCase
     protected const YDE_VARIANT = 'prod-01-noir-s';
     protected const DLA_VARIANT = 'prod-02-noir-s';
 
-    // PNG de 1 × 1 pixel, avec un bloc de texte (métadonnée à retirer).
-    protected const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-
     private int $keys = 0;
 
     /** Captures écrites pendant le test : la base est annulée à la fin, les fichiers sont effacés ici. */
@@ -95,14 +92,23 @@ abstract class ReservationTestCase extends AccountTestCase
         return new UploadedFile($path, $name, $mime, null, true);
     }
 
-    /** PNG de départ avec un bloc tEXt ajouté après l'en-tête (le contenu change selon `$text`). */
+    /** PNG d'un pixel dont la couleur dépend de `$text`, avec ce texte en métadonnée (bloc tEXt). */
     protected static function pngWithText(string $keyword, string $text): string
     {
-        $png = base64_decode(self::PNG);
+        $png = self::plainPng($text);
         $data = $keyword . "\0" . $text;
         $chunk = pack('N', \strlen($data)) . 'tEXt' . $data . pack('N', crc32('tEXt' . $data));
         $ihdrEnd = 8 + 25; // signature + bloc IHDR (13 octets de données)
 
         return substr($png, 0, $ihdrEnd) . $chunk . substr($png, $ihdrEnd);
+    }
+
+    /** La même image sans métadonnée (ce que le serveur garde). */
+    protected static function plainPng(string $text): string
+    {
+        $chunk = static fn (string $type, string $data): string => pack('N', \strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+        $pixel = substr(hash('sha256', $text, true), 0, 3);
+
+        return "\x89PNG\r\n\x1A\n" . $chunk('IHDR', pack('NN', 1, 1) . "\x08\x02\0\0\0") . $chunk('IDAT', (string) gzcompress("\0" . $pixel)) . $chunk('IEND', '');
     }
 }

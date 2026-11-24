@@ -1,0 +1,9 @@
+# Dossier du projet : jamais servi par le web. Seul public/ l'est (public/.htaccess l'autorise).
+# Protège config/, var/, src/… si le projet est déposé par erreur dans le dossier du site (public_html).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>

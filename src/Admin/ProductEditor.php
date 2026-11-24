@@ -3,6 +3,7 @@
 namespace App\Admin;
 
 use App\Api\ApiException;
+use App\Audit\AuditLog;
 use App\Catalog\ShopCity;
 use App\Catalog\TextFolder;
 use App\Entity\Admin;
@@ -14,6 +15,7 @@ use App\Repository\AdminRepository;
 use App\Repository\CategoryRepository;
 use App\Repository\LookRepository;
 use App\Repository\ProductRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
@@ -46,6 +48,7 @@ final class ProductEditor
         private readonly LookRepository $looks,
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $clock,
+        private readonly AuditLog $audit,
     ) {}
 
     /** Article visible et modifiable par ce compte (les articles supprimés n'existent plus pour personne). */
@@ -77,8 +80,11 @@ final class ProductEditor
         $this->assign($product, $body, $admin, creating: true);
         $this->apply($product, $values);
 
-        $this->em->persist($product);
-        $this->em->flush();
+        $this->unique($values['slug'], function () use ($product): void {
+            $this->em->persist($product);
+            $this->em->flush();
+        });
+        $this->audit->record('product.created', $admin, ['product' => $product->getId(), 'slug' => $product->getSlug()] + self::watched($product));
 
         return $product;
     }
@@ -91,18 +97,76 @@ final class ProductEditor
         $this->throwIfInvalid($errors);
         $oldSlug = $product->getSlug();
         $this->assertSlugFree($values['slug'], $product);
+        $before = self::watched($product);
+        $stocksBefore = self::stocksOf($product);
 
         $this->stockDeltas = [];
-        $this->em->wrapInTransaction(function () use ($product, $body, $admin, $values, $oldSlug): void {
-            $this->assign($product, $body, $admin, creating: false);
-            $this->apply($product, $values);
-            if ($values['slug'] !== $oldSlug) {
-                $this->renameInLooks($oldSlug, $values['slug']);
-            }
-            $this->flushStockDeltas();
+        $applied = [];
+        // (Pas de fonction fléchée ici : elle copierait $applied au lieu de le partager.)
+        $this->unique($values['slug'], function () use ($product, $body, $admin, $values, $oldSlug, &$applied): void {
+            $this->em->wrapInTransaction(function () use ($product, $body, $admin, $values, $oldSlug, &$applied): void {
+                $this->assign($product, $body, $admin, creating: false);
+                $this->apply($product, $values);
+                if ($values['slug'] !== $oldSlug) {
+                    $this->renameInLooks($oldSlug, $values['slug']);
+                }
+                // L'article avant ses variantes, comme la création d'une réservation : pas d'interblocage entre les deux.
+                $this->em->flush();
+                $applied = $this->flushStockDeltas();
+            });
         });
+        $stocksAfter = self::stocksOf($product);
+        $this->audit->record('product.updated', $admin, ['product' => $product->getId(), 'fields' => \array_slice(array_keys($body), 0, 30)] + array_filter([
+            'changes'  => AuditLog::changes($before, self::watched($product)),
+            'stock'    => $applied,                                              // écarts appliqués en base
+            'stockSet' => AuditLog::changes($stocksBefore, $stocksAfter),         // valeurs fixées directement
+            'removed'  => array_keys(array_diff_key($stocksBefore, $stocksAfter)), // variantes supprimées
+        ]));
 
         return $product;
+    }
+
+    /**
+     * Valeurs suivies dans le journal d'audit : ce qui change ce que le client paie, ou qui voit l'article.
+     *
+     * @return array<string, mixed>
+     */
+    private static function watched(Product $product): array
+    {
+        return [
+            'price'  => $product->getPrice(),
+            'slug'   => $product->getSlug(),
+            'city'   => $product->getCity(),
+            'seller' => $product->getSeller()?->getId(),
+        ];
+    }
+
+    /** @return array<string, int> stock connu de chaque variante */
+    private static function stocksOf(Product $product): array
+    {
+        $stocks = [];
+        foreach ($product->getVariants() as $variant) {
+            $stocks[$variant->getId()] = $variant->getStock();
+        }
+
+        return $stocks;
+    }
+
+    /**
+     * Enregistrement dont l'unicité est aussi garantie par la base : même adresse enregistrée au même moment, ou deux
+     * tailles que la base tient pour identiques (elle compare sans accents ni casse).
+     */
+    private function unique(string $slug, callable $save): void
+    {
+        try {
+            $save();
+        } catch (UniqueConstraintViolationException $e) {
+            if (str_contains($e->getMessage(), 'uniq_variant_color_size')) {
+                throw ApiException::validation(['sizes' => 'Deux tailles sont identiques (accents, majuscules ou espaces) : gardez-en une seule.'], 'Deux tailles sont identiques (accents, majuscules ou espaces) : gardez-en une seule.');
+            }
+
+            throw new ApiException(409, 'DUPLICATE_SLUG', sprintf('Un article utilise déjà le slug « %s ».', $slug), ['slug' => $slug], previous: $e);
+        }
     }
 
     /**
@@ -112,7 +176,7 @@ final class ProductEditor
      *
      * @param array<string, mixed> $body
      */
-    public function updateStock(Product $product, array $body): Product
+    public function updateStock(Product $product, array $body, Admin $admin): Product
     {
         if (!\is_array($body['variants'] ?? null) || !array_is_list($body['variants'])) {
             throw ApiException::validation(['variants' => 'Liste des variantes manquante.'], 'Liste des variantes manquante.');
@@ -137,23 +201,28 @@ final class ProductEditor
         }
 
         $this->stockDeltas = [];
-        $this->em->wrapInTransaction(function () use ($updates, $byId): void {
+        $applied = [];
+        $this->em->wrapInTransaction(function () use ($updates, $byId, &$applied): void {
             foreach ($updates as $id => [$stock, $previous]) {
                 if ($previous !== null) {
                     $this->queueStockDelta($id, $stock - $previous);
                 } else {
+                    $applied[$id] = ['before' => $byId[$id]->getStock(), 'after' => $stock];
                     $byId[$id]->setStock($stock);
                 }
             }
             $this->em->flush();
-            $this->flushStockDeltas();
+            $applied += $this->flushStockDeltas();
         });
+        if ($applied !== []) {
+            $this->audit->record('product.stock', $admin, ['product' => $product->getId(), 'stock' => $applied]);
+        }
 
         return $product;
     }
 
     /** Retire l'article de la vente : invisible partout, adresse libérée, retiré des looks. */
-    public function delete(Product $product): void
+    public function delete(Product $product, Admin $admin): void
     {
         $oldSlug = $product->getSlug();
         $this->em->wrapInTransaction(function () use ($product, $oldSlug): void {
@@ -161,6 +230,7 @@ final class ProductEditor
             $product->setSlug(mb_substr($oldSlug, 0, 140) . '-retire-' . bin2hex(random_bytes(3)));
             $this->renameInLooks($oldSlug, null);
         });
+        $this->audit->record('product.deleted', $admin, ['product' => $product->getId(), 'slug' => $oldSlug]);
     }
 
     // ── Interne ───────────────────────────────────────────────────────────
@@ -242,7 +312,7 @@ final class ProductEditor
         $category = $current?->getCategory();
         if ($has('categorySlug') || $current === null) {
             $categorySlug = \is_string($body['categorySlug'] ?? null) ? trim($body['categorySlug']) : '';
-            $category = $categorySlug !== '' ? $this->categories->findOneBy(['slug' => $categorySlug]) : null;
+            $category = $categorySlug !== '' ? $this->categories->findOneBy(['slug' => $categorySlug, 'isActive' => true]) : null;
             if ($category === null) {
                 $errors['categorySlug'] = 'Choisissez une catégorie de la liste.';
             }
@@ -327,7 +397,8 @@ final class ProductEditor
      *
      * @param list<array{code: string}> $colors
      * @param list<string>              $sizes
-     * @param array<string, int>|null   $stocks stock par clé « couleur|taille » ; null = garder le stock actuel
+     * @param array<string, array{stock: int, previous: ?int}>|null $stocks par clé « couleur|taille » ; null ou clé
+     *                                                                      absente : stock actuel gardé
      */
     private function syncVariants(Product $product, array $colors, array $sizes, ?array $stocks): void
     {
@@ -348,9 +419,11 @@ final class ProductEditor
                 } else {
                     $variant->setColorCode($color['code'])->setSize($size);
                 }
-                if ($stocks !== null) {
-                    $line = $stocks[$key] ?? ['stock' => 0, 'previous' => null];
-                    if ($variant->getId() !== '' && isset($existing[$key]) && $line['previous'] !== null) {
+                // Combinaison absente de la liste : ajoutée par quelqu'un d'autre depuis l'ouverture du formulaire, son
+                // stock ne change pas (une nouvelle part de 0).
+                $line = $stocks[$key] ?? null;
+                if ($line !== null) {
+                    if (isset($existing[$key]) && $line['previous'] !== null) {
                         // Stock vu par l'admin à l'ouverture : seule sa modification est appliquée, en base, sans
                         // effacer les pièces réservées ou remises en vente entre-temps (P5).
                         $this->queueStockDelta($variant->getId(), $line['stock'] - $line['previous']);
@@ -453,8 +526,10 @@ final class ProductEditor
     /**
      * Applique les écarts en base (stock = stock + écart, jamais négatif), dans l'ordre des identifiants comme la
      * création d'une réservation : pas d'interblocage entre les deux.
+     *
+     * @return array<string, int> écarts appliqués (journal d'audit)
      */
-    private function flushStockDeltas(): void
+    private function flushStockDeltas(): array
     {
         $deltas = $this->stockDeltas;
         $this->stockDeltas = [];
@@ -465,6 +540,8 @@ final class ProductEditor
                 [self::MAX_STOCK, $delta, $id],
             );
         }
+
+        return $deltas;
     }
 
     private function stockValue(mixed $raw): ?int

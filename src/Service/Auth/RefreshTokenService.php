@@ -10,10 +10,13 @@ use App\Repository\RefreshTokenRepository;
 use App\Repository\UserRepository;
 use App\Security\Exception\RefreshDeniedException;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Api\ApiException;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * Sessions longues (jeton de rafraîchissement en cookie httpOnly) et émission du JWT.
@@ -29,7 +32,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * Ajouts pour la robustesse : famille de jetons (une connexion = une famille), délai de grâce de 30 s
  * (deux onglets qui rafraîchissent ensemble), révocation de la famille si un vieux jeton est réutilisé,
- * verrou en base pendant la rotation.
+ * verrou en base pendant la rotation. Limite (P9) : 60 rafraîchissements en 10 min par session.
  */
 class RefreshTokenService
 {
@@ -48,6 +51,8 @@ class RefreshTokenService
         private readonly JWTTokenManagerInterface $jwtManager,
         private readonly EntityManagerInterface   $em,
         private readonly ClockInterface           $clock,
+        #[Autowire(service: 'limiter.session_refresh')]
+        private readonly RateLimiterFactoryInterface $refreshLimiter,
         private readonly string                   $appEnv,
         private readonly int                      $clientTtlDays,
         private readonly int                      $adminSessionHours,
@@ -160,6 +165,9 @@ class RefreshTokenService
 
         try {
             $current = $this->refreshTokenRepository->findByHashForUpdate(RefreshToken::hash($plain));
+            if ($current !== null) {
+                $this->assertBelowRefreshLimit($current);
+            }
             $denied = $this->checkPresentedToken($current, $type, $now);
 
             $account = null;
@@ -195,6 +203,7 @@ class RefreshTokenService
         } catch (RefreshDeniedException $e) {
             throw $e;
         } catch (\Throwable $e) {
+            // (429 compris : rien n'a changé, le front garde la session et réessaiera.)
             if ($conn->isTransactionActive()) {
                 $conn->rollBack();
             }
@@ -245,6 +254,21 @@ class RefreshTokenService
         return $account instanceof User ? $account : null;
     }
 
+    /** Compte de l'équipe de la session du cookie (lecture seule, sans rotation) : déconnexion d'un appareil. */
+    public function adminFromSessionCookie(Request $request): ?Admin
+    {
+        $plain = $request->cookies->get(self::ADMIN_COOKIE);
+        if (!\is_string($plain) || $plain === '') {
+            return null;
+        }
+        $token = $this->refreshTokenRepository->findByHash(RefreshToken::hash($plain));
+        if ($token === null || $token->getUserType() !== RefreshToken::TYPE_ADMIN || $token->isRevoked()) {
+            return null;
+        }
+
+        return $this->adminRepository->find($token->getUserId());
+    }
+
     private function checkPresentedToken(?RefreshToken $token, string $type, \DateTimeImmutable $now): ?string
     {
         if ($token === null || $token->getUserType() !== $type) {
@@ -261,6 +285,19 @@ class RefreshTokenService
         }
 
         return null;
+    }
+
+    /** 60 rafraîchissements en 10 min par session : une boucle ne remplit pas la base (contrat §2.4.4 : 429 = session gardée). */
+    private function assertBelowRefreshLimit(RefreshToken $token): void
+    {
+        $limit = $this->refreshLimiter->create('session-' . $token->getFamilyId())->consume();
+        if (!$limit->isAccepted()) {
+            throw ApiException::tooManyRequests(
+                'RATE_LIMITED',
+                'Trop de tentatives. Veuillez patienter avant de réessayer.',
+                max(1, $limit->getRetryAfter()->getTimestamp() - time()),
+            );
+        }
     }
 
     private function loadActiveAccount(string $type, int $userId): User|Admin|null
@@ -296,9 +333,7 @@ class RefreshTokenService
             ->setUserId($userId)
             ->setFamilyId($familyId)
             ->setSessionExpiresAt($sessionEnd)
-            ->setTokenHash($hash)
-            ->setCreatedFromIp($request->getClientIp())
-            ->setUserAgent(mb_substr((string) $request->headers->get('User-Agent', ''), 0, 255));
+            ->setTokenHash($hash); // ni adresse IP ni navigateur : ils n'étaient lus nulle part (vie privée, P9)
 
         $this->refreshTokenRepository->save($token);
 

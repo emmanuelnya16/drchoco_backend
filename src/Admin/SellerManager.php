@@ -5,9 +5,11 @@ namespace App\Admin;
 use App\Account\PhoneNumber;
 use App\Account\TextInput;
 use App\Api\ApiException;
+use App\Audit\AuditLog;
 use App\Catalog\ShopCity;
 use App\Entity\Admin;
 use App\Entity\RefreshToken;
+use App\Push\PushSubscriptions;
 use App\Repository\AdminRepository;
 use App\Repository\ProductRepository;
 use App\Service\Auth\RefreshTokenService;
@@ -21,30 +23,26 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * - Désactivation, changement de mot de passe ou suppression : toutes ses sessions sont coupées aussitôt
  *   (en plus du contrôle à chaque requête, App\Security\AccountStatusChecker).
  * - Suppression refusée tant que le vendeur a des articles (409) : le désactiver garde son historique.
- * - Mot de passe : 10 caractères au moins, ni mot de passe connu ni e-mail ou téléphone du compte ; haché (bcrypt),
- *   jamais renvoyé.
+ * - Mot de passe : règle de App\Admin\AdminPassword ; haché (bcrypt), jamais renvoyé. S'il change (ou si le compte est
+ *   désactivé), les appareils abonnés aux notifications sont retirés aussi.
+ * - Chaque action est écrite dans le journal d'audit, avec son auteur.
  */
 final class SellerManager
 {
-    public const PASSWORD_MIN_LENGTH = 10;
-    public const PASSWORD_MAX_LENGTH = 128;
-
-    /** Mots de passe refusés (dont celui pré-rempli par le formulaire du front), en minuscules. */
-    private const FORBIDDEN_PASSWORDS = [
-        'choco2026', 'choco20266', 'drchoco2026', 'drchoco123', 'chocolat2026', 'motdepasse', 'motdepasse1',
-        'password', 'password1', 'password123', '1234567890', '0123456789', 'azertyuiop', 'qwertyuiop',
-    ];
+    public const PASSWORD_MIN_LENGTH = AdminPassword::MIN_LENGTH;
 
     public function __construct(
         private readonly AdminRepository $admins,
         private readonly ProductRepository $products,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly RefreshTokenService $refreshTokens,
+        private readonly PushSubscriptions $pushDevices,
+        private readonly AuditLog $audit,
         private readonly EntityManagerInterface $em,
     ) {}
 
     /** @param array<string, mixed> $body */
-    public function create(array $body): Admin
+    public function create(array $body, Admin $actor): Admin
     {
         $errors = [];
         $name = $this->name($body['name'] ?? null, $errors);
@@ -66,12 +64,13 @@ final class SellerManager
 
         $this->em->persist($seller);
         $this->em->flush();
+        $this->audit->record('seller.created', $actor, ['seller' => $seller->getId(), 'email' => $seller->getEmail(), 'city' => $city]);
 
         return $seller;
     }
 
     /** @param array<string, mixed> $body seuls les champs présents sont modifiés */
-    public function update(Admin $seller, array $body): Admin
+    public function update(Admin $seller, array $body, Admin $actor): Admin
     {
         $errors = [];
         $changes = [];
@@ -125,21 +124,24 @@ final class SellerManager
             $seller->setIsActive($changes['active']);
         }
 
-        $this->em->wrapInTransaction(function () use ($seller, $movedCity): void {
+        // Sessions et appareils coupés dans la même transaction que le nouveau mot de passe : une connexion en cours avec
+        // l'ancien attend la ligne verrouillée, puis la relit changée (App\Admin\AdminLogin).
+        $this->em->wrapInTransaction(function () use ($seller, $movedCity, $cutSessions): void {
             $this->em->flush();
             if ($movedCity !== null) {
                 $this->products->moveSellerProductsToCity($seller, $movedCity);
             }
+            if ($cutSessions) {
+                $this->refreshTokens->revokeAll((int) $seller->getId(), RefreshToken::TYPE_ADMIN);
+                $this->pushDevices->forgetAdmin((int) $seller->getId());
+            }
         });
-
-        if ($cutSessions) {
-            $this->refreshTokens->revokeAll((int) $seller->getId(), RefreshToken::TYPE_ADMIN);
-        }
+        $this->audit->record('seller.updated', $actor, ['seller' => $seller->getId(), 'changes' => array_diff_key($changes, ['password' => true]) + (isset($changes['password']) ? ['password' => 'changé'] : [])]);
 
         return $seller;
     }
 
-    public function delete(Admin $seller): void
+    public function delete(Admin $seller, Admin $actor): void
     {
         $count = $this->products->countOwnedBy($seller);
         if ($count > 0) {
@@ -152,9 +154,11 @@ final class SellerManager
         }
 
         $id = (int) $seller->getId();
+        $email = $seller->getEmail();
         $this->em->remove($seller);
         $this->em->flush();
         $this->refreshTokens->revokeAll($id, RefreshToken::TYPE_ADMIN);
+        $this->audit->record('seller.deleted', $actor, ['seller' => $id, 'email' => $email]);
     }
 
     // ── Contrôles ─────────────────────────────────────────────────────────
@@ -232,38 +236,13 @@ final class SellerManager
     }
 
     /**
-     * Règle commune à tous les comptes de l'équipe (vendeurs, gérants, propriétaire) : 10 caractères au moins,
-     * ni espace au début ou à la fin, ni mot de passe connu (dont « choco2026 », pré-rempli par le front),
-     * ni l'e-mail ou le téléphone du compte. Renvoie le problème en clair, ou null.
+     * Règle commune à tous les comptes de l'équipe : voir App\Admin\AdminPassword.
      *
      * @param list<?string> $personal
      */
     public static function passwordProblem(string $password, array $personal = []): ?string
     {
-        if (mb_strlen($password) < self::PASSWORD_MIN_LENGTH) {
-            return sprintf('Le mot de passe doit contenir au moins %d caractères.', self::PASSWORD_MIN_LENGTH);
-        }
-        if (mb_strlen($password) > self::PASSWORD_MAX_LENGTH) {
-            return sprintf('Le mot de passe ne doit pas dépasser %d caractères.', self::PASSWORD_MAX_LENGTH);
-        }
-        if ($password !== trim($password)) {
-            return 'Le mot de passe ne doit pas commencer ni finir par une espace.';
-        }
-
-        $folded = mb_strtolower($password);
-        if (\in_array($folded, self::FORBIDDEN_PASSWORDS, true) || preg_match('/^(.)\1+$/u', $password) === 1) {
-            return 'Ce mot de passe est trop connu : choisissez un mot de passe personnel.';
-        }
-        foreach ($personal as $value) {
-            $value = mb_strtolower(trim((string) $value));
-            $local = str_contains($value, '@') ? strstr($value, '@', true) : $value;
-            $digits = (string) preg_replace('/\D/', '', $value);
-            if ($value !== '' && ($folded === $value || $folded === $local || ($digits !== '' && \strlen($digits) >= 9 && str_contains($folded, substr($digits, -9))))) {
-                return 'Le mot de passe ne doit pas reprendre l’e-mail ou le téléphone du compte.';
-            }
-        }
-
-        return null;
+        return AdminPassword::problem($password, $personal);
     }
 
     /** @param array<string, string> $errors */

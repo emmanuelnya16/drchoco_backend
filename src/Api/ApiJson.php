@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 final class ApiJson
 {
     // Accents et « / » lisibles tels quels ; < > & ' " échappés (sûr même affiché dans du HTML).
-    public const ENCODING = JsonResponse::DEFAULT_ENCODING_OPTIONS | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_THROW_ON_ERROR;
+    public const ENCODING = JsonResponse::DEFAULT_ENCODING_OPTIONS | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_INVALID_UTF8_SUBSTITUTE | \JSON_THROW_ON_ERROR;
 
     public static function publicCached(Request $request, mixed $data, int $maxAge = 60, ?int $staleWhileRevalidate = 600): JsonResponse
     {
@@ -29,6 +29,20 @@ final class ApiJson
         $etag = hash('xxh128', (string) $response->getContent());
         $response->setEtag($etag, true);
 
+        if (self::matchesEtag($request, $etag)) {
+            $response->setNotModified();
+        }
+
+        return $response;
+    }
+
+    /** Donnée publique qui ne doit jamais être périmée (codes de paiement) : revalidée à chaque lecture, 304 si inchangée. */
+    public static function publicRevalidated(Request $request, mixed $data): JsonResponse
+    {
+        $response = self::create($data);
+        $response->headers->set('Cache-Control', 'public, no-cache');
+        $etag = hash('xxh128', (string) $response->getContent());
+        $response->setEtag($etag, true);
         if (self::matchesEtag($request, $etag)) {
             $response->setNotModified();
         }

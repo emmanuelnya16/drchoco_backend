@@ -4,6 +4,7 @@ namespace App\Controller\Catalog;
 
 use App\Api\ApiException;
 use App\Api\ClientIp;
+use App\Api\JsonBody;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,17 +17,22 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Écrites dans un journal dédié (var/log/client-errors-*.log, gardé 30 jours), sans aucune donnée
  * personnelle : ni compte, ni adresse IP. Limite : 20 envois par heure et par adresse IP.
- * Jamais de 401, même avec un jeton invalide (route publique).
+ * Jamais de 401, même avec un jeton invalide (route publique). JSON exigé (un autre site ne peut pas faire envoyer des
+ * rapports par ses visiteurs), 300 rapports par heure pour toute la boutique, 4 Ko au plus par rapport écrit.
  */
 final class ClientErrorController
 {
-    private const MAX_BODY_BYTES = 65536;
+    private const MAX_BODY_BYTES = 32_768;
+    /** Taille d'une ligne du journal : au-delà, la pile d'appels puis les données annexes sont retirées. */
+    private const MAX_RECORD_BYTES = 4096;
 
     public function __construct(
         #[Autowire(service: 'monolog.logger.client_errors')]
         private readonly LoggerInterface $logger,
         #[Autowire(service: 'limiter.client_errors')]
         private readonly RateLimiterFactoryInterface $limiter,
+        #[Autowire(service: 'limiter.client_errors_total')]
+        private readonly RateLimiterFactoryInterface $totalLimiter,
         #[Autowire('%kernel.secret%')]
         private readonly string $secret,
     ) {}
@@ -34,16 +40,17 @@ final class ClientErrorController
     #[Route('/client-errors', name: 'api_client_errors', methods: ['POST'])]
     public function __invoke(Request $request): Response
     {
-        $limit = $this->limiter->create(ClientIp::limiterKey($request->getClientIp(), $this->secret))->consume();
-        if (!$limit->isAccepted()) {
-            $retryAfter = max(1, $limit->getRetryAfter()->getTimestamp() - time());
-            throw ApiException::tooManyRequests('RATE_LIMITED', 'Trop d’envois. Veuillez réessayer plus tard.', $retryAfter);
+        if ($request->getContentTypeFormat() !== 'json') {
+            throw new ApiException(415, 'UNSUPPORTED_MEDIA_TYPE', 'Requête invalide : le corps doit être envoyé en JSON.');
+        }
+        foreach ([[$this->limiter, ClientIp::limiterKey($request->getClientIp(), $this->secret)], [$this->totalLimiter, 'boutique']] as [$factory, $key]) {
+            $limit = $factory->create($key)->consume();
+            if (!$limit->isAccepted()) {
+                throw ApiException::tooManyRequests('RATE_LIMITED', 'Trop d’envois. Veuillez réessayer plus tard.', max(1, $limit->getRetryAfter()->getTimestamp() - time()));
+            }
         }
 
-        $content = $request->getContent();
-        if (\strlen($content) > self::MAX_BODY_BYTES) {
-            throw new ApiException(413, 'FILE_TOO_LARGE', 'La requête est trop volumineuse.');
-        }
+        $content = JsonBody::content($request, self::MAX_BODY_BYTES);
 
         try {
             $body = json_decode($content, true, 8, \JSON_THROW_ON_ERROR);
@@ -64,7 +71,7 @@ final class ClientErrorController
             throw ApiException::validation($errors);
         }
 
-        $this->logger->warning('Erreur de l’application', array_filter([
+        $record = array_filter([
             'message'    => $this->text($body['message'], 500),
             'stack'      => \is_string($body['stack'] ?? null) ? $this->stack($body['stack']) : null,
             // Chemin seul : jamais de paramètres ni d'ancre (contrat §13.1).
@@ -75,7 +82,13 @@ final class ClientErrorController
             'route'      => \is_string($body['route'] ?? null) ? $this->text($body['route'], 200) : null,
             'extra'      => \is_array($body['extra'] ?? null) ? $this->extra($body['extra']) : null,
             'occurredAt' => $this->text($body['occurredAt'], 40),
-        ], fn ($v) => $v !== null && $v !== '' && $v !== []));
+        ], fn ($v) => $v !== null && $v !== '' && $v !== []);
+        foreach (['stack', 'extra'] as $optional) {
+            if (\strlen((string) json_encode($record, \JSON_UNESCAPED_UNICODE)) > self::MAX_RECORD_BYTES) {
+                unset($record[$optional]);
+            }
+        }
+        $this->logger->warning('Erreur de l’application', $record);
 
         $response = new Response(null, Response::HTTP_NO_CONTENT);
         $response->headers->set('Cache-Control', 'no-store');

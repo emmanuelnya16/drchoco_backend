@@ -65,7 +65,7 @@ final class AdminReservationList
         ];
 
         $pageSize = max(1, min(self::MAX_PAGE_SIZE, (int) $query->get('pageSize', (string) self::PAGE_SIZE) ?: self::PAGE_SIZE));
-        $page = max(1, (int) $query->get('page', '1'));
+        $page = max(1, min(100_000, (int) $query->get('page', '1')));
         $result = $this->reservations->adminPage($admin, $filters, ($page - 1) * $pageSize, $pageSize);
         $totalPages = max(1, (int) ceil($result['total'] / $pageSize));
         if ($page > $totalPages) {

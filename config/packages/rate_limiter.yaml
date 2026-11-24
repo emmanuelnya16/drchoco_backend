@@ -1,14 +1,19 @@
 # Limites de débit de l'API (contrat §2.14). Compteurs gardés dans le cache de l'application (fichiers).
 framework:
     rate_limiter:
-        # POST /client-errors : 20 envois par heure et par adresse IP.
+        # POST /client-errors : 20 envois par heure et par adresse IP, 300 par heure pour toute la boutique.
         client_errors:
             policy: sliding_window
             limit: 20
             interval: '60 minutes'
+        client_errors_total:
+            policy: fixed_window
+            limit: 300
+            interval: '60 minutes'
 
-        # POST /auth/otp/request : 30 demandes de code par heure et par adresse IP (en plus des limites par
-        # numéro, contrat §4.1). Assez large pour les réseaux mobiles où beaucoup de clients partagent une IP.
+        # POST /auth/otp/request : 30 SMS par heure et par adresse IP (en plus des limites par numéro, contrat §4.1) ;
+        # une demande qui n'envoie pas de SMS ne compte pas. Assez large pour les réseaux mobiles où beaucoup de
+        # clients partagent une adresse.
         otp_request_ip:
             policy: sliding_window
             limit: 30
@@ -20,11 +25,27 @@ framework:
             limit: 60
             interval: '1 minute'
 
-        # POST /reservations/{ref}/proof : 20 captures par heure et par compte (fichiers jusqu'à 10 Mo).
+        # POST /reservations : 10 réservations créées par heure et 30 par jour et par compte (chacune retire du stock et
+        # prévient l'équipe) ; une demande refusée ne compte pas.
+        reservation_create:
+            policy: sliding_window
+            limit: 10
+            interval: '60 minutes'
+        reservation_create_day:
+            policy: fixed_window
+            limit: 30
+            interval: '1 day'
+
+        # POST /reservations/{ref}/proof : 20 envois par heure et par compte (fichiers jusqu'à 10 Mo, refusés compris), et
+        # 15 captures acceptées par jour.
         proof_upload:
             policy: sliding_window
             limit: 20
             interval: '60 minutes'
+        proof_accepted_day:
+            policy: fixed_window
+            limit: 15
+            interval: '1 day'
 
         # POST /push/subscribe : 30 abonnements aux notifications en 10 min par adresse IP (la route accepte aussi le
         # cookie de session, pour le service worker qui renouvelle l'abonnement sans jeton).
@@ -33,21 +54,48 @@ framework:
             limit: 30
             interval: '10 minutes'
 
-        # POST /auth/otp/verify : 30 codes faux, expirés ou refusés en 10 min par adresse IP (une connexion réussie
-        # ne compte pas). Une seule machine ne peut pas sonder ni verrouiller les numéros des clients à la chaîne.
+        # POST /auth/refresh et /admin/auth/refresh : 60 rafraîchissements en 10 min par session.
+        session_refresh:
+            policy: sliding_window
+            limit: 60
+            interval: '10 minutes'
+
+        # POST /auth/otp/verify : 30 codes faux en 10 min par adresse IP (ni une connexion réussie, ni un code expiré ne
+        # comptent). Une seule machine ne peut pas sonder ni verrouiller les numéros des clients à la chaîne.
         otp_verify_ip:
             policy: sliding_window
             limit: 30
             interval: '10 minutes'
 
-        # POST /admin/auth/login : 5 mots de passe faux en 15 min par identifiant (e-mail ou téléphone), puis
-        # blocage (« Réessayez dans 15 minutes » côté front) ; 20 en 15 min par adresse IP. Une connexion
-        # réussie ne compte pas et remet le compteur de l'identifiant à zéro.
+        # POST /admin/auth/login : 5 mots de passe faux en 15 min par identifiant (e-mail ou téléphone) et adresse IP,
+        # puis blocage (« Réessayez dans 15 minutes » côté front) ; 20 en 15 min par adresse IP ; 50 en 15 min par
+        # compte, toutes adresses confondues (un appareil déjà connu a son propre compteur de 5). Une connexion réussie
+        # ne compte pas et remet les compteurs du compte à zéro (App\Admin\AdminLogin).
         admin_login_identifier:
             policy: sliding_window
             limit: 5
+            interval: '15 minutes'
+        admin_login_account:
+            policy: sliding_window
+            limit: 50
             interval: '15 minutes'
         admin_login_ip:
             policy: sliding_window
             limit: 20
             interval: '15 minutes'
+
+        # Écritures d'un compte de l'équipe (/api/admin, hors connexion) : 120 par minute.
+        admin_writes:
+            policy: sliding_window
+            limit: 120
+            interval: '1 minute'
+
+        # POST /admin/media : 60 images par 10 min et 300 par jour et par compte de l'équipe (quota Cloudinary).
+        admin_media:
+            policy: sliding_window
+            limit: 60
+            interval: '10 minutes'
+        admin_media_day:
+            policy: fixed_window
+            limit: 300
+            interval: '1 day'

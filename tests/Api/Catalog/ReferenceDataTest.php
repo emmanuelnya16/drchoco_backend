@@ -100,6 +100,20 @@ final class ReferenceDataTest extends CatalogTestCase
         self::assertTrue($data['payment']['exactAmountRequired']);
         self::assertSame(10, $data['payment']['proofMaxSizeMb']);
         self::assertSame(['orange', 'mtn'], array_column($data['operators'], 'code'));
+
+        // Jamais gardés sans demander au serveur : un code marchand corrigé est vu aussitôt.
+        $cacheControl = (string) $this->header('Cache-Control');
+        self::assertStringContainsString('no-cache', $cacheControl);
+        self::assertStringNotContainsString('max-age', $cacheControl);
+        $etag = (string) $this->header('ETag');
+        $this->getJson('/api/settings/public', null, ['HTTP_IF_NONE_MATCH' => $etag]);
+        self::assertSame(304, $this->httpStatus());
+        $setting = $this->em()->find(AppSetting::class, AppSetting::PUBLIC);
+        $setting->setValue(['whatsappNumber' => '+237690112233'] + $setting->getValue());
+        $this->em()->flush();
+        $this->em()->clear();
+        self::assertSame('+237690112233', $this->getJson('/api/settings/public', null, ['HTTP_IF_NONE_MATCH' => $etag])['whatsappNumber'] ?? null);
+        self::assertSame(200, $this->httpStatus());
     }
 
     public function testPublicSettingsNeverFailEvenWhenNotSavedYet(): void

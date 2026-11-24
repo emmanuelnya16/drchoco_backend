@@ -143,6 +143,7 @@ final class AdminNormalizer
             // Client qui n'a pas encore donné son nom (étape « prénom » passée) : jamais de ligne vide à l'écran.
             'fullName'           => $user->getFullName() !== '' ? $user->getFullName() : 'Client sans nom',
             'city'               => $user->getCity() ?? '',
+            'status'             => $user->getStatus(),
             'reservationsCount'  => $stats['count'] ?? 0,
             'confirmedTotalFcfa' => $stats['paid'] ?? 0,
             'lastActivityAt'     => ApiDate::format($lastActivity),

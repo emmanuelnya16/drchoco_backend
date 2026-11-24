@@ -27,6 +27,9 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
  */
 final class ReservationController
 {
+    /** Fiches renvoyées par `?status=reserved` (un client n'en a que quelques-unes). */
+    private const PENDING_MAX = 50;
+
     public function __construct(
         private readonly ReservationRepository $reservations,
         private readonly ReservationCreator $creator,
@@ -57,17 +60,19 @@ final class ReservationController
 
         $status = (string) $request->query->get('status', '');
         if ($status !== '') {
-            $statuses = $status === Reservation::STATUS_RESERVED ? Reservation::AWAITING_PAYMENT : [$status];
+            if ($status !== Reservation::STATUS_RESERVED) {
+                throw ApiException::validation(['status' => 'Seul le statut « reserved » peut être demandé ici.'], 'Cette liste n’existe pas.');
+            }
+            $waiting = $this->reservations->findForUserByStatus($user, Reservation::AWAITING_PAYMENT, self::PENDING_MAX);
+            $this->reservations->preload($waiting, ['items', 'events', 'proofs', 'packagePhotos']);
 
-            return ApiJson::privateNoCache(array_map(
-                fn (Reservation $r) => $this->normalizer->detail($r, $now),
-                $this->reservations->findForUserByStatus($user, $statuses),
-            ));
+            return ApiJson::privateNoCache(array_map(fn (Reservation $r) => $this->normalizer->detail($r, $now), $waiting));
         }
 
         $done = $request->query->get('scope') === 'done';
         $page = max(1, min(10000, (int) $request->query->get('page', '1')));
         $result = $this->reservations->pageForUser($user, $done, $page);
+        $this->reservations->preload($result['items'], ['items', 'events', 'packagePhotos']);
         $totalPages = max(1, (int) ceil($result['total'] / ReservationRepository::PAGE_SIZE));
 
         return ApiJson::privateNoCache([

@@ -5,6 +5,7 @@ namespace App\Controller\Catalog;
 use App\Api\ApiDate;
 use App\Api\ApiException;
 use App\Api\ApiJson;
+use App\Api\JsonBody;
 use App\Repository\ProductVariantRepository;
 use App\Reservation\CartCheck;
 use Psr\Clock\ClockInterface;
@@ -22,6 +23,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class CartController
 {
     private const MAX_LINES = 100;
+    private const MAX_BYTES = 32_768;
 
     #[Route('/cart/validate', name: 'api_cart_validate', methods: ['POST'])]
     public function __invoke(Request $request, ProductVariantRepository $variants, ClockInterface $clock): JsonResponse
@@ -45,7 +47,7 @@ final class CartController
     private function readLines(Request $request): array
     {
         try {
-            $body = json_decode($request->getContent(), true, 8, \JSON_THROW_ON_ERROR);
+            $body = json_decode(JsonBody::content($request, self::MAX_BYTES), true, 8, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             $body = null;
         }

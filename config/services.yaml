@@ -6,6 +6,8 @@ parameters:
     app.refresh.admin_session_hours: 12
     # Fichiers privés (preuves de paiement) : hors du site public, servis par liens signés (P5).
     app.private_media_dir: '%kernel.project_dir%/var/private'
+    # Page index.html construite du front (balises de partage des fiches produit, P9). Vide : à la racine du site.
+    app.front_index_path: '%env(resolve:FRONT_INDEX_PATH)%'
 
 services:
     _defaults:
@@ -56,6 +58,7 @@ services:
 when@test:
     parameters:
         app.private_media_dir: '%kernel.project_dir%/var/test-private'
+        app.front_index_path: '%kernel.project_dir%/tests/Fixtures/front/index.html'
     services:
         _defaults:
             autowire: true
@@ -78,6 +81,10 @@ when@test:
             class: App\Tests\Fake\RecordingPushTransport
             public: true
         App\Push\PushTransportInterface: '@test.push_transport'
+        # Journal d'audit lu par les tests (App\Audit\AuditLog).
+        test.audit_handler:
+            alias: monolog.handler.audit
+            public: true
         # Accès direct aux services encore inutilisés par un contrôleur (tests uniquement).
         test.refresh_token_service:
             alias: App\Service\Auth\RefreshTokenService

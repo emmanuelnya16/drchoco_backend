@@ -7,6 +7,7 @@ use App\Account\TextInput;
 use App\Admin\CatalogInput;
 use App\Admin\Content\FrenchTypography;
 use App\Api\ApiException;
+use App\Audit\AuditLog;
 use App\Catalog\ShopCity;
 use App\Entity\Admin;
 use App\Entity\AppSetting;
@@ -14,12 +15,12 @@ use App\Repository\AppSettingRepository;
 use App\Settings\PublicSettingsProvider;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 /**
  * PATCH /api/admin/settings (P8) : mise à jour partielle des réglages publics (paiement Mobile Money, règles de
  * réservation, boutiques, WhatsApp). Seules les clés envoyées changent ; tout est vérifié avant d'enregistrer
- * (aucun enregistrement partiel). Ces réglages pilotent l'encaissement : chaque modification est journalisée.
+ * (aucun enregistrement partiel). Ces réglages pilotent l'encaissement : chaque modification est journalisée, et un
+ * nouveau code marchand retire l'ancien QR code.
  */
 final class SettingsEditor
 {
@@ -33,7 +34,7 @@ final class SettingsEditor
         private readonly PublicSettingsProvider $provider,
         private readonly AppSettingRepository $settings,
         private readonly EntityManagerInterface $em,
-        private readonly LoggerInterface $logger,
+        private readonly AuditLog $audit,
     ) {}
 
     /**
@@ -253,6 +254,9 @@ final class SettingsEditor
                 $result['steps'] = $steps;
             }
         }
+        if ((string) ($current['merchantCode'] ?? '') !== '') {
+            $this->followNewCode($op, $current, $result);
+        }
         if (\array_key_exists('enabled', $op)) {
             if (\is_bool($op['enabled'])) {
                 $result['enabled'] = $op['enabled'];
@@ -262,6 +266,54 @@ final class SettingsEditor
         }
 
         return $result;
+    }
+
+    /**
+     * Compte marchand changé : l'ancien QR code enverrait encore l'argent à l'ancien compte. Sans nouvelle image dans la
+     * même demande, il est retiré. Chaque étape non modifiée qui cite l'ancien code, ou l'ancien numéro de compte écrit dans
+     * le code USSD (Orange Money), cite le nouveau.
+     *
+     * @param array<string, mixed> $op      champs envoyés
+     * @param array<string, mixed> $current opérateur enregistré
+     * @param array<string, mixed> $result  opérateur à enregistrer
+     */
+    private function followNewCode(array $op, array $current, array &$result): void
+    {
+        $compact = static fn (mixed $v): string => (string) preg_replace('/[\s\-]+/u', '', (string) $v);
+        $codeChanged = $compact($result['merchantCode']) !== $compact($current['merchantCode']);
+        $ussdChanged = $compact($result['ussdTemplate'] ?? '') !== $compact($current['ussdTemplate'] ?? '');
+        if (!$codeChanged && !$ussdChanged) {
+            return;
+        }
+        if ($result['qrImageUrl'] === ($current['qrImageUrl'] ?? null)) {
+            $result['qrImageUrl'] = null;
+        }
+
+        $replacements = [];
+        if ($codeChanged && \strlen((string) $current['merchantCode']) >= 4) {
+            $replacements[(string) $current['merchantCode']] = (string) $result['merchantCode'];
+        }
+        $numbers = static function (mixed $template): array {
+            preg_match_all('/\d{6,}/', (string) $template, $found);
+
+            return array_values(array_unique($found[0]));
+        };
+        $removed = array_values(array_diff($numbers($current['ussdTemplate'] ?? ''), $numbers($result['ussdTemplate'] ?? '')));
+        $added = array_values(array_diff($numbers($result['ussdTemplate'] ?? ''), $numbers($current['ussdTemplate'] ?? '')));
+        if (\count($removed) === 1 && \count($added) === 1) {
+            $replacements += [$removed[0] => $added[0]];
+        }
+        if ($replacements === []) {
+            return;
+        }
+        $old = implode('|', array_map(static fn (int|string $k): string => preg_quote((string) $k, '/'), array_keys($replacements)));
+        $kept = $current['steps'] ?? [];
+        $result['steps'] = array_map(
+            static fn (string $step): string => \in_array($step, $kept, true)
+                ? (string) preg_replace_callback('/(?<![0-9A-Za-z])(?:' . $old . ')(?![0-9A-Za-z])/u', static fn (array $m): string => (string) $replacements[$m[0]], $step)
+                : $step, // étape écrite dans cette demande : gardée telle quelle
+            $result['steps'],
+        );
     }
 
     /** Ancienne boutique principale (`shop`) : met aussi à jour la boutique de sa ville dans `shops`. @param array<string, mixed> $next */
@@ -462,12 +514,27 @@ final class SettingsEditor
      */
     private function audit(Admin $admin, array $before, array $after, array $keys): void
     {
-        $context = ['admin' => $admin->getId(), 'role' => $admin->getRole(), 'keys' => $keys];
-        $codes = fn (array $s) => array_map(fn (array $op) => [$op['id'], $op['merchantCode'], $op['ussdTemplate'], $op['enabled']], $s['payment']['operators'] ?? []);
-        if ($codes($before) !== $codes($after)) {
-            $this->logger->notice('Codes marchands Mobile Money modifiés dans l’administration.', $context + ['operators' => $codes($after)]);
-        } else {
-            $this->logger->info('Réglages de la boutique modifiés.', $context);
+        // Tout ce qui dirige l'argent du client : compte, code, code USSD, QR code, étapes, opérateur proposé ou non.
+        $fields = array_flip(['id', 'merchantName', 'accountName', 'merchantCode', 'ussdTemplate', 'qrImageUrl', 'qrCodeUrl', 'steps', 'enabled']);
+        $operators = static function (array $settings) use ($fields): array {
+            $list = [];
+            foreach ($settings['payment']['operators'] ?? [] as $operator) {
+                $list[(string) ($operator['id'] ?? '')] = array_intersect_key($operator, $fields);
+            }
+
+            return $list;
+        };
+        $was = $operators($before);
+        $is = $operators($after);
+        $changed = [];
+        foreach ($is as $id => $operator) {
+            foreach ($operator as $field => $value) {
+                if (($was[$id][$field] ?? null) !== $value) {
+                    $changed[$id][$field] = ['before' => $was[$id][$field] ?? null, 'after' => $value];
+                }
+            }
         }
+
+        $this->audit->record($changed !== [] ? 'settings.payment' : 'settings.updated', $admin, ['keys' => $keys] + ($changed !== [] ? ['operators' => $changed] : []));
     }
 }

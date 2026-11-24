@@ -6,6 +6,7 @@ use App\Api\ApiException;
 use App\Entity\Reservation;
 use App\Entity\User;
 use App\Repository\ReservationRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -137,12 +138,22 @@ final class ReservationLifecycle
     public function releaseStock(Reservation $reservation): void
     {
         $quantities = [];
+        $products = [];
         foreach ($reservation->getItems() as $item) {
             $quantities[$item->getVariantId()] = ($quantities[$item->getVariantId()] ?? 0) + $item->getQuantity();
+            $products[$item->getProductId()] = $item->getProductId();
         }
         ksort($quantities, \SORT_STRING);
+        sort($products, \SORT_STRING);
 
+        // « Les plus réservés » : une réservation expirée ou annulée ne compte plus (sinon il suffirait de réserver puis
+        // d'annuler en boucle pour faire monter un article). Articles d'abord, comme à la création.
         $connection = $this->em->getConnection();
+        $connection->executeStatement(
+            'UPDATE products SET reservations_count = reservations_count - 1 WHERE reservations_count > 0 AND id IN (?)',
+            [$products],
+            [ArrayParameterType::STRING],
+        );
         foreach ($quantities as $variantId => $quantity) {
             $connection->executeStatement('UPDATE product_variants SET stock = stock + ? WHERE id = ?', [$quantity, $variantId]);
         }

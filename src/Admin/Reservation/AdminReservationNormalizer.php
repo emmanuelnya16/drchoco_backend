@@ -10,7 +10,7 @@ use App\Entity\ReservationEvent;
 use App\Entity\ReservationItem;
 use App\Entity\ReservationNote;
 use App\Entity\ReservationProof;
-use App\Media\PrivateMediaStorage;
+use App\Repository\ProductRepository;
 use App\Repository\ReservationRepository;
 use App\Reservation\ReservationNormalizer;
 
@@ -24,9 +24,9 @@ final class AdminReservationNormalizer
 {
     public function __construct(
         private readonly ReservationNormalizer $client,
-        private readonly PrivateMediaStorage $media,
         private readonly CatalogNormalizer $catalog,
         private readonly ReservationRepository $reservations,
+        private readonly ProductRepository $products,
     ) {}
 
     /** @return array<string, mixed> */
@@ -67,23 +67,31 @@ final class AdminReservationNormalizer
         if ($operator !== null) {
             $row['operator'] = $operator;
         }
-        if ($proof !== null) {
-            $row['proofThumbnailUrl'] = $this->media->proofUrl((int) $proof->getId(), $now);
-        }
         $row['hasProof'] = $proof !== null;
         $row['hasPackagePhotos'] = $r->getPackageReadyAt() !== null;
+        $row['refundDue'] = $r->isRefundDue();
 
         return $row;
     }
 
-    /** @return array<string, mixed> fiche de la réservation pour l'équipe */
-    public function detail(Reservation $r, \DateTimeImmutable $now): array
+    /**
+     * Fiche de la réservation pour l'équipe. La capture du paiement (nom, numéro et transaction du client) n'est montrée
+     * qu'aux super admins, seuls à valider les paiements ; un vendeur voit seulement qu'elle est reçue.
+     *
+     * @return array<string, mixed>
+     */
+    public function detail(Reservation $r, \DateTimeImmutable $now, bool $superAdmin): array
     {
         $data = $this->client->detail($r, $now);
+        $data['refundDue'] = $r->isRefundDue();
+        $currentPrices = $superAdmin ? $this->products->prices(array_map(fn (ReservationItem $i) => $i->getProductId(), array_values($r->getItems()->toArray()))) : [];
 
         $items = array_values($r->getItems()->toArray());
         foreach ($data['items'] as $i => $line) {
             $item = $items[$i] ?? null;
+            if ($item instanceof ReservationItem && isset($currentPrices[$item->getProductId()]) && $currentPrices[$item->getProductId()] !== $item->getUnitPrice()) {
+                $data['items'][$i]['currentUnitPrice'] = $currentPrices[$item->getProductId()]; // prix baissé puis remis ?
+            }
             if ($item instanceof ReservationItem && $item->getSellerId() !== null) {
                 $data['items'][$i]['sellerId'] = (string) $item->getSellerId();
                 if ($item->getSellerName() !== null) {
@@ -102,18 +110,23 @@ final class AdminReservationNormalizer
 
         $proof = $r->latestProof();
         if ($proof !== null && isset($data['proof'])) {
-            $data['proof']['status'] = $proof->getStatus();
+            $data['proof'] = $superAdmin
+                ? $data['proof'] + ['status' => $proof->getStatus()]
+                : ['operator' => $proof->getOperator(), 'status' => $proof->getStatus(), 'uploadedAt' => ApiDate::format($proof->getUploadedAt())];
         }
         if ($r->getPaidAt() !== null) {
             $data['paidAt'] = ApiDate::format($r->getPaidAt());
+        }
+        if ($r->getRefundSettledAt() !== null) {
+            $data['refundSettledAt'] = ApiDate::format($r->getRefundSettledAt());
         }
 
         return $data;
     }
 
     /**
-     * `AdminReservationDetailResponse`. Contrôle des captures en double : pour le super admin seulement (lui seul
-     * valide les paiements ; un vendeur ne voit pas les références hors de son périmètre).
+     * `AdminReservationDetailResponse`. Contrôle des captures et des références de transaction en double : pour le super
+     * admin seulement (lui seul valide les paiements ; un vendeur ne voit pas les références hors de son périmètre).
      *
      * @param list<Agency> $agencies
      *
@@ -124,10 +137,11 @@ final class AdminReservationNormalizer
         $proof = $r->latestProof();
 
         return [
-            'reservation'        => $this->detail($r, $now),
-            'duplicateProofRefs' => $proof !== null && $superAdmin ? $this->reservations->refsWithProof($proof->getSha256(), (int) $r->getId()) : [],
-            'internalNotes'      => $this->notes($r),
-            'availableAgencies'  => array_map($this->catalog->agency(...), $agencies),
+            'reservation'              => $this->detail($r, $now, $superAdmin),
+            'duplicateProofRefs'       => $proof !== null && $superAdmin ? $this->reservations->refsWithProof($proof->getSha256(), (int) $r->getId()) : [],
+            'duplicateTransactionRefs' => $proof?->getTransactionId() !== null && $superAdmin ? $this->reservations->refsWithTransaction((string) $proof->getTransactionId(), (int) $r->getId()) : [],
+            'internalNotes'            => $this->notes($r),
+            'availableAgencies'        => array_map($this->catalog->agency(...), $agencies),
         ];
     }
 
@@ -157,6 +171,6 @@ final class AdminReservationNormalizer
             }
         }
 
-        return $latest;
+        return $latest?->isPurged() ? null : $latest;
     }
 }

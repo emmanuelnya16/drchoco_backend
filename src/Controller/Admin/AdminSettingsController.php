@@ -8,6 +8,7 @@ use App\Admin\Settings\SettingsEditor;
 use App\Api\ApiException;
 use App\Api\ApiJson;
 use App\Api\JsonBody;
+use App\Audit\AuditLog;
 use App\Entity\Admin;
 use App\Entity\Agency;
 use App\Entity\DeliveryCity;
@@ -36,6 +37,7 @@ final class AdminSettingsController
         private readonly SettingsEditor $settingsEditor,
         private readonly DeliveryEditor $delivery,
         private readonly PageEditor $pages,
+        private readonly AuditLog $audit,
     ) {}
 
     // --- Réglages ---
@@ -53,7 +55,7 @@ final class AdminSettingsController
     {
         $this->assertSuperAdmin($admin);
 
-        return ApiJson::noStore(['settings' => $this->settingsEditor->update($admin, JsonBody::object($request))]);
+        return ApiJson::noStore(['settings' => $this->settingsEditor->update($admin, JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR))]);
     }
 
     // --- Villes ---
@@ -70,7 +72,8 @@ final class AdminSettingsController
     public function createCity(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $this->assertSuperAdmin($admin);
-        $city = $this->delivery->createCity(JsonBody::object($request));
+        $city = $this->delivery->createCity(JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('delivery.city_created', $admin, $this->city($city, 0));
 
         return ApiJson::noStore(['city' => $this->city($city, 0), 'cities' => $this->cityList()], 201);
     }
@@ -79,7 +82,10 @@ final class AdminSettingsController
     public function updateCity(string $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $this->assertSuperAdmin($admin);
-        $city = $this->delivery->updateCity($this->delivery->city($id), JsonBody::object($request));
+        $city = $this->delivery->city($id);
+        $before = $this->city($city, 0);
+        $city = $this->delivery->updateCity($city, JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('delivery.city_updated', $admin, ['city' => $id, 'changes' => AuditLog::changes($before, $this->city($city, 0))]);
 
         return ApiJson::noStore(['city' => $this->city($city, $this->delivery->agencyCounts()[$city->getId()] ?? 0), 'cities' => $this->cityList()]);
     }
@@ -88,7 +94,10 @@ final class AdminSettingsController
     public function deleteCity(string $id, #[CurrentUser] Admin $admin): Response
     {
         $this->assertSuperAdmin($admin);
-        $this->delivery->deleteCity($this->delivery->city($id));
+        $city = $this->delivery->city($id);
+        $name = $city->getName();
+        $this->delivery->deleteCity($city);
+        $this->audit->record('delivery.city_deleted', $admin, ['city' => $id, 'name' => $name]);
 
         return $this->noContent();
     }
@@ -107,7 +116,8 @@ final class AdminSettingsController
     public function createAgency(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $this->assertSuperAdmin($admin);
-        $agency = $this->delivery->createAgency(JsonBody::object($request));
+        $agency = $this->delivery->createAgency(JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('delivery.agency_created', $admin, self::agency($agency));
 
         return ApiJson::noStore(['agency' => self::agency($agency), 'agencies' => $this->agencyList()], 201);
     }
@@ -116,7 +126,10 @@ final class AdminSettingsController
     public function updateAgency(string $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $this->assertSuperAdmin($admin);
-        $agency = $this->delivery->updateAgency($this->delivery->agency($id), JsonBody::object($request));
+        $agency = $this->delivery->agency($id);
+        $before = self::agency($agency);
+        $agency = $this->delivery->updateAgency($agency, JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('delivery.agency_updated', $admin, ['agency' => $id, 'changes' => AuditLog::changes($before, self::agency($agency))]);
 
         return ApiJson::noStore(['agency' => self::agency($agency), 'agencies' => $this->agencyList()]);
     }
@@ -125,7 +138,10 @@ final class AdminSettingsController
     public function deleteAgency(string $id, #[CurrentUser] Admin $admin): Response
     {
         $this->assertSuperAdmin($admin);
-        $this->delivery->deleteAgency($this->delivery->agency($id));
+        $agency = $this->delivery->agency($id);
+        $deleted = self::agency($agency);
+        $this->delivery->deleteAgency($agency);
+        $this->audit->record('delivery.agency_deleted', $admin, ['agency' => $id, 'name' => $deleted['name'], 'city' => $deleted['city']]);
 
         return $this->noContent();
     }
@@ -152,7 +168,10 @@ final class AdminSettingsController
     public function updatePage(string $slug, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $this->assertSuperAdmin($admin);
-        $page = $this->pages->update($this->pages->find($slug), JsonBody::object($request));
+        $page = $this->pages->find($slug);
+        $before = ['title' => $page->getTitle(), 'length' => mb_strlen($page->getBody())];
+        $page = $this->pages->update($page, JsonBody::object($request, maxBytes: JsonBody::MAX_BYTES_EDITOR));
+        $this->audit->record('page.updated', $admin, ['page' => $slug, 'changes' => AuditLog::changes($before, ['title' => $page->getTitle(), 'length' => mb_strlen($page->getBody())])]);
 
         return ApiJson::noStore($this->pages->detail($page));
     }

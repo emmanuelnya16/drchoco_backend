@@ -47,7 +47,7 @@ final class ProofTest extends ReservationTestCase
         self::assertStringContainsString('no-store', (string) $this->client->getResponse()->headers->get('Cache-Control'));
         self::assertSame(['status', 'proof', 'reservation'], array_keys($data));
         self::assertSame('pending_validation', $data['status']);
-        self::assertSame(hash('sha256', $upload), $data['proof']['sha256'], 'empreinte calculée par le serveur');
+        self::assertSame(hash('sha256', self::plainPng('GPS 3.8480,11.5021')), $data['proof']['sha256'], 'empreinte de l’image, calculée par le serveur');
         self::assertSame(['orange', '+237690000001', 'PP241030.1142.A12345'], [$data['proof']['operator'], $data['proof']['payerPhone'], $data['proof']['transactionId']]);
         self::assertSame(['pending_validation', true], [$data['reservation']['status'], $data['reservation']['cancellable']]);
         self::assertSame('Capture Orange Money reçue.', end($data['reservation']['timeline'])['note']);
@@ -63,7 +63,7 @@ final class ProofTest extends ReservationTestCase
         self::assertSame('nosniff', $response->getHeader('X-Content-Type-Options'));
         $image = (string) $response->getContent();
         self::assertStringNotContainsString('GPS', $image);
-        self::assertSame(base64_decode(self::PNG), $image);
+        self::assertSame(self::plainPng('GPS 3.8480,11.5021'), $image);
 
         // Lien modifié ou expiré : refusé.
         $this->client->request('GET', preg_replace('/signature=[0-9a-f]{4}/', 'signature=0000', $url));
@@ -116,6 +116,9 @@ final class ProofTest extends ReservationTestCase
         $data = $this->uploadProof($token, $second, $this->file($capture));
         self::assertSame(409, $this->httpStatus());
         self::assertSame('DUPLICATE_PROOF', $data['code']);
+        // Le même pixel avec un autre commentaire dans le fichier reste la même capture.
+        $data = $this->uploadProof($token, $second, $this->file(self::plainPng('capture A')));
+        self::assertSame([409, 'DUPLICATE_PROOF'], [$this->httpStatus(), $data['code']]);
 
         // Paiement rejeté par la boutique (P6) : nouvelle capture acceptée, même la précédente.
         $this->forceStatus($first, 'payment_rejected', ['rejection_reason' => 'Montant incorrect', 'rejected_at' => $this->clock->now()->format('Y-m-d H:i:s')]);
@@ -153,5 +156,41 @@ final class ProofTest extends ReservationTestCase
         $data = $this->uploadProof($token, $ref, $this->file());
         self::assertSame(429, $this->httpStatus());
         self::assertGreaterThan(0, $data['details']['retryAfter']);
+    }
+
+    public function testAcceptedCapturesAreLimitedPerDay(): void
+    {
+        $token = $this->loginNamed();
+        $ref = $this->reserve($token, $this->pickup())['ref'];
+        foreach (range(1, 15) as $n) {
+            static::getContainer()->get('limiter.proof_upload')->create('user-' . $this->userByPhone()->getId())->reset(); // 20 par heure : autre limite
+            $this->uploadProof($token, $ref, $this->file(self::pngWithText('Comment', 'capture ' . $n)));
+            self::assertSame(201, $this->httpStatus(), (string) $n);
+            $this->forceStatus($ref, 'payment_rejected');
+        }
+        $data = $this->uploadProof($token, $ref, $this->file(self::pngWithText('Comment', 'capture 16')));
+        self::assertSame([429, 'TOO_MANY_REQUESTS'], [$this->httpStatus(), $data['code']]);
+        self::assertStringContainsString('WhatsApp', $data['message']);
+    }
+
+    public function testHugeImagesAreRefused(): void
+    {
+        $token = $this->loginNamed();
+        $ref = $this->reserve($token, $this->pickup())['ref'];
+        foreach ([[12001, 1], [1, 12001], [20000, 20000], [8000, 6000]] as [$width, $height]) {
+            $data = $this->uploadProof($token, $ref, $this->file(self::bomb($width, $height)));
+            self::assertSame([415, 'UNSUPPORTED_MEDIA_TYPE'], [$this->httpStatus(), $data['code'] ?? null], "$width × $height");
+        }
+        self::assertSame('reserved', $this->api('GET', '/api/reservations/' . $ref, $token)['status']);
+        $this->uploadProof($token, $ref, $this->file(self::bomb(8000, 5000)));
+        self::assertSame(201, $this->httpStatus(), '40 mégapixels : accepté');
+    }
+
+    /** PNG minuscule qui annonce ces dimensions (bloc IHDR), sans les données correspondantes. */
+    private static function bomb(int $width, int $height): string
+    {
+        $chunk = static fn (string $type, string $data): string => pack('N', \strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+
+        return "\x89PNG\r\n\x1A\n" . $chunk('IHDR', pack('NN', $width, $height) . "\x01\0\0\0\0") . $chunk('IDAT', (string) gzcompress(str_repeat("\0", 64))) . $chunk('IEND', '');
     }
 }

@@ -9,13 +9,14 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * GET /api/settings/public — boutique, WhatsApp et paiement Mobile Money (contrat §7.1).
+ * GET /api/settings/public — boutique, WhatsApp et paiement Mobile Money (contrat §7.1). Jamais gardée par le navigateur :
+ * un code marchand corrigé est vu aussitôt.
  */
 final class SettingsController
 {
     #[Route('/settings/public', name: 'api_settings_public', methods: ['GET'])]
     public function __invoke(Request $request, PublicSettingsProvider $settings): JsonResponse
     {
-        return ApiJson::publicCached($request, $settings->get());
+        return ApiJson::publicRevalidated($request, $settings->get());
     }
 }

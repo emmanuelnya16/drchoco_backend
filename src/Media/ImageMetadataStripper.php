@@ -5,8 +5,9 @@ namespace App\Media;
 /**
  * Retire les métadonnées d'une image (position GPS, appareil, date, commentaires) sans la réencoder, en PHP pur
  * (l'extension GD n'est pas toujours présente) :
- * - JPEG : segments APP1 (EXIF, XMP), APP3 à APP12, APP13 (IPTC), APP15 et commentaires retirés ; JFIF (APP0),
- *   profil de couleurs (APP2) et Adobe (APP14) gardés ;
+ * - JPEG : segments APP1 (EXIF, XMP), APP3 à APP12, APP13 (IPTC), APP15 et commentaires retirés, partout dans le fichier ;
+ *   JFIF (APP0, sans sa miniature), profil de couleurs (APP2 ICC) et Adobe (APP14) gardés ; tout ce qui suit la fin de
+ *   l'image (seconde image, vidéo des photos animées, données ajoutées) est retiré ;
  * - PNG : blocs tEXt, zTXt, iTXt, eXIf et tIME retirés ;
  * - WebP : blocs EXIF et XMP retirés (et leurs indicateurs dans l'en-tête VP8X).
  * Renvoie null si le fichier n'a pas la structure attendue.
@@ -23,6 +24,9 @@ final class ImageMetadataStripper
         };
     }
 
+    /** Marqueurs utiles entre deux passages d'une image JPEG : tables, redémarrage, nombre de lignes, passage suivant. */
+    private const JPEG_BETWEEN_SCANS = [0xC4 => true, 0xCC => true, 0xDB => true, 0xDC => true, 0xDD => true, 0xDA => true];
+
     private static function jpeg(string $b): ?string
     {
         $len = \strlen($b);
@@ -31,6 +35,7 @@ final class ImageMetadataStripper
         }
         $out = "\xFF\xD8";
         $pos = 2;
+        $scanned = false;
         while ($pos < $len) {
             if ($b[$pos] !== "\xFF") {
                 return null;
@@ -40,13 +45,13 @@ final class ImageMetadataStripper
                 ++$pos;
             }
             if ($pos >= $len) {
-                return null;
+                return $scanned ? $out . "\xFF\xD9" : null;
             }
             $marker = \ord($b[$pos]);
             ++$pos;
 
-            if ($marker === 0xD9) { // fin de l'image
-                return $out . "\xFF\xD9";
+            if ($marker === 0xD9) { // fin de l'image : la suite du fichier est ignorée
+                return $scanned ? $out . "\xFF\xD9" : null;
             }
             if ($marker === 0x01 || ($marker >= 0xD0 && $marker <= 0xD7)) { // marqueurs sans longueur
                 $out .= "\xFF" . \chr($marker);
@@ -62,17 +67,59 @@ final class ImageMetadataStripper
             $segment = substr($b, $pos, $segLen);
             $pos += $segLen;
 
-            if ($marker === 0xDA) { // début des données de l'image : tout le reste est recopié
-                return $out . "\xFF\xDA" . $segment . substr($b, $pos);
+            if ($marker === 0xDA) { // passage : ses données vont jusqu'au prochain marqueur
+                $scanned = true;
+                $end = self::endOfScan($b, $pos, $len);
+                $out .= "\xFF\xDA" . $segment . substr($b, $pos, $end - $pos);
+                $pos = $end;
+                continue;
             }
-            $isMetadata = $marker === 0xFE // commentaire
-                || $marker === 0xE1 || ($marker >= 0xE3 && $marker <= 0xED) || $marker === 0xEF;
-            if (!$isMetadata) {
+            if ($scanned) {
+                if (isset(self::JPEG_BETWEEN_SCANS[$marker])) {
+                    $out .= "\xFF" . \chr($marker) . $segment;
+                }
+                continue;
+            }
+            $segment = self::jpegSegment($marker, $segment);
+            if ($segment !== null) {
                 $out .= "\xFF" . \chr($marker) . $segment;
             }
         }
 
-        return null;
+        return $scanned ? $out . "\xFF\xD9" : null; // fichier coupé : image gardée jusqu'où elle va
+    }
+
+    /** Segment d'en-tête à garder (null : métadonnée retirée). */
+    private static function jpegSegment(int $marker, string $segment): ?string
+    {
+        return match (true) {
+            // JFIF : sans sa miniature (elle peut montrer l'image d'avant un recadrage) ; JFXX n'est qu'une miniature.
+            $marker === 0xE0 => substr($segment, 2, 5) === "JFIF\0" && \strlen($segment) >= 16 ? "\x00\x10" . substr($segment, 2, 12) . "\x00\x00" : null,
+            // APP2 : profil de couleurs seulement (« MPF » annonce d'autres images dans le fichier).
+            $marker === 0xE2 => substr($segment, 2, 12) === "ICC_PROFILE\0" ? $segment : null,
+            $marker === 0xFE, $marker === 0xE1, $marker >= 0xE3 && $marker <= 0xED, $marker === 0xEF => null,
+            default => $segment,
+        };
+    }
+
+    /** Position du premier vrai marqueur après les données d'un passage (FF00 et RST en font partie). */
+    private static function endOfScan(string $b, int $pos, int $len): int
+    {
+        while (($pos = strpos($b, "\xFF", $pos)) !== false) {
+            $next = $pos + 1 < $len ? \ord($b[$pos + 1]) : -1;
+            if ($next === 0x00 || ($next >= 0xD0 && $next <= 0xD7)) {
+                $pos += 2;
+            } elseif ($next === 0xFF) {
+                ++$pos; // octet de remplissage
+            } else {
+                return $pos;
+            }
+            if ($pos >= $len) {
+                break;
+            }
+        }
+
+        return $len;
     }
 
     private static function png(string $b): ?string

@@ -2,12 +2,24 @@
 # Inspiré de symfony/apache-pack, avec le passage de l'en-tête Authorization (JWT).
 DirectoryIndex index.php
 
+# Seul dossier ouvert du projet (le .htaccess du dossier parent refuse tout le reste).
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+
 <IfModule mod_negotiation.c>
     Options -MultiViews
 </IfModule>
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Dossier exposé sous le nom _api du site (cPanel) : atteint seulement par les réécritures du front
+    # (/api/…, /produit/…, plans du site), jamais par une adresse /_api/… tapée directement.
+    # (REDIRECT_STATUS est vide tant qu'aucune réécriture n'a eu lieu ; REQUEST_URI est décodé : /%5fapi/… aussi refusé)
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteCond %{REQUEST_URI} ^/_api(/|$)
+    RewriteRule ^ - [R=404,L]
 
     # Sans cette ligne, PHP-FPM/CGI ne reçoit pas l'en-tête Authorization : toutes les routes connectées répondraient 401.
     RewriteCond %{HTTP:Authorization} .+

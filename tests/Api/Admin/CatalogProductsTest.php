@@ -383,6 +383,35 @@ final class CatalogProductsTest extends AdminTestCase
         self::assertSame(7, $stock('prod-01-noir-s'));
     }
 
+    /** Taille ou couleur ajoutée par un collègue pendant que le formulaire était ouvert : son stock n'est pas remis à 0. */
+    public function testVariantsMissingFromTheListKeepTheirStock(): void
+    {
+        $token = $this->owner();
+        $created = $this->api('POST', '/api/admin/products', $token, $this->payload([
+            'colors'   => [['code' => 'noir', 'name' => 'Noir Charbon', 'hex' => '#1A1A18']],
+            'sizes'    => ['S', 'XXL'],
+            'variants' => [
+                ['size' => 'S', 'colorCode' => 'noir', 'stock' => 3],
+                ['size' => 'XXL', 'colorCode' => 'noir', 'stock' => 8],
+            ],
+        ]))['product'];
+        self::assertSame(201, $this->httpStatus());
+        $stocks = fn (array $product): array => array_column($product['variants'], 'stock', 'size');
+        self::assertSame(['S' => 3, 'XXL' => 8], $stocks($created));
+
+        $url = '/api/admin/products/' . $created['id'];
+        $data = $this->api('PATCH', $url, $token, ['variants' => [['size' => 'S', 'colorCode' => 'noir', 'stock' => 4, 'previousStock' => 3]]]);
+        self::assertSame(['S' => 4, 'XXL' => 8], $stocks($data['product']));
+        $data = $this->api('PATCH', $url, $token, ['variants' => []]);
+        self::assertSame(['S' => 4, 'XXL' => 8], $stocks($data['product']));
+
+        // Nouvelle taille sans stock envoyé : elle part de 0, les autres ne bougent pas.
+        $data = $this->api('PATCH', $url, $token, ['sizes' => ['S', 'M', 'XXL'], 'variants' => [['size' => 'S', 'colorCode' => 'noir', 'stock' => 4, 'previousStock' => 4]]]);
+        self::assertSame(['S' => 4, 'M' => 0, 'XXL' => 8], $stocks($data['product']));
+        $data = $this->api('PATCH', $url, $token, ['variants' => [['size' => 'XXL', 'colorCode' => 'noir', 'stock' => 0, 'previousStock' => 8]]]);
+        self::assertSame(['S' => 4, 'M' => 0, 'XXL' => 0], $stocks($data['product']), 'un 0 envoyé reste un 0');
+    }
+
     public function testDeleteRetiresTheProductEverywhere(): void
     {
         $token = $this->owner();
@@ -402,5 +431,52 @@ final class CatalogProductsTest extends AdminTestCase
         // L'adresse est libérée.
         $this->api('POST', '/api/admin/products', $token, $this->payload(['slug' => 'hoodie-barbele-noir']));
         self::assertSame(201, $this->httpStatus());
+    }
+
+    public function testPriceStockAndDeletionAreRecorded(): void
+    {
+        $token = $this->owner();
+        $product = $this->api('GET', '/api/admin/products/prod-01', $token)['product'];
+        $variant = $product['variants'][0];
+
+        $this->api('PATCH', '/api/admin/products/prod-01', $token, ['price' => 5000]);
+        self::assertSame(200, $this->httpStatus());
+        $record = $this->auditRecords('product.updated')[0];
+        self::assertSame(['prod-01', ['price'], ['before' => 45000, 'after' => 5000]], [$record['data']['product'], $record['data']['fields'], $record['data']['changes']['price']]);
+        self::assertSame('owner', $record['admin']['role']);
+
+        // Stock modifié dans le formulaire de l'article (chemin normal) : l'écart de chaque variante est écrit.
+        $lines = array_map(fn (array $v) => ['colorCode' => $v['colorCode'], 'size' => $v['size'], 'stock' => $v['stock'] + ($v['id'] === $variant['id'] ? 2 : 0), 'previousStock' => $v['stock']], $product['variants']);
+        $this->api('PATCH', '/api/admin/products/prod-01', $token, ['variants' => $lines]);
+        self::assertSame(200, $this->httpStatus());
+        self::assertSame([$variant['id'] => 2], $this->auditRecords('product.updated')[1]['data']['stock'] ?? null);
+        $variant['stock'] += 2;
+
+        $this->api('PATCH', '/api/admin/products/prod-01/stock', $token, ['variants' => [['variantId' => $variant['id'], 'stock' => $variant['stock'] + 3, 'previousStock' => $variant['stock']]]]);
+        self::assertSame([$variant['id'] => 3], $this->auditRecords('product.stock')[0]['data']['stock']);
+        $this->api('PATCH', '/api/admin/products/prod-01/stock', $token, ['variants' => [['variantId' => $variant['id'], 'stock' => 1]]]);
+        self::assertSame(1, $this->auditRecords('product.stock')[1]['data']['stock'][$variant['id']]['after']);
+        $this->api('PATCH', '/api/admin/products/prod-01/stock', $token, ['variants' => []]);
+        self::assertCount(2, $this->auditRecords('product.stock'), 'rien de changé : rien d’écrit');
+
+        $this->api('DELETE', '/api/admin/products/prod-01', $token);
+        self::assertSame(204, $this->httpStatus());
+        self::assertSame(['product' => 'prod-01', 'slug' => 'hoodie-barbele-noir'], $this->auditRecords('product.deleted')[0]['data']);
+    }
+
+    public function testSizesTheDatabaseSeesAsIdenticalAreRefusedClearly(): void
+    {
+        $token = $this->owner();
+        // « ß » et « ss » : différentes pour PHP, identiques pour la base.
+        $data = $this->api('POST', '/api/admin/products', $token, $this->payload([
+            'colors'   => [['code' => 'noir', 'name' => 'Noir', 'hex' => '#000000']],
+            'sizes'    => ['GROSS', 'GROß'],
+            'variants' => [],
+        ]));
+        self::assertContains($this->httpStatus(), [201, 422], json_encode($data));
+        if ($this->httpStatus() === 422) {
+            self::assertArrayHasKey('sizes', $data['details']);
+        }
+        self::assertNotSame(500, $this->httpStatus());
     }
 }

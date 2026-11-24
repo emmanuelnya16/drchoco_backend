@@ -3,6 +3,7 @@
 namespace App\Service\Notification;
 
 use Twilio\Exceptions\TwilioException;
+use Twilio\Http\CurlClient;
 use Twilio\Rest\Client as TwilioClient;
 
 /**
@@ -25,7 +26,12 @@ class SmsService
         private readonly string $fromNumber,    // numéro ou expéditeur Twilio
         private readonly string $adminPhone,    // numéro de la boutique à prévenir
     ) {
-        $this->client = new TwilioClient($this->accountSid, $this->authToken);
+        // Ajout DR Choco (P9) : délais courts (60 s par défaut dans le SDK), une panne du fournisseur n'occupe pas les
+        // processus PHP de l'hébergement et le client reçoit vite « Impossible d'envoyer le SMS ».
+        $this->client = new TwilioClient($this->accountSid, $this->authToken, null, null, new CurlClient([
+            \CURLOPT_CONNECTTIMEOUT => 4,
+            \CURLOPT_TIMEOUT        => 10,
+        ]));
     }
 
     /**
@@ -45,11 +51,11 @@ class SmsService
 
             return true;
         } catch (TwilioException $e) {
-            error_log('Échec envoi SMS Twilio : ' . $e->getMessage());
+            error_log('Échec envoi SMS Twilio : ' . self::withoutPhones($e->getMessage()));
 
             return false;
         } catch (\Exception $e) {
-            error_log('Erreur inattendue SMS : ' . $e->getMessage());
+            error_log('Erreur inattendue SMS : ' . self::withoutPhones($e->getMessage()));
 
             return false;
         }
@@ -63,6 +69,12 @@ class SmsService
         }
 
         return $this->send($this->adminPhone, $message);
+    }
+
+    /** Les messages de Twilio contiennent parfois le numéro du client : jamais en clair dans le journal. */
+    private static function withoutPhones(string $message): string
+    {
+        return preg_replace('/\+?\d[\d .-]{6,}\d/', '[numéro masqué]', $message) ?? 'message illisible';
     }
 
     /** Normalise le téléphone au format international requis par Twilio : +237XXXXXXXXX */

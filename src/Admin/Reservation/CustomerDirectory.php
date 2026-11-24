@@ -15,13 +15,13 @@ use Doctrine\DBAL\Connection;
 /**
  * Répertoire des clients de l'administration (GET /api/admin/customers), avec leurs réservations (P6) :
  *  - super admin : tous les clients inscrits, les plus récemment actifs d'abord (compte ou réservation) ;
- *  - vendeur : seulement les clients qui ont réservé dans son périmètre, chiffres et réservations limités à ce
- *    périmètre, sans leurs adresses enregistrées.
+ *  - vendeur : seulement les clients qui ont réservé dans son périmètre, réservations limitées à ce périmètre, total
+ *    payé limité à ses propres lignes, sans leurs adresses enregistrées.
  */
 final class CustomerDirectory
 {
     public const LIMIT = 100;
-    public const RESERVATIONS_PER_CUSTOMER = 50;
+    public const RESERVATIONS_PER_CUSTOMER = 20;
 
     public function __construct(
         private readonly Connection $db,
@@ -46,21 +46,38 @@ final class CustomerDirectory
         foreach ($this->users->findBy(['id' => $ids]) as $user) {
             $byId[(int) $user->getId()] = $user;
         }
-        $users = array_values(array_filter(array_map(fn (int $id) => $byId[$id] ?? null, $ids)));
+
+        return [
+            'items' => $this->items($admin, array_values(array_filter(array_map(fn (int $id) => $byId[$id] ?? null, $ids)))),
+            'total' => $total,
+        ];
+    }
+
+    /** Fiche d'un client, comme dans la liste. @return array<string, mixed> */
+    public function one(Admin $admin, User $user): array
+    {
+        return $this->items($admin, [$user])[0];
+    }
+
+    /**
+     * @param list<User> $users
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function items(Admin $admin, array $users): array
+    {
+        $ids = array_map(fn (User $user) => (int) $user->getId(), $users);
         $addresses = $admin->isSuperAdmin() ? $this->addresses->findForUsers($users) : [];
         $stats = $this->stats($admin, $ids);
         $rows = $this->rows($admin, $ids);
 
-        return [
-            'items' => array_map(fn (User $user) => $this->normalizer->customer(
-                $user,
-                $addresses[(int) $user->getId()] ?? [],
-                $stats[(int) $user->getId()] ?? null,
-                $rows[(int) $user->getId()] ?? [],
-                $admin->isSuperAdmin(),
-            ), $users),
-            'total' => $total,
-        ];
+        return array_map(fn (User $user) => $this->normalizer->customer(
+            $user,
+            $addresses[(int) $user->getId()] ?? [],
+            $stats[(int) $user->getId()] ?? null,
+            $rows[(int) $user->getId()] ?? [],
+            $admin->isSuperAdmin(),
+        ), $users);
     }
 
     /** @return array{ids: list<int>, total: int} */
@@ -128,13 +145,20 @@ final class CustomerDirectory
      */
     private function stats(Admin $admin, array $ids): array
     {
-        [$scope, $scopeParams] = ReservationScope::sql('r', $admin);
         $paid = implode(', ', array_map(fn (string $s) => $this->db->quote($s), Reservation::PAID_STATUSES));
-        $rows = $this->db->fetchAllAssociative(
-            'SELECT r.user_id, COUNT(*) AS n, SUM(CASE WHEN r.status IN (' . $paid . ') THEN r.total ELSE 0 END) AS paid, MAX(r.updated_at) AS last
-             FROM reservations r WHERE r.user_id IN (' . implode(', ', array_map('intval', $ids)) . ')' . $scope . ' GROUP BY r.user_id',
-            $scopeParams,
-        );
+        $users = implode(', ', array_map('intval', $ids));
+        // Vendeur : ses lignes seulement (une réservation peut contenir aussi les articles d'un collègue).
+        $rows = $admin->isSuperAdmin()
+            ? $this->db->fetchAllAssociative(
+                'SELECT r.user_id, COUNT(*) AS n, SUM(CASE WHEN r.status IN (' . $paid . ') THEN r.total ELSE 0 END) AS paid, MAX(r.updated_at) AS last
+                 FROM reservations r WHERE r.user_id IN (' . $users . ') GROUP BY r.user_id',
+            )
+            : $this->db->fetchAllAssociative(
+                'SELECT r.user_id, COUNT(DISTINCT r.id) AS n, SUM(CASE WHEN r.status IN (' . $paid . ') THEN i.unit_price * i.quantity ELSE 0 END) AS paid, MAX(r.updated_at) AS last
+                 FROM reservations r INNER JOIN reservation_items i ON i.reservation_id = r.id
+                 WHERE r.user_id IN (' . $users . ') AND (i.seller_id = ? OR (i.seller_id IS NULL AND i.city = ?)) GROUP BY r.user_id',
+                [(int) $admin->getId(), (string) $admin->getCity()],
+            );
 
         $stats = [];
         foreach ($rows as $row) {
@@ -149,7 +173,7 @@ final class CustomerDirectory
     }
 
     /**
-     * Réservations de chaque client (les plus récentes d'abord, 50 au plus), en lignes `AdminReservationRow`.
+     * Réservations de chaque client (les 20 plus récentes), en lignes `AdminReservationRow`.
      *
      * @param list<int> $ids
      *
@@ -158,22 +182,20 @@ final class CustomerDirectory
     private function rows(Admin $admin, array $ids): array
     {
         [$scope, $scopeParams] = ReservationScope::sql('r', $admin);
+        // Limite appliquée par la base (fonction de fenêtre) : un client qui a des milliers de réservations ne charge rien de plus.
         $pairs = $this->db->fetchAllAssociative(
-            'SELECT r.id, r.user_id FROM reservations r WHERE r.user_id IN (' . implode(', ', array_map('intval', $ids)) . ')' . $scope . '
-             ORDER BY r.updated_at DESC, r.id DESC',
+            'SELECT ranked.id, ranked.user_id FROM (
+                SELECT r.id, r.user_id, r.updated_at, ROW_NUMBER() OVER (PARTITION BY r.user_id ORDER BY r.updated_at DESC, r.id DESC) AS position_rank
+                FROM reservations r WHERE r.user_id IN (' . implode(', ', array_map('intval', $ids)) . ')' . $scope . '
+             ) ranked WHERE ranked.position_rank <= ' . self::RESERVATIONS_PER_CUSTOMER . ' ORDER BY ranked.updated_at DESC, ranked.id DESC',
             $scopeParams,
         );
 
         $kept = [];
         $owners = [];
-        $perUser = [];
         foreach ($pairs as $pair) {
-            $userId = (int) $pair['user_id'];
-            if (($perUser[$userId] = ($perUser[$userId] ?? 0) + 1) > self::RESERVATIONS_PER_CUSTOMER) {
-                continue;
-            }
             $kept[] = (int) $pair['id'];
-            $owners[(int) $pair['id']] = $userId;
+            $owners[(int) $pair['id']] = (int) $pair['user_id'];
         }
 
         $now = $this->lifecycle->now();

@@ -7,7 +7,8 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Preuve de paiement Mobile Money envoyée par le client (capture d'écran), gardée en privé sur le serveur
  * (var/private, hors du site public), sans ses métadonnées (position GPS, appareil…).
- * Toutes les preuves restent (historique) ; la plus récente est celle affichée.
+ * Toutes les preuves restent (historique) ; la plus récente est celle affichée. Le fichier, le numéro et la transaction
+ * sont effacés au bout de 12 mois (App\Reservation\ReservationFileRetention).
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'reservation_proofs')]
@@ -44,7 +45,7 @@ class ReservationProof
     #[ORM\Column(type: 'integer')]
     private int $height;
 
-    /** SHA-256 du fichier reçu (calculé par le serveur) : une même capture ne sert pas deux réservations. */
+    /** SHA-256 de l'image gardée (calculé par le serveur) : une même capture ne sert pas deux réservations. */
     #[ORM\Column(type: 'string', length: 64)]
     private string $sha256;
 
@@ -88,6 +89,9 @@ class ReservationProof
         $this->transactionId = $transactionId;
         $this->uploadedAt = $uploadedAt;
     }
+
+    /** Capture effacée (12 mois passés, ou client effacé) : il ne reste que son empreinte, contre une réutilisation. */
+    public function isPurged(): bool { return $this->storagePath === ''; }
 
     public function getId(): ?int { return $this->id; }
     public function getReservation(): Reservation { return $this->reservation; }

@@ -50,7 +50,7 @@ final class SellerController
     public function create(Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $this->assertSuperAdmin($admin);
-        $seller = $this->manager->create(JsonBody::object($request));
+        $seller = $this->manager->create(JsonBody::object($request), $admin);
 
         return ApiJson::noStore(['seller' => $this->normalizer->admin($seller)], 201);
     }
@@ -60,7 +60,7 @@ final class SellerController
     public function update(string $id, Request $request, #[CurrentUser] Admin $admin): JsonResponse
     {
         $this->assertSuperAdmin($admin);
-        $seller = $this->manager->update($this->find($id), JsonBody::object($request));
+        $seller = $this->manager->update($this->find($id), JsonBody::object($request), $admin);
 
         return ApiJson::noStore(['seller' => $this->normalizer->admin($seller)]);
     }
@@ -70,7 +70,7 @@ final class SellerController
     public function delete(string $id, #[CurrentUser] Admin $admin): Response
     {
         $this->assertSuperAdmin($admin);
-        $this->manager->delete($this->find($id));
+        $this->manager->delete($this->find($id), $admin);
 
         $response = new Response(null, Response::HTTP_NO_CONTENT);
         $response->headers->set('Cache-Control', 'no-store');

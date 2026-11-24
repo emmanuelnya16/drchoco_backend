@@ -3,6 +3,9 @@
 namespace App\Command;
 
 use App\Auth\SmsOtpSender;
+use App\Kernel;
+use App\Seo\FrontIndex;
+use App\Seo\SiteUrl;
 use Cloudinary\Cloudinary;
 use Doctrine\DBAL\Connection;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
@@ -10,6 +13,7 @@ use App\Push\WebPushTransport;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -20,7 +24,8 @@ use Twilio\Rest\Client as TwilioClient;
  * base de données, clés JWT, Cloudinary (ping), Twilio (lecture du compte), envoi des codes de connexion,
  * PawaPay (interrupteur).
  *
- *   php bin/console app:diagnostic
+ *   php bin/console app:diagnostic                sur cet ordinateur
+ *   php bin/console app:diagnostic --production   sur le serveur : échoue si un réglage de mise en ligne manque
  *
  * À lancer après chaque mise en ligne. Aucun secret n'est affiché.
  */
@@ -40,8 +45,22 @@ final class DiagnosticCommand extends Command
         #[Autowire('%env(OTP_WEBOTP_HOST)%')] private readonly string $webOtpHost,
         #[Autowire('%env(PUSH_TRANSPORT)%')] private readonly string $pushTransport,
         private readonly WebPushTransport $webPush,
+        private readonly SiteUrl $site,
+        private readonly FrontIndex $front,
+        #[Autowire('%kernel.secret%')] private readonly string $secret,
+        #[Autowire('%env(CORS_ALLOW_ORIGIN)%')] private readonly string $corsAllowOrigin,
+        #[Autowire('%env(default::SYMFONY_TRUSTED_PROXIES)%')] private readonly ?string $trustedProxies,
+        #[Autowire('%kernel.environment%')] private readonly string $environment,
+        #[Autowire('%kernel.debug%')] private readonly bool $debug,
+        #[Autowire('%app.private_media_dir%')] private readonly string $privateMediaDir,
+        #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
     ) {
         parent::__construct();
+    }
+
+    protected function configure(): void
+    {
+        $this->addOption('production', null, InputOption::VALUE_NONE, 'Exige les réglages de mise en ligne (à lancer sur le serveur)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -50,6 +69,31 @@ final class DiagnosticCommand extends Command
         $io->title('Diagnostic — API DR Choco');
         $rows = [];
         $failed = false;
+
+        // Réglages de production (P9). En développement, seulement pour information, sauf avec --production.
+        $online = (bool) $input->getOption('production');
+        $production = $this->environment === 'prod';
+        $rows[] = $production
+            ? ['Environnement', $this->debug ? 'ÉCHEC' : 'OK', $this->debug ? 'APP_DEBUG=1 en production : les erreurs montrent le code' : 'production, sans mode debug']
+            : ['Environnement', $online ? 'ÉCHEC' : 'DÉVELOPPEMENT', 'sur le serveur, mettre APP_ENV=prod dans .env.local'];
+        $failed = $failed || ($production && $this->debug) || ($online && !$production);
+        $strong = Kernel::isStrongSecret($this->secret);
+        $rows[] = ['Secret (APP_SECRET)', $strong ? 'OK' : 'ÉCHEC', $strong ? 'présent' : 'absent, trop court ou publié : php -r "echo bin2hex(random_bytes(32));"'];
+        $failed = $failed || !$strong;
+        $index = $this->front->configuredPath() !== '' ? ($this->front->path() !== null ? 'index.html trouvé' : 'FRONT_INDEX_PATH introuvable') : 'index.html lu à la racine du site';
+        $failed = $failed || $index === 'FRONT_INDEX_PATH introuvable';
+        $insecure = $online && !str_starts_with($this->site->origin(), 'https://');
+        $failed = $failed || $insecure;
+        $rows[] = ['Site et partage', $insecure || $index === 'FRONT_INDEX_PATH introuvable' ? 'ÉCHEC' : 'OK', $this->site->origin() . ($insecure ? ' (SITE_URL doit commencer par https://)' : '') . ', ' . $index];
+        $cors = $this->corsAllowOrigin !== '' && preg_match('{' . $this->corsAllowOrigin . '}i', 'http://localhost:3000') === 1;
+        $failed = $failed || ($online && $cors);
+        $rows[] = ['Origines (CORS)', ($production || $online) && $cors ? 'ÉCHEC' : 'OK', $cors ? 'localhost accepté : en production, CORS_ALLOW_ORIGIN=\'^https://drchoco\.com$\'' : 'localhost refusé'];
+        $rows[] = ['Relais devant PHP', 'INFO', ($this->trustedProxies ?? '') !== '' ? 'SYMFONY_TRUSTED_PROXIES défini' : 'aucun (si l’hébergeur en a un, définir SYMFONY_TRUSTED_PROXIES : README)'];
+        $permissions = $this->worldReadable();
+        $failed = $failed || ($online && $permissions !== []);
+        $rows[] = ['Droits des fichiers', $permissions === [] ? 'OK' : ($online ? 'ÉCHEC' : 'À CORRIGER'), $permissions === [] ? 'secrets lisibles du seul compte' : 'lisibles par d’autres comptes du serveur : chmod 600 ' . implode(' ', $permissions)];
+        $free = \function_exists('disk_free_space') ? @disk_free_space(is_dir($this->privateMediaDir) ? $this->privateMediaDir : \dirname($this->privateMediaDir)) : false;
+        $rows[] = ['Espace disque', $free === false || $free > 1_073_741_824 ? 'OK' : 'À SURVEILLER', $free === false ? 'inconnu' : sprintf('%.1f Go libres pour les captures et photos', $free / 1_073_741_824)];
 
         // Base de données
         try {
@@ -61,7 +105,7 @@ final class DiagnosticCommand extends Command
             $sellers = (int) $this->connection->fetchOne("SELECT COUNT(*) FROM admins WHERE role = 'seller' AND is_active = 1");
             $rows[] = $owners > 0
                 ? ['Comptes de l’équipe', 'OK', sprintf('%d propriétaire(s) actif(s), %d vendeur(s) actif(s)', $owners, $sellers)]
-                : ['Comptes de l’équipe', 'ABSENT', 'Aucun propriétaire actif : php bin/console app:create-owner'];
+                : ['Comptes de l’équipe', 'ÉCHEC', 'Aucun propriétaire actif : php bin/console app:create-owner'];
             if ($owners === 0) {
                 $failed = true;
             }
@@ -82,7 +126,7 @@ final class DiagnosticCommand extends Command
 
         // Cloudinary : ping de l'API d'administration (aucun envoi d'image)
         if ($this->cloudinaryUrl === '') {
-            $rows[] = ['Cloudinary', 'ABSENT', 'CLOUDINARY_URL vide'];
+            $rows[] = ['Cloudinary', 'ÉCHEC', 'CLOUDINARY_URL vide'];
             $failed = true;
         } else {
             try {
@@ -120,19 +164,24 @@ final class DiagnosticCommand extends Command
         if (!$smsReady) {
             $failed = true;
         }
+        $otpIncomplete = $online && ($logMode || $this->webOtpHost === '');
+        $failed = $failed || $otpIncomplete;
         $rows[] = [
             'Codes SMS (connexion)',
-            $logMode ? 'JOURNAL' : ($smsReady ? 'SMS' : 'ÉCHEC'),
+            !$smsReady || $otpIncomplete ? 'ÉCHEC' : ($logMode ? 'JOURNAL' : 'SMS'),
             ($logMode ? 'aucun SMS envoyé, code écrit dans var/log/dev.log' : ($smsReady ? 'envoyés par Twilio' : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN ou TWILIO_FROM_NUMBER vide : aucun client ne peut se connecter'))
                 . ', plafond ' . $this->dailySmsLimit . ' SMS par jour, remplissage auto. Android : '
                 . ($this->webOtpHost !== '' ? $this->webOtpHost : 'non configuré (OTP_WEBOTP_HOST)'),
         ];
 
         // Notifications push (P7) : clés VAPID et chiffrement (OpenSSL doit pouvoir créer des clés EC P-256).
-        if (strtolower(trim($this->pushTransport)) === 'log') {
-            $rows[] = ['Notifications push', 'JOURNAL', 'aucune notification envoyée, écrites dans var/log (PUSH_TRANSPORT=log)'];
+        // En production, PUSH_TRANSPORT=log est ignoré (ConfiguredPushTransport) : les clés sont vérifiées.
+        if (!$production && strtolower(trim($this->pushTransport)) === 'log') {
+            $failed = $failed || $online;
+            $rows[] = ['Notifications push', $online ? 'ÉCHEC' : 'JOURNAL', 'aucune notification envoyée, écrites dans var/log (PUSH_TRANSPORT=log)'];
         } elseif (!$this->webPush->isConfigured()) {
-            $rows[] = ['Notifications push', 'ABSENT', 'VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY ou VAPID_SUBJECT vide : app:push:vapid-keys --write=.env.local'];
+            $failed = $failed || $online;
+            $rows[] = ['Notifications push', $online ? 'ÉCHEC' : 'ABSENT', 'VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY ou VAPID_SUBJECT vide : app:push:vapid-keys --write=.env.local'];
         } elseif (($problem = $this->webPush->keysProblem()) !== null) {
             $failed = true;
             $rows[] = ['Notifications push', 'ÉCHEC', 'Clés VAPID invalides : ' . $problem];
@@ -146,8 +195,30 @@ final class DiagnosticCommand extends Command
         $rows[] = ['PawaPay', $this->pawapayEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ', $this->pawapayEnabled ? 'Paiement PawaPay possible' : 'Paiement par code USSD + capture (normal)'];
 
         $io->table(['Service', 'État', 'Détail'], $rows);
+        if ($failed) {
+            $io->error('Au moins un réglage est à corriger (lignes ÉCHEC).');
+        } else {
+            $io->success('Aucun réglage manquant.');
+        }
 
         return $failed ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    /** @return list<string> fichiers secrets lisibles par un autre compte du serveur (Linux ; Windows : toujours vide) */
+    private function worldReadable(): array
+    {
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            return [];
+        }
+        $found = [];
+        foreach (['.env.local', 'config/jwt/private.pem'] as $file) {
+            $mode = @fileperms($this->projectDir . '/' . $file);
+            if ($mode !== false && ($mode & 0o004) !== 0) {
+                $found[] = $file;
+            }
+        }
+
+        return $found;
     }
 
     private function short(\Throwable $e): string

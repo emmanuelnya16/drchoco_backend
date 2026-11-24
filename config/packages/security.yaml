@@ -70,8 +70,10 @@ security:
         - { path: ^/api/admin/sellers, roles: ROLE_SUPER_ADMIN }
         # Réglages, livraison (villes, agences) et pages : super admin seulement (P8)
         - { path: ^/api/admin/(settings|delivery|pages)(/|$), roles: ROLE_SUPER_ADMIN }
+        # Bloquer ou débloquer un client : super admin seulement (P9)
+        - { path: ^/api/admin/customers/[^/]+/(block|unblock)$, roles: ROLE_SUPER_ADMIN }
         # Paiements (valider, rejeter) et annulation d'une réservation : super admin seulement (P6)
-        - { path: ^/api/admin/reservations/[^/]+/(validate-payment|reject-payment|cancel)$, roles: ROLE_SUPER_ADMIN }
+        - { path: ^/api/admin/reservations/[^/]+/(validate-payment|reject-payment|cancel|refund-settled)$, roles: ROLE_SUPER_ADMIN }
         - { path: ^/api/admin, roles: ROLE_ADMIN }
         # Tout le reste : client connecté
         - { path: ^/api, roles: ROLE_USER }
