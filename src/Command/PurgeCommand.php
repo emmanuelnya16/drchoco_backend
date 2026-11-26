@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Push\PushQueue;
 use App\Repository\OtpCodeRepository;
+use App\Repository\WhatsappLoginRequestRepository;
 use App\Repository\RefreshTokenRepository;
 use App\Reservation\ReservationFileRetention;
 use Doctrine\DBAL\Connection;
@@ -19,7 +20,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Nettoyage (tâche planifiée cPanel, chaque heure : voir README) :
- *  - codes de connexion SMS de plus de 48 h (ils ne servent plus qu'aux limites sur 24 h) ;
+ *  - codes de connexion SMS et demandes de connexion par WhatsApp de plus de 48 h (ils ne servent plus qu'aux limites
+ *    sur 24 h) ;
  *  - sessions (jetons de rafraîchissement) expirées, et sessions fermées depuis 7 jours ;
  *  - fichiers de verrou de var/lock inutilisés depuis 2 h (un par numéro, adresse IP ou client ayant servi : ils ne
  *    durent que quelques secondes mais restent sur le disque, dont le nombre de fichiers est limité) ;
@@ -45,6 +47,7 @@ final class PurgeCommand extends Command
 
     public function __construct(
         private readonly OtpCodeRepository $otpCodes,
+        private readonly WhatsappLoginRequestRepository $whatsappRequests,
         private readonly RefreshTokenRepository $refreshTokens,
         private readonly ClockInterface $clock,
         private readonly Connection $db,
@@ -63,6 +66,7 @@ final class PurgeCommand extends Command
         $now = \DateTimeImmutable::createFromInterface($this->clock->now())->setTimezone(new \DateTimeZone('UTC'));
 
         $otp = $this->otpCodes->deleteOlderThan($now->modify(sprintf('-%d hours', self::OTP_RETENTION_HOURS)));
+        $otp += $this->whatsappRequests->deleteOlderThan($now->modify(sprintf('-%d hours', self::OTP_RETENTION_HOURS)));
         $sessions = $this->refreshTokens->deleteExpired($now, $now->modify(sprintf('-%d days', self::DONE_TOKEN_RETENTION_DAYS)));
         $locks = $this->purgeLockFiles($now->getTimestamp() - self::LOCK_RETENTION_HOURS * 3600);
         $notifications = $this->db->executeStatement(

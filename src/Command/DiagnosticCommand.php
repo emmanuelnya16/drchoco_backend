@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Auth\SmsOtpSender;
+use App\Auth\Whatsapp\WhatsappConfig;
 use App\Kernel;
 use App\Seo\FrontIndex;
 use App\Seo\SiteUrl;
@@ -17,6 +18,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Twilio\Rest\Client as TwilioClient;
 
 /**
@@ -54,6 +56,8 @@ final class DiagnosticCommand extends Command
         #[Autowire('%kernel.debug%')] private readonly bool $debug,
         #[Autowire('%app.private_media_dir%')] private readonly string $privateMediaDir,
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
+        private readonly WhatsappConfig $whatsapp,
+        private readonly HttpClientInterface $httpClient,
     ) {
         parent::__construct();
     }
@@ -161,15 +165,20 @@ final class DiagnosticCommand extends Command
         // Sans Twilio (et hors mode journal), aucun client ne peut se connecter : le diagnostic échoue.
         $logMode = $this->otpSender->usesLogTransport();
         $smsReady = $logMode || $this->otpSender->isTwilioConfigured();
-        if (!$smsReady) {
+        // Connexion par WhatsApp en place : le SMS n'est plus qu'un secours (clients sans WhatsApp sur ce numéro).
+        $whatsappReady = $this->whatsapp->isLoginReady();
+        if (!$smsReady && !$whatsappReady) {
             $failed = true;
         }
+        $rows[] = $this->whatsappRow($online);
+        $failed = $failed || end($rows)[1] === 'ÉCHEC';
         $otpIncomplete = $online && ($logMode || $this->webOtpHost === '');
         $failed = $failed || $otpIncomplete;
         $rows[] = [
             'Codes SMS (connexion)',
-            !$smsReady || $otpIncomplete ? 'ÉCHEC' : ($logMode ? 'JOURNAL' : 'SMS'),
-            ($logMode ? 'aucun SMS envoyé, code écrit dans var/log/dev.log' : ($smsReady ? 'envoyés par Twilio' : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN ou TWILIO_FROM_NUMBER vide : aucun client ne peut se connecter'))
+            (!$smsReady && !$whatsappReady) || $otpIncomplete ? 'ÉCHEC' : ($logMode ? 'JOURNAL' : ($smsReady ? 'SMS' : 'ABSENT')),
+            ($logMode ? 'aucun SMS envoyé, code écrit dans var/log/dev.log' : ($smsReady ? 'envoyés par Twilio' : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN ou TWILIO_FROM_NUMBER vide : '
+                . ($whatsappReady ? 'connexion par WhatsApp seulement' : 'aucun client ne peut se connecter')))
                 . ', plafond ' . $this->dailySmsLimit . ' SMS par jour, remplissage auto. Android : '
                 . ($this->webOtpHost !== '' ? $this->webOtpHost : 'non configuré (OTP_WEBOTP_HOST)'),
         ];
@@ -219,6 +228,44 @@ final class DiagnosticCommand extends Command
         }
 
         return $found;
+    }
+
+    /**
+     * Connexion par WhatsApp : réglages, puis lecture du numéro chez Meta avec le jeton (aucun message envoyé).
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function whatsappRow(bool $online): array
+    {
+        $name = 'WhatsApp (connexion)';
+        if ($this->whatsapp->businessNumber === null || $this->whatsapp->appSecret === '') {
+            return [$name, 'ABSENT', 'WHATSAPP_BUSINESS_NUMBER ou WHATSAPP_APP_SECRET vide : connexion par SMS seulement'];
+        }
+        if ($this->whatsapp->verifyToken === '') {
+            return [$name, 'ÉCHEC', 'WHATSAPP_VERIFY_TOKEN vide : Meta ne peut pas enregistrer l’adresse de rappel'];
+        }
+        $webhook = $this->site->to('/api/webhooks/whatsapp');
+        if (!$this->whatsapp->canReply()) {
+            return [$name, 'OK', sprintf('codes reçus sur +%s ; aucune réponse au client (WHATSAPP_TOKEN vide) ; adresse de rappel %s', ltrim($this->whatsapp->businessNumber, '+'), $webhook)];
+        }
+
+        try {
+            $response = $this->httpClient->request('GET', $this->whatsapp->graphUrl($this->whatsapp->phoneNumberId), [
+                'auth_bearer' => $this->whatsapp->token,
+                'query'       => ['fields' => 'display_phone_number,verified_name,quality_rating'],
+                'timeout'     => 6,
+            ]);
+            $data = $response->toArray(false);
+            if ($response->getStatusCode() !== 200) {
+                $message = \is_array($data['error'] ?? null) ? (string) ($data['error']['message'] ?? '') : '';
+
+                return [$name, 'ÉCHEC', sprintf('Meta refuse le jeton ou l’identifiant du numéro (%d) : %s', $response->getStatusCode(), mb_substr($message, 0, 160))];
+            }
+
+            return [$name, 'OK', sprintf('numéro %s « %s », qualité %s ; adresse de rappel %s', $data['display_phone_number'] ?? '?', $data['verified_name'] ?? '?', $data['quality_rating'] ?? '?', $webhook)];
+        } catch (\Throwable $e) {
+            return [$name, 'ÉCHEC', 'Meta injoignable : ' . $this->short($e)];
+        }
     }
 
     private function short(\Throwable $e): string

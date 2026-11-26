@@ -238,6 +238,14 @@ Les autres écrans d’administration (catalogue, réservations, réglages) arri
 
 Reste avant l’ouverture : la mise en ligne elle-même (P10).
 
+## Après P9 — Connexion par WhatsApp (2026-11-27) ✅
+
+- [x] Le client envoie lui-même le code `DRC-XXXXXX` à la boutique (+237 6 59 88 16 83) depuis son WhatsApp : aucun SMS payant ; le SMS reste en secours (`WHATSAPP_OTP.md`)
+- [x] Table `whatsapp_login_requests` (jeton de l’app gardé en empreinte, effacée après 48 h), `POST /api/auth/whatsapp/start` et `/status`, `GET`/`POST /api/webhooks/whatsapp` (signature de Meta vérifiée, messages en double ignorés, mauvais numéro sans effet)
+- [x] Fin de connexion commune au code SMS (`App\Auth\LoginOpener`) : même compte, même jeton, même cookie
+- [x] Front : « Continuer avec WhatsApp » par défaut, code et message prêts dans WhatsApp, connexion toute seule au retour, reprise si le téléphone a fermé l’app, passage au SMS si WhatsApp n’est pas réglé
+- [ ] À faire à la mise en ligne : secrets dans `.env.local`, adresse de rappel dans la console Meta, publication de l’app Meta
+
 ## Décisions prises
 
 | Date | Question | Décision |

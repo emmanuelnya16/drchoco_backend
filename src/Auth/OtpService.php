@@ -10,7 +10,6 @@ use App\Entity\OtpCode;
 use App\Entity\User;
 use App\Repository\OtpCodeRepository;
 use App\Repository\UserRepository;
-use App\Service\Auth\RefreshTokenService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
@@ -60,7 +59,7 @@ final class OtpService
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
         private readonly OtpSenderInterface $sender,
-        private readonly RefreshTokenService $refreshTokens,
+        private readonly LoginOpener $loginOpener,
         private readonly ClockInterface $clock,
         private readonly LockFactory $lockFactory,
         #[Autowire(service: 'limiter.otp_request_ip')]
@@ -189,25 +188,17 @@ final class OtpService
 
             $otp->consume($now);
 
-            $user = $this->users->findByPhone($phone);
-            $isNewUser = false;
-            if ($user === null) {
-                $user = (new User($now))->setPhone($phone);
-                $this->em->persist($user);
-                $isNewUser = true;
-            } elseif ($user->isBlocked()) {
+            // Compte créé au besoin, jeton d'accès (JWT lexik, configuration inchangée) et session longue (cookie
+            // httpOnly, 90 jours) : même fin que la connexion par WhatsApp.
+            try {
+                $opened = $this->loginOpener->open($phone, $now, $request);
+            } catch (ApiException $blocked) {
+                // Compte suspendu : le code est consommé quand même.
                 $this->em->flush();
                 $connection->commit();
 
-                throw $this->blocked();
+                throw $blocked;
             }
-
-            $user->setLastLoginAt($now);
-            $this->em->flush(); // un nouveau compte reçoit ici son identifiant, nécessaire au JWT et à la session
-
-            // Jeton d'accès (JWT lexik, configuration inchangée) et session longue (cookie httpOnly, 90 jours).
-            $accessToken = $this->refreshTokens->createAccessToken($user);
-            $session = $this->refreshTokens->createForUser($user, $request);
 
             $connection->commit();
         } catch (ApiException $e) {
@@ -220,7 +211,7 @@ final class OtpService
             throw $e;
         }
 
-        return ['user' => $user, 'isNewUser' => $isNewUser, 'accessToken' => $accessToken, 'cookie' => $session['cookie']];
+        return $opened;
     }
 
     // ── Interne ───────────────────────────────────────────────────────────
@@ -382,7 +373,7 @@ final class OtpService
 
     private function blocked(): ApiException
     {
-        return new ApiException(403, 'ACCOUNT_BLOCKED', 'Ce compte est suspendu. Contactez la boutique sur WhatsApp.');
+        return LoginOpener::blocked();
     }
 
     private function smsUnavailable(): ApiException

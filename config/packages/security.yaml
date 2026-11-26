@@ -29,9 +29,10 @@ security:
             pattern: ^/(_profiler|_wdt)/
             security: false
 
-        # Connexion, rafraîchissement et déconnexion : pilotés par le code SMS ou le cookie, jamais par le JWT.
+        # Connexion, rafraîchissement et déconnexion : pilotés par le code SMS, WhatsApp ou le cookie, jamais par le JWT.
+        # Messages WhatsApp transmis par Meta : authentifiés par leur signature (App\Auth\Whatsapp\WhatsappWebhook).
         api_auth:
-            pattern: ^/api/(auth/(otp/request|otp/verify|refresh|logout)|admin/auth/(login|refresh|logout))$
+            pattern: ^/api/(auth/(otp/request|otp/verify|whatsapp/start|whatsapp/status|refresh|logout)|admin/auth/(login|refresh|logout)|webhooks/whatsapp)$
             stateless: true
             security: false
 
@@ -57,6 +58,8 @@ security:
     access_control:
         - { path: ^/api/health$, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/(otp/request|otp/verify|refresh|logout)$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/whatsapp/(start|status)$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/webhooks/whatsapp$, roles: PUBLIC_ACCESS, methods: [GET, POST] }
         - { path: ^/api/admin/auth/(login|refresh|logout)$, roles: PUBLIC_ACCESS }
         # Catalogue et informations publiques, en lecture
         - { path: ^/api/(categories|products|search|looks|settings/public|delivery|pages)(/|$), roles: PUBLIC_ACCESS, methods: [GET] }

@@ -28,7 +28,7 @@ abstract class ApiTestCase extends WebTestCase
         $connection = $this->em()->getConnection();
         // Les adresses, favoris et appareils abonnés partent avec les comptes (clé étrangère ON DELETE CASCADE) ;
         // les appareils sans compte (tests de la purge) et la file des notifications sont vidés aussi.
-        foreach (['push_subscriptions', 'refresh_tokens', 'otp_codes', 'users', 'admins'] as $table) {
+        foreach (['push_subscriptions', 'refresh_tokens', 'otp_codes', 'whatsapp_login_requests', 'users', 'admins'] as $table) {
             $connection->executeStatement('DELETE FROM ' . $table);
         }
     }

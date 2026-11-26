@@ -56,9 +56,26 @@ Le client se connecte avec son numéro : un code à 6 chiffres part par SMS (Twi
 - Limites : renvoi après 60 s, 3 demandes en 10 min et 10 par jour par numéro, 30 SMS par heure par adresse IP (une demande sans SMS ne compte pas) ; 5 codes faux bloquent le numéro 10 min.
 - Session du client : cookie httpOnly `drc_refresh` (90 jours glissants). Il n’est posé que si l’app et l’API sont sur le **même domaine**.
 
+## Connexion des clients par WhatsApp (après P9, par défaut)
+
+Le client envoie lui-même un code `DRC-XXXXXX` à la boutique, depuis le WhatsApp du numéro saisi (message déjà écrit, un appui) : **aucun SMS, aucun message payant**. Le code SMS reste en secours (« Pas de WhatsApp ? Recevoir un code par SMS »). Détails et réglages de Meta : `WHATSAPP_OTP.md`.
+
+| Réglage | Où | Rôle |
+|---|---|---|
+| `WHATSAPP_BUSINESS_NUMBER`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_GRAPH_VERSION` | `.env` (déjà remplis) | Numéro +237 6 59 88 16 83 et identifiants publics de l’app Meta « Dr Choco OTP » |
+| `WHATSAPP_APP_SECRET` | `.env.local` | Clé secrète de l’app Meta : authentifie chaque message transmis. **Vide : l’app envoie le code par SMS.** |
+| `WHATSAPP_VERIFY_TOKEN` | `.env.local` | Chaîne inventée, recopiée dans la console Meta (adresse de rappel) |
+| `WHATSAPP_TOKEN` | `.env.local` | Jeton permanent de l’utilisateur système : réponse « ✅ Numéro vérifié » au client (facultatif) |
+
+- Routes : `POST /api/auth/whatsapp/start` et `/status` (app), `GET` et `POST /api/webhooks/whatsapp` (Meta). Adresse de rappel à donner à Meta : `https://drchoco.com/api/webhooks/whatsapp`, champ `messages`.
+- Un message venu d’un autre numéro que celui saisi ne confirme rien (l’app explique d’où l’envoyer). Un même message transmis deux fois ne compte qu’une fois. Une demande vaut 10 min, puis encore 10 min après le message reçu.
+- Limites : 5 demandes en 10 min et 20 par jour par numéro, 30 en 10 min par adresse IP ; 300 lectures d’état par minute et par adresse IP.
+- `php bin/console app:diagnostic` lit le numéro chez Meta avec le jeton (aucun message envoyé).
+- Essai sur le poste de développement : un tunnel HTTPS (`ngrok http 8000`), son nom dans `APP_DEV_HOSTS` (le mode développement est fermé aux autres adresses), son adresse dans la console Meta.
+
 ### Tâche planifiée (cPanel)
 
-Chaque heure : `php bin/console app:purge` (codes SMS de plus de 48 h, sessions finies, fichiers de verrou de `var/lock` inutilisés depuis 2 h, vieilles notifications, captures et photos de plus de 12 mois).
+Chaque heure : `php bin/console app:purge` (codes SMS et demandes WhatsApp de plus de 48 h, sessions finies, fichiers de verrou de `var/lock` inutilisés depuis 2 h, vieilles notifications, captures et photos de plus de 12 mois).
 
 ## Administration : comptes de l’équipe (P3)
 
@@ -170,6 +187,7 @@ Réservé au super admin (propriétaire, gérant) ; un vendeur reçoit 403. Chaq
 | `SITE_URL`, `DEFAULT_URI` | `https://drchoco.com` |
 | `OTP_WEBOTP_HOST` | `drchoco.com` |
 | `CLOUDINARY_URL`, `TWILIO_*`, `ADMIN_PHONE_NUMBER` | comptes réels |
+| `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_TOKEN` | connexion par WhatsApp (section plus haut) |
 | `VAPID_*` | `php bin/console app:push:vapid-keys --write=.env.local`, puis `VAPID_SUBJECT=mailto:…` |
 | `SYMFONY_TRUSTED_PROXIES`, `SYMFONY_TRUSTED_HEADERS` | **seulement** si un relais (Cloudflare, nginx) est devant PHP et que l’hébergeur ne rétablit pas l’adresse du visiteur : plages du relais (jamais `0.0.0.0/0`) et `x-forwarded-for,x-forwarded-proto`. Sinon toutes les limites par adresse IP visent le relais |
 | `PUSH_EXTRA_HOSTS`, `APP_DEV_HOSTS`, `OTP_SMS_TRANSPORT`, `PUSH_TRANSPORT` | absentes |

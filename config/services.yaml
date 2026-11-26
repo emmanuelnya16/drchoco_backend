@@ -70,6 +70,11 @@ when@test:
             class: App\Tests\Fake\RecordingOtpSender
             public: true
         App\Auth\OtpSenderInterface: '@test.otp_sender'
+        # Aucun message WhatsApp réel pendant les tests : les réponses au client sont enregistrées.
+        test.whatsapp_messenger:
+            class: App\Tests\Fake\RecordingWhatsappMessenger
+            public: true
+        App\Auth\Whatsapp\WhatsappMessengerInterface: '@test.whatsapp_messenger'
         # Aucun envoi réel vers Cloudinary pendant les tests (mêmes contrôles de fichier).
         App\Service\Media\CloudinaryService:
             class: App\Tests\Fake\FakeCloudinaryService
