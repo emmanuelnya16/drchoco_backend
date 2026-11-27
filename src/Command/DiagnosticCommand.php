@@ -279,6 +279,13 @@ final class DiagnosticCommand extends Command
     private function whatsappSubscriptionRow(): array
     {
         $name = 'WhatsApp (messages reçus)';
+        // D'abord l'adresse où Meta envoie les messages du numéro : la réponse la plus directe
+        $callback = WhatsappSubscription::callbackUrl($this->httpClient, $this->whatsapp);
+        if ($callback['url'] !== null) {
+            return str_ends_with(rtrim($callback['url'], '/'), '/api/webhooks/whatsapp')
+                ? [$name, 'OK', 'Meta envoie les messages reçus à ' . $callback['url'] . ' (vérifier que c’est bien cette API). Journal : php bin/console app:whatsapp:journal']
+                : [$name, 'ÉCHEC', 'Meta envoie les messages reçus à ' . $callback['url'] . ', pas à /api/webhooks/whatsapp de cette API : changer l’adresse de rappel dans la console Meta'];
+        }
         $state = WhatsappSubscription::read($this->httpClient, $this->whatsapp);
 
         return match ($state['status']) {

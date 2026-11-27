@@ -45,6 +45,41 @@ final class WhatsappSubscription
     }
 
     /**
+     * Adresse où Meta envoie les messages reçus par le numéro de la boutique (champ webhook_configuration du numéro).
+     *
+     * @return array{url: ?string, detail: string} url null : lecture impossible (raison dans detail)
+     */
+    public static function callbackUrl(HttpClientInterface $httpClient, WhatsappConfig $config): array
+    {
+        if ($config->token === '' || $config->phoneNumberId === '') {
+            return ['url' => null, 'detail' => 'WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID vide'];
+        }
+
+        try {
+            $response = $httpClient->request('GET', $config->graphUrl(rawurlencode($config->phoneNumberId)), [
+                'auth_bearer' => $config->token,
+                'query'       => ['fields' => 'webhook_configuration'],
+                'timeout'     => 6,
+            ]);
+            $data = $response->toArray(false);
+            if ($response->getStatusCode() !== 200) {
+                return ['url' => null, 'detail' => self::metaError($response->getStatusCode(), $data)];
+            }
+            $hook = \is_array($data['webhook_configuration'] ?? null) ? $data['webhook_configuration'] : [];
+            // Adresse propre au numéro, puis au compte, puis à l'app (ordre de priorité de Meta)
+            foreach (['phone_number', 'whatsapp_business_account', 'application'] as $level) {
+                if (\is_string($hook[$level] ?? null) && $hook[$level] !== '') {
+                    return ['url' => $hook[$level], 'detail' => ''];
+                }
+            }
+
+            return ['url' => null, 'detail' => 'aucune adresse : aucune app ne reçoit les messages de ce numéro'];
+        } catch (\Throwable $e) {
+            return ['url' => null, 'detail' => 'Meta injoignable : ' . mb_substr($e::class . ' : ' . $e->getMessage(), 0, 160)];
+        }
+    }
+
+    /**
      * Abonne l'app du jeton au compte WhatsApp Business.
      *
      * @return array{ok: bool, detail: string}

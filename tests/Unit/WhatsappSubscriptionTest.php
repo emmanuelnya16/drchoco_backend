@@ -68,6 +68,25 @@ final class WhatsappSubscriptionTest extends TestCase
         self::assertStringContainsString('erreur 200', $result['detail']);
     }
 
+    public function testReadsWhereMetaSendsTheMessagesOfTheNumber(): void
+    {
+        $urls = [];
+        $http = new MockHttpClient(function (string $method, string $url) use (&$urls): MockResponse {
+            $urls[] = $method . ' ' . $url;
+
+            return new MockResponse(json_encode(['webhook_configuration' => ['application' => 'https://api.drchoco.bibnumcam.com/api/webhooks/whatsapp'], 'id' => '1566791356509169']));
+        });
+        self::assertSame(['url' => 'https://api.drchoco.bibnumcam.com/api/webhooks/whatsapp', 'detail' => ''], WhatsappSubscription::callbackUrl($http, $this->config()));
+        self::assertSame(['GET https://graph.facebook.com/v21.0/1566791356509169?fields=webhook_configuration'], $urls);
+
+        // Adresse propre au numéro : prioritaire sur celle de l'app
+        $override = new MockHttpClient(new MockResponse(json_encode(['webhook_configuration' => ['application' => 'https://a.test/x', 'phone_number' => 'https://b.test/api/webhooks/whatsapp']])));
+        self::assertSame('https://b.test/api/webhooks/whatsapp', WhatsappSubscription::callbackUrl($override, $this->config())['url']);
+
+        $none = new MockHttpClient(new MockResponse(json_encode(['id' => '1566791356509169'])));
+        self::assertStringContainsString('aucune app', WhatsappSubscription::callbackUrl($none, $this->config())['detail']);
+    }
+
     private function config(string $waba = self::WABA): WhatsappConfig
     {
         return new WhatsappConfig('237659881683', '1566791356509169', 'verif', 'cle', 'jeton', 'v21.0', WhatsappConfig::DEFAULT_GRAPH_URL, $waba);
