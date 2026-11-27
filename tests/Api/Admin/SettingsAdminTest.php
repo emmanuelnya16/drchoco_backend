@@ -18,10 +18,18 @@ final class SettingsAdminTest extends AdminTestCase
         return $this->adminToken('owner@drchoco.cm');
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Réglages publics, sans le numéro de connexion par WhatsApp (réglé dans .env.local du serveur, pas dans
+     * l'administration).
+     *
+     * @return array<string, mixed>
+     */
     private function publicSettings(): array
     {
-        return $this->getJson('/api/settings/public');
+        $settings = $this->getJson('/api/settings/public');
+        unset($settings['whatsappLogin']);
+
+        return $settings;
     }
 
     public function testTheOwnerReadsAndChangesPaymentSettings(): void

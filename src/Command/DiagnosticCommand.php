@@ -238,16 +238,13 @@ final class DiagnosticCommand extends Command
     private function whatsappRow(bool $online): array
     {
         $name = 'WhatsApp (connexion)';
-        if ($this->whatsapp->businessNumber === null || $this->whatsapp->appSecret === '') {
-            return [$name, 'ABSENT', 'WHATSAPP_BUSINESS_NUMBER ou WHATSAPP_APP_SECRET vide : connexion par SMS seulement'];
+        if (!$this->whatsapp->isLoginReady()) {
+            return [$name, 'ABSENT', 'WHATSAPP_BUSINESS_NUMBER, WHATSAPP_APP_SECRET, WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID vide : connexion par SMS seulement'];
         }
         if ($this->whatsapp->verifyToken === '') {
             return [$name, 'ÉCHEC', 'WHATSAPP_VERIFY_TOKEN vide : Meta ne peut pas enregistrer l’adresse de rappel'];
         }
         $webhook = $this->site->to('/api/webhooks/whatsapp');
-        if (!$this->whatsapp->canReply()) {
-            return [$name, 'OK', sprintf('codes reçus sur +%s ; aucune réponse au client (WHATSAPP_TOKEN vide) ; adresse de rappel %s', ltrim($this->whatsapp->businessNumber, '+'), $webhook)];
-        }
 
         try {
             $response = $this->httpClient->request('GET', $this->whatsapp->graphUrl($this->whatsapp->phoneNumberId), [

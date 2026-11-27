@@ -19,19 +19,12 @@ framework:
             limit: 30
             interval: '60 minutes'
 
-        # POST /auth/whatsapp/start : 30 demandes de vérification par WhatsApp en 10 min par adresse IP (en plus des
-        # limites par numéro). Rien n'est envoyé au client : la limite protège seulement la base.
+        # POST /auth/whatsapp/start : 30 demandes de code par WhatsApp en 10 min par adresse IP (en plus des limites par
+        # numéro). Le code ne part qu'en réponse au message du client : la limite protège surtout la base.
         whatsapp_start_ip:
             policy: sliding_window
             limit: 30
             interval: '10 minutes'
-
-        # POST /auth/whatsapp/status : l'app interroge toutes les 2 à 3 s pendant l'attente du message ; 300 lectures par
-        # minute et par adresse IP (plusieurs clients derrière la même adresse).
-        whatsapp_status_ip:
-            policy: sliding_window
-            limit: 300
-            interval: '1 minute'
 
         # Écritures d'un client connecté (adresses, profil, favoris, réservations…) : 60 par minute et par compte.
         client_writes:

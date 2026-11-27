@@ -7,7 +7,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 /**
- * Code de connexion envoyé par SMS (contrat §4.1, §4.2).
+ * Code de connexion envoyé par SMS (contrat §4.1, §4.2) ou par WhatsApp, en réponse au message du client
+ * (WHATSAPP_OTP.md). Les deux se vérifient de la même façon (/auth/otp/verify).
  *
  * Une ligne par code envoyé. Seul le dernier code d'un numéro compte : un nouveau code annule le
  * précédent et remet les essais à 5. Le code n'est jamais stocké en clair (empreinte HMAC-SHA256).
@@ -23,6 +24,8 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 class OtpCode
 {
     public const MAX_ATTEMPTS = 5;
+    public const CHANNEL_SMS = 'sms';
+    public const CHANNEL_WHATSAPP = 'whatsapp';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -62,13 +65,18 @@ class OtpCode
     #[ORM\Column(type: 'string', length: 45, nullable: true)]
     private ?string $requestIp = null;
 
-    public function __construct(string $phone, string $codeHash, \DateTimeImmutable $createdAt, \DateTimeImmutable $expiresAt, ?string $requestIp = null)
+    // Canal d'envoi : seuls les SMS comptent dans le plafond quotidien de SMS (OTP_DAILY_SMS_LIMIT).
+    #[ORM\Column(type: 'string', length: 10, options: ['default' => self::CHANNEL_SMS])]
+    private string $channel = self::CHANNEL_SMS;
+
+    public function __construct(string $phone, string $codeHash, \DateTimeImmutable $createdAt, \DateTimeImmutable $expiresAt, ?string $requestIp = null, string $channel = self::CHANNEL_SMS)
     {
         $this->phone = $phone;
         $this->codeHash = $codeHash;
         $this->createdAt = $createdAt;
         $this->expiresAt = $expiresAt;
         $this->requestIp = $requestIp !== null ? mb_substr($requestIp, 0, 45) : null;
+        $this->channel = $channel === self::CHANNEL_WHATSAPP ? self::CHANNEL_WHATSAPP : self::CHANNEL_SMS;
     }
 
     // ── Helpers métier ────────────────────────────────────────────────────
@@ -126,4 +134,5 @@ class OtpCode
     public function getLockedUntil(): ?\DateTimeImmutable { return $this->lockedUntil; }
     public function getConsumedAt(): ?\DateTimeImmutable { return $this->consumedAt; }
     public function getRequestIp(): ?string { return $this->requestIp; }
+    public function getChannel(): string { return $this->channel; }
 }

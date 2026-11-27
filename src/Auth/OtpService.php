@@ -21,7 +21,8 @@ use Symfony\Component\RateLimiter\LimiterInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
- * Connexion sans mot de passe : code à 6 chiffres envoyé par SMS (contrat §4.1, §4.2, §17 question 17).
+ * Connexion sans mot de passe : code à 6 chiffres envoyé par SMS (contrat §4.1, §4.2, §17 question 17), ou par WhatsApp
+ * en réponse au message du client (issueForWhatsapp, WHATSAPP_OTP.md). Les deux se vérifient de la même façon.
  *
  * Limites (valeurs du contrat, celles des mocks du front) :
  *  - code valable 5 min ; « Renvoyer le code » possible après 60 s ; un nouveau code annule le précédent ;
@@ -35,8 +36,8 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
  *  - plafond quotidien de SMS pour toute la boutique (OTP_DAILY_SMS_LIMIT) : au-delà, plus aucun envoi. Un tiers est
  *    réservé aux numéros qui ont déjà un compte : des numéros pris au hasard ne peuvent pas priver les clients de
  *    connexion.
- * Une nouvelle demande dans les 60 s qui suivent un envoi ne renvoie pas de SMS : le code déjà envoyé reste
- * valable et l'app reçoit le temps d'attente restant.
+ * Une nouvelle demande dans les 60 s qui suivent un SMS ne renvoie pas de SMS : le code déjà envoyé reste
+ * valable et l'app reçoit le temps d'attente restant. Après un code WhatsApp, un SMS part tout de suite.
  */
 final class OtpService
 {
@@ -112,6 +113,46 @@ final class OtpService
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Code demandé par WhatsApp (WhatsappWebhook) : créé tout de suite et renvoyé en clair pour la réponse WhatsApp au
+     * client. Il remplace le code précédent (SMS ou WhatsApp) et se vérifie comme lui (/auth/otp/verify).
+     * Mêmes limites par numéro que les SMS (3 codes en 10 min, 10 par jour, verrouillage après 5 codes faux), mais il
+     * ne compte pas dans le plafond quotidien de SMS. Pas d'attente de 60 s : chaque demande WhatsApp a sa propre
+     * référence et n'obtient qu'un code.
+     *
+     * @return array{code: string, expiresIn: int}
+     *
+     * @throws ApiException 403 (compte suspendu) ou 429
+     */
+    public function issueForWhatsapp(string $phone): array
+    {
+        $user = $this->users->findByPhone($phone);
+        if ($user !== null && $user->isBlocked()) {
+            throw $this->blocked();
+        }
+
+        $now = $this->now();
+        $latest = $this->otpCodes->findLatestForPhone($phone);
+        if ($latest !== null && $latest->isLocked($now)) {
+            $retryAfter = $this->secondsUntil($latest->getLockedUntil(), $now);
+
+            throw ApiException::tooManyRequests('TOO_MANY_ATTEMPTS', $this->retryMessage($retryAfter), $retryAfter);
+        }
+        $this->assertBelowLimit($phone, $now, self::WINDOW_SECONDS, self::MAX_REQUESTS_PER_WINDOW);
+        $this->assertBelowLimit($phone, $now, self::DAY_SECONDS, self::MAX_REQUESTS_PER_DAY);
+
+        $code = $this->newCode();
+        $otp = new OtpCode($phone, $this->hash($phone, $code), $now, $now->modify(sprintf('+%d seconds', self::CODE_TTL_SECONDS)), null, OtpCode::CHANNEL_WHATSAPP);
+        // Réponse WhatsApp envoyée juste après (WhatsappReplies) : le code peut être saisi dès maintenant.
+        $otp->markSent($now);
+        $this->em->persist($otp);
+        $this->em->flush();
+
+        $this->logger->info('Code de connexion envoyé par WhatsApp à {phone}.', ['phone' => PhoneNumber::mask($phone)]);
+
+        return ['code' => $code, 'expiresIn' => self::CODE_TTL_SECONDS];
     }
 
     /**
@@ -236,8 +277,14 @@ final class OtpService
             );
         }
 
-        // Code envoyé il y a moins de 60 s et toujours valable : pas de nouveau SMS.
-        if ($latest !== null && $latest->isUsable($now) && $latest->ageInSeconds($now) < self::RESEND_AFTER_SECONDS) {
+        // SMS envoyé il y a moins de 60 s et toujours valable : pas de nouveau SMS. Un code reçu par WhatsApp ne retient
+        // pas le SMS (le client ne l'a peut-être pas reçu, ou n'a pas WhatsApp sur ce numéro).
+        if (
+            $latest !== null
+            && $latest->getChannel() === OtpCode::CHANNEL_SMS
+            && $latest->isUsable($now)
+            && $latest->ageInSeconds($now) < self::RESEND_AFTER_SECONDS
+        ) {
             return [
                 'expiresIn' => $this->secondsUntil($latest->getExpiresAt(), $now),
                 'resendIn'  => max(1, self::RESEND_AFTER_SECONDS - $latest->ageInSeconds($now)),
@@ -253,7 +300,7 @@ final class OtpService
         }
 
         $ceiling = $knownPhone ? $this->dailySmsLimit : (int) floor($this->dailySmsLimit * (1 - self::KNOWN_PHONES_SHARE));
-        if ($this->otpCodes->countAllSince($now->modify('-1 day')) >= $ceiling) {
+        if ($this->otpCodes->countSmsSince($now->modify('-1 day')) >= $ceiling) {
             $this->logger->critical('Plafond quotidien de SMS atteint ({limit}{scope}) : plus aucun code envoyé (OTP_DAILY_SMS_LIMIT).', [
                 'limit' => $ceiling,
                 'scope' => $knownPhone ? '' : ', nouveaux numéros',
@@ -273,7 +320,7 @@ final class OtpService
         }
 
         $now = $this->now();
-        $code = str_pad((string) random_int(0, 999999), 6, '0', \STR_PAD_LEFT);
+        $code = $this->newCode();
         $otp = new OtpCode($phone, $this->hash($phone, $code), $now, $now->modify(sprintf('+%d seconds', self::CODE_TTL_SECONDS)), $ip);
         $this->em->persist($otp);
         $this->em->flush();
@@ -318,6 +365,11 @@ final class OtpService
         $retryAfter = max(1, $stats['oldest']->getTimestamp() + $windowSeconds - $now->getTimestamp());
 
         throw $this->tooManyRequests($retryAfter);
+    }
+
+    private function newCode(): string
+    {
+        return str_pad((string) random_int(0, 999999), 6, '0', \STR_PAD_LEFT);
     }
 
     /** Empreinte du code, liée au numéro et au secret de l'application. */

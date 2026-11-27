@@ -64,13 +64,15 @@ class OtpCodeRepository extends ServiceEntityRepository
         ];
     }
 
-    /** Nombre total de codes envoyés depuis $since (plafond quotidien de SMS, tous numéros confondus). */
-    public function countAllSince(\DateTimeImmutable $since): int
+    /** Nombre de codes envoyés par SMS depuis $since (plafond quotidien de SMS, tous numéros confondus). */
+    public function countSmsSince(\DateTimeImmutable $since): int
     {
         return (int) $this->createQueryBuilder('o')
             ->select('COUNT(o.id)')
             ->where('o.createdAt > :since')
+            ->andWhere('o.channel = :sms')
             ->setParameter('since', $since)
+            ->setParameter('sms', OtpCode::CHANNEL_SMS)
             ->getQuery()
             ->getSingleScalarResult();
     }

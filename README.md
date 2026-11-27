@@ -58,18 +58,20 @@ Le client se connecte avec son numéro : un code à 6 chiffres part par SMS (Twi
 
 ## Connexion des clients par WhatsApp (après P9, par défaut)
 
-Le client envoie lui-même un code `DRC-XXXXXX` à la boutique, depuis le WhatsApp du numéro saisi (message déjà écrit, un appui) : **aucun SMS, aucun message payant**. Le code SMS reste en secours (« Pas de WhatsApp ? Recevoir un code par SMS »). Détails et réglages de Meta : `WHATSAPP_OTP.md`.
+Le code à 6 chiffres arrive **sur WhatsApp** au lieu du SMS : le client appuie sur « Recevoir mon code sur WhatsApp », WhatsApp s'ouvre avec un message déjà écrit qui contient une **référence** (« Je veux recevoir mon code de connexion DR Choco. Réf. K7F2QX ») ; il l'envoie, la boutique répond avec le code, qu'il saisit dans l'app comme un code SMS (`POST /api/auth/otp/verify`). Gratuit : c'est le client qui écrit en premier. **Le code n'est envoyé que si le message vient du WhatsApp du numéro saisi** : la référence seule ne prouve pas que l'on possède le numéro. Le SMS reste en secours. Détails : `WHATSAPP_OTP.md`.
 
 | Réglage | Où | Rôle |
 |---|---|---|
-| `WHATSAPP_BUSINESS_NUMBER`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_GRAPH_VERSION` | `.env` (déjà remplis) | Numéro +237 6 59 88 16 83 et identifiants publics de l’app Meta « Dr Choco OTP » |
-| `WHATSAPP_APP_SECRET` | `.env.local` | Clé secrète de l’app Meta : authentifie chaque message transmis. **Vide : l’app envoie le code par SMS.** |
+| `WHATSAPP_BUSINESS_NUMBER`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_GRAPH_VERSION`, `WHATSAPP_GRAPH_URL` | `.env` (déjà remplis) | Numéro +237 6 59 88 16 83, identifiants publics de l'app Meta « Dr Choco OTP », adresse de l'API de Meta |
+| `WHATSAPP_APP_SECRET` | `.env.local` | Clé secrète de l'app Meta : authentifie chaque message transmis |
 | `WHATSAPP_VERIFY_TOKEN` | `.env.local` | Chaîne inventée, recopiée dans la console Meta (adresse de rappel) |
-| `WHATSAPP_TOKEN` | `.env.local` | Jeton permanent de l’utilisateur système : réponse « ✅ Numéro vérifié » au client (facultatif) |
+| `WHATSAPP_TOKEN` | `.env.local` | Jeton permanent de l'utilisateur système : **envoie le code au client** |
 
-- Routes : `POST /api/auth/whatsapp/start` et `/status` (app), `GET` et `POST /api/webhooks/whatsapp` (Meta). Adresse de rappel à donner à Meta : `https://drchoco.com/api/webhooks/whatsapp`, champ `messages`.
-- Un message venu d’un autre numéro que celui saisi ne confirme rien (l’app explique d’où l’envoyer). Un même message transmis deux fois ne compte qu’une fois. Une demande vaut 10 min, puis encore 10 min après le message reçu.
-- Limites : 5 demandes en 10 min et 20 par jour par numéro, 30 en 10 min par adresse IP ; 300 lectures d’état par minute et par adresse IP.
+Sans `WHATSAPP_APP_SECRET` ou `WHATSAPP_TOKEN`, `GET /api/settings/public` répond `whatsappLogin: null` et l'app ne propose que le SMS.
+
+- Routes : `POST /api/auth/whatsapp/start` (app : numéro et référence), `GET` et `POST /api/webhooks/whatsapp` (Meta). Adresse de rappel à donner à Meta : `https://<api>/api/webhooks/whatsapp`, champ `messages`.
+- Une demande vaut 10 min et ne donne qu'un code (valable 5 min, mêmes limites que le SMS pour le numéro, hors plafond quotidien de SMS). Message venu d'un autre WhatsApp : une explication, aucun code. Même message transmis deux fois par Meta : traité une fois. Réponses (code, explication) envoyées après la réponse faite à Meta ; une même explication une fois par heure au plus.
+- Limites des demandes : 5 en 10 min et 20 par jour par numéro, 30 en 10 min par adresse IP.
 - `php bin/console app:diagnostic` lit le numéro chez Meta avec le jeton (aucun message envoyé).
 - Essai sur le poste de développement : un tunnel HTTPS (`ngrok http 8000`), son nom dans `APP_DEV_HOSTS` (le mode développement est fermé aux autres adresses), son adresse dans la console Meta.
 

@@ -244,26 +244,47 @@ Le plafond `OTP_DAILY_SMS_LIMIT` continue de protéger le budget Twilio.
 
 ## 9. Ce qui a été codé (27/11/2026)
 
-Tout ce plan est en place, avec ces différences :
+### Version retenue : code renvoyé sur WhatsApp (option A)
 
-| Plan | Code | Pourquoi |
+Le plan ci-dessus (« OTP inversé » : le client envoie un code `DRC-XXXXXX`, l'app se connecte toute seule) a été codé
+une première fois (commit f81197d), puis **remplacé le même jour** à la demande du client, qui voulait garder
+l'écran habituel du code à 6 chiffres :
+
+```
+ App                                   Serveur                                WhatsApp
+ « Recevoir mon code sur WhatsApp »
+   lien wa.me (message déjà écrit,
+   « … Réf. K7F2QX »)  ───────────────────────────────────────────────────▶  le client appuie sur Envoyer
+   POST /auth/whatsapp/start
+   {phone, reference}  ─────────────▶  demande enregistrée (10 min)
+ écran des 6 cases                                                            │
+                                       POST /webhooks/whatsapp  ◀────────────┘ (signé par Meta)
+                                       expéditeur = numéro saisi ?
+                                         oui → code à 6 chiffres  ──────────▶ « Votre code DR Choco : *482913* »
+                                         non → explication, aucun code
+ code collé ou tapé
+   POST /auth/otp/verify  ──────────▶  vérification habituelle (5 essais, 5 min) → session
+```
+
+| Point | Choix | Pourquoi |
 |---|---|---|
-| Identifiants dans `.env.local` | Numéro et identifiants **publics** (numéro, ID du numéro, ID du compte, version) déjà dans `.env` ; seuls les **3 secrets** vont dans `.env.local` | Moins de réglages à faire sur le serveur |
-| Expéditeur différent → `mismatch`, demande perdue | La demande **reste ouverte** ; `status` répond `pending` avec `wrongSender: true` et l'app explique d'où envoyer le message | Un message envoyé par erreur depuis un autre WhatsApp ne bloque pas le vrai client |
-| 3 demandes / 10 min, 10 / jour | **5** / 10 min et **20** / jour par numéro ; 30 en 10 min par adresse IP (limite `whatsapp_start_ip`) | Rien n'est payé par demande ; un client qui revient plusieurs fois de WhatsApp ne doit pas être bloqué |
-| Demande valable 10 min | 10 min, **puis encore 10 min après le message reçu** | Laisser le temps de revenir de WhatsApp (app fermée par le téléphone) |
-| Réponse optionnelle au client | « ✅ Numéro vérifié… » à la confirmation ; une aide ou un refus (code expiré, autre numéro, message sans code) **une fois par heure au plus** par expéditeur ; envoyées après la réponse à Meta | Meta veut une réponse rapide ; pas de messages en rafale |
-| — | `start` répond aussi `businessNumber` ; **503 `WHATSAPP_UNAVAILABLE`** tant que `WHATSAPP_APP_SECRET` est vide : l'app envoie alors le code par SMS sans rien demander | Mise en ligne possible avant le réglage de Meta |
-| — | `app:diagnostic` lit le numéro chez Meta avec le jeton (aucun message envoyé) | Vérifier le jeton sans téléphone |
+| Référence | 6 caractères sans I, O, 0 ni 1, **tirée par l'app** avant l'appui (le serveur en choisit une si elle manque) | Le bouton est un simple lien : WhatsApp s'ouvre d'un seul geste, sans fenêtre bloquée par le navigateur |
+| Expéditeur | Code envoyé **seulement** si le message vient du WhatsApp du numéro saisi (option A, choisie par le client) | La référence est donnée à quiconque tape un numéro : sans ce contrôle, connaître le numéro d'un client suffirait pour entrer dans son compte |
+| Mauvais expéditeur | Réponse « Ce code a été demandé pour le 6 XX… Envoyez le message depuis le WhatsApp de ce numéro, ou choisissez “Recevoir par SMS” » ; la demande reste ouverte | Le bon WhatsApp peut encore l'utiliser |
+| Code | Le même que le code SMS (table `otp_codes`, empreinte HMAC, 5 min, 5 essais) avec `channel = whatsapp` ; mêmes limites par numéro (3 en 10 min, 10 par jour), **hors** plafond quotidien de SMS | Une seule vérification pour les deux canaux |
+| Une demande = un code | Message renvoyé : « déjà envoyé juste au-dessus » ; même message transmis deux fois par Meta : traité une fois (wamid) | Pas de codes en rafale |
+| Après un code WhatsApp | « Recevoir un code par SMS » envoie le SMS tout de suite (pas d'attente de 60 s) | Le client n'a peut-être rien reçu |
+| Réglages | `WHATSAPP_TOKEN` devient **obligatoire** ; `GET /settings/public` donne `whatsappLogin: {number}` ou `null` (l'app ne propose alors que le SMS) ; `WHATSAPP_GRAPH_URL` (Meta par défaut) pour les essais avec un faux serveur | Sans jeton, impossible d'envoyer le code |
+| Réponses | Envoyées après la réponse faite à Meta ; une même explication ou aide une fois par heure au plus par expéditeur | Meta veut une réponse rapide ; pas de messages en rafale |
+| Limites des demandes | 5 en 10 min et 20 par jour par numéro, 30 en 10 min par adresse IP | Comme la première version |
 
-Fichiers : `src/Auth/Whatsapp/` (réglages, connexion, messages reçus, réponses), `src/Auth/LoginOpener.php`,
-`src/Controller/Auth/WhatsappLoginController.php`, `src/Controller/Webhook/WhatsappWebhookController.php`,
-migration `Version20261127100000`, tests `tests/Api/Auth/WhatsappLoginTest.php`.
+`POST /auth/whatsapp/status` et la connexion automatique n'existent plus. Fichiers : `src/Auth/Whatsapp/`,
+`src/Auth/OtpService.php` (`issueForWhatsapp`), `src/Controller/Auth/WhatsappLoginController.php`,
+`src/Controller/Webhook/WhatsappWebhookController.php`, migrations `Version20261127100000` et `Version20261127120000`,
+tests `tests/Api/Auth/WhatsappLoginTest.php`. Côté app : `src/features/auth/components/AuthSheet.tsx`,
+`src/features/auth/whatsappCode.ts` ; contrat : `docs/CONTRAT_API.md` §4.5 du front.
 
-Côté app : « Continuer avec WhatsApp » par défaut, code affiché et bouton « Ouvrir WhatsApp » (message déjà écrit),
-vérification toutes les 2,5 s et dès le retour sur l'app, reprise si le téléphone a fermé l'app (demande gardée 10 min
-sur le téléphone), « Pas de WhatsApp ? Recevoir un code par SMS ». Contrat : `docs/CONTRAT_API.md` §4.5 du front.
-
-**Reste à faire, côté Meta, à la mise en ligne** : remplir les 3 secrets dans `.env.local`, puis `php bin/console
-cache:clear` ; enregistrer l'adresse de rappel `https://drchoco.com/api/webhooks/whatsapp` (champ `messages`) ;
-publier l'app (mode Live) ; `php bin/console app:diagnostic --production`.
+**À faire sur le serveur en ligne** : remplir les 3 secrets dans `.env.local` (dont `WHATSAPP_TOKEN`), puis
+`php bin/console doctrine:migrations:migrate` et `php bin/console cache:clear` ; adresse de rappel
+`https://<api>/api/webhooks/whatsapp` (champ `messages`) ; publier l'app Meta (mode Live) ;
+`php bin/console app:diagnostic --production`.

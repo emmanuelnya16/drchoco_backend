@@ -240,11 +240,12 @@ Reste avant l’ouverture : la mise en ligne elle-même (P10).
 
 ## Après P9 — Connexion par WhatsApp (2026-11-27) ✅
 
-- [x] Le client envoie lui-même le code `DRC-XXXXXX` à la boutique (+237 6 59 88 16 83) depuis son WhatsApp : aucun SMS payant ; le SMS reste en secours (`WHATSAPP_OTP.md`)
-- [x] Table `whatsapp_login_requests` (jeton de l’app gardé en empreinte, effacée après 48 h), `POST /api/auth/whatsapp/start` et `/status`, `GET`/`POST /api/webhooks/whatsapp` (signature de Meta vérifiée, messages en double ignorés, mauvais numéro sans effet)
-- [x] Fin de connexion commune au code SMS (`App\Auth\LoginOpener`) : même compte, même jeton, même cookie
-- [x] Front : « Continuer avec WhatsApp » par défaut, code et message prêts dans WhatsApp, connexion toute seule au retour, reprise si le téléphone a fermé l’app, passage au SMS si WhatsApp n’est pas réglé
-- [ ] À faire à la mise en ligne : secrets dans `.env.local`, adresse de rappel dans la console Meta, publication de l’app Meta
+- [x] Première version (f81197d) : le client envoyait un code `DRC-XXXXXX` et l'app se connectait toute seule ; remplacée le même jour à la demande du client
+- [x] Version retenue (option A) : référence dans le message WhatsApp prérempli, code à 6 chiffres renvoyé sur WhatsApp **seulement au WhatsApp du numéro saisi**, saisi dans l'écran habituel du code ; SMS en secours (`WHATSAPP_OTP.md`)
+- [x] Table `whatsapp_login_requests` refaite (numéro, référence, code envoyé, mauvais expéditeur), `otp_codes.channel` (`sms` ou `whatsapp` : seuls les SMS comptent dans le plafond quotidien), `POST /api/auth/whatsapp/start`, `GET`/`POST /api/webhooks/whatsapp` (signature de Meta vérifiée, messages en double ignorés), `whatsappLogin` dans `GET /api/settings/public`
+- [x] Front : « Recevoir mon code sur WhatsApp » (simple lien, un appui), écran du code tout de suite, message collé en entier accepté, « Rouvrir WhatsApp », reprise si le téléphone a fermé l'app, « Pas reçu ? Recevoir un code par SMS »
+- [x] Essai complet dans Chromium sur la vraie API (faux serveur Meta local) : 32/32
+- [ ] À faire à la mise en ligne : 3 secrets dans `.env.local` (dont `WHATSAPP_TOKEN`, obligatoire), migration, adresse de rappel dans la console Meta, publication de l'app Meta
 
 ## Décisions prises
 

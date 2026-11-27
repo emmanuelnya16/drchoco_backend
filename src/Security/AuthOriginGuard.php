@@ -26,7 +26,7 @@ final class AuthOriginGuard
 {
     private const GUARDED_PREFIXES = ['/api/auth/', '/api/admin/auth/', '/api/push/subscribe'];
     // Routes envoyées avec un corps JSON par le front (le rafraîchissement admin part sans corps : non concerné).
-    private const JSON_ONLY_PATHS = ['/api/auth/otp/request', '/api/auth/otp/verify', '/api/auth/whatsapp/start', '/api/auth/whatsapp/status', '/api/auth/refresh', '/api/admin/auth/login', '/api/push/subscribe'];
+    private const JSON_ONLY_PATHS = ['/api/auth/otp/request', '/api/auth/otp/verify', '/api/auth/whatsapp/start', '/api/auth/refresh', '/api/admin/auth/login', '/api/push/subscribe'];
 
     public function __construct(
         #[Autowire('%env(CORS_ALLOW_ORIGIN)%')]

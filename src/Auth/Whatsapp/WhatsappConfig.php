@@ -11,7 +11,13 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 final class WhatsappConfig
 {
-    /** Numéro WhatsApp de la boutique qui reçoit les codes, au format +2376XXXXXXXX (null si absent ou invalide). */
+    /** Caractères d'une référence : ni I, ni O, ni 0, ni 1 (faciles à confondre). */
+    public const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    public const REFERENCE_LENGTH = 6;
+
+    public const DEFAULT_GRAPH_URL = 'https://graph.facebook.com';
+
+    /** Numéro WhatsApp de la boutique qui envoie les codes, au format +2376XXXXXXXX (null si absent ou invalide). */
     public readonly ?string $businessNumber;
 
     public function __construct(
@@ -27,38 +33,66 @@ final class WhatsappConfig
         public readonly string $token,
         #[Autowire('%env(WHATSAPP_GRAPH_VERSION)%')]
         public readonly string $graphVersion,
+        // Adresse de l'API de Meta ; un faux serveur local seulement pour les essais de bout en bout
+        #[Autowire('%env(WHATSAPP_GRAPH_URL)%')]
+        private readonly string $graphBaseUrl = self::DEFAULT_GRAPH_URL,
     ) {
         $this->businessNumber = PhoneNumber::normalizeCameroonMobile($businessNumber);
     }
 
     /**
-     * Connexion possible : un numéro où envoyer le code, et la clé qui authentifie les messages transmis par Meta.
-     * Sinon l'app propose le code par SMS.
+     * Connexion possible : un numéro à qui écrire, la clé qui authentifie les messages transmis par Meta, et le jeton
+     * qui permet de répondre au client avec son code. Sinon l'app propose seulement le code par SMS.
      */
     public function isLoginReady(): bool
     {
-        return $this->businessNumber !== null && $this->appSecret !== '';
+        return $this->businessNumber !== null && $this->appSecret !== '' && $this->canReply();
     }
 
-    /** Réponses au client (« Numéro vérifié ») possibles : sinon les messages sont seulement lus. */
+    /** Réponses au client possibles (jeton et identifiant du numéro chez Meta). */
     public function canReply(): bool
     {
         return $this->token !== '' && $this->phoneNumberId !== '';
     }
 
-    /** Lien qui ouvre WhatsApp sur la conversation avec la boutique, message déjà écrit (le code seul). */
-    public function waLink(string $code): string
+    /** Lien qui ouvre WhatsApp sur la conversation avec la boutique, message déjà écrit (avec la référence). */
+    public function waLink(string $reference): string
     {
-        return sprintf('https://wa.me/%s?text=%s', ltrim((string) $this->businessNumber, '+'), rawurlencode(self::messageFor($code)));
+        return sprintf('https://wa.me/%s?text=%s', ltrim((string) $this->businessNumber, '+'), rawurlencode(self::messageFor($reference)));
     }
 
-    public static function messageFor(string $code): string
+    /** Message prérempli : le même que celui de l'app (src/features/auth/whatsappCode.ts). */
+    public static function messageFor(string $reference): string
     {
-        return 'Mon code DR Choco : ' . $code;
+        return 'Je veux recevoir mon code de connexion DR Choco. Réf. ' . $reference;
+    }
+
+    /** Référence au bon format (majuscules), ou null. */
+    public static function normalizeReference(mixed $raw): ?string
+    {
+        if (!\is_string($raw)) {
+            return null;
+        }
+        $reference = strtoupper(trim($raw));
+        $pattern = sprintf('/^[%s]{%d}\z/', self::REFERENCE_ALPHABET, self::REFERENCE_LENGTH);
+
+        return preg_match($pattern, $reference) === 1 ? $reference : null;
+    }
+
+    public static function newReference(): string
+    {
+        $reference = '';
+        for ($i = 0; $i < self::REFERENCE_LENGTH; ++$i) {
+            $reference .= self::REFERENCE_ALPHABET[random_int(0, \strlen(self::REFERENCE_ALPHABET) - 1)];
+        }
+
+        return $reference;
     }
 
     public function graphUrl(string $path): string
     {
-        return sprintf('https://graph.facebook.com/%s/%s', rawurlencode($this->graphVersion !== '' ? $this->graphVersion : 'v21.0'), ltrim($path, '/'));
+        $base = preg_match('#^https?://#i', $this->graphBaseUrl) === 1 ? rtrim($this->graphBaseUrl, '/') : self::DEFAULT_GRAPH_URL;
+
+        return sprintf('%s/%s/%s', $base, rawurlencode($this->graphVersion !== '' ? $this->graphVersion : 'v21.0'), ltrim($path, '/'));
     }
 }
