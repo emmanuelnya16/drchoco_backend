@@ -70,10 +70,10 @@ Le code à 6 chiffres arrive **sur WhatsApp** au lieu du SMS : le client appuie 
 Sans `WHATSAPP_APP_SECRET` ou `WHATSAPP_TOKEN`, `GET /api/settings/public` répond `whatsappLogin: null` et l'app ne propose que le SMS.
 
 - Routes : `POST /api/auth/whatsapp/start` (app : numéro et référence), `GET` et `POST /api/webhooks/whatsapp` (Meta). Adresse de rappel à donner à Meta : `https://<api>/api/webhooks/whatsapp`, champ `messages`.
-- Une demande vaut 10 min et ne donne qu'un code (valable 5 min, mêmes limites que le SMS pour le numéro, hors plafond quotidien de SMS). Message venu d'un autre WhatsApp : une explication, aucun code. Même message transmis deux fois par Meta : traité une fois. Réponses (code, explication) envoyées après la réponse faite à Meta ; une même explication une fois par heure au plus.
+- Une demande vaut 10 min et ne donne qu'un code (valable 5 min, mêmes limites que le SMS pour le numéro, hors plafond quotidien de SMS). Message venu d'un autre WhatsApp : une explication, aucun code. Même message transmis deux fois par Meta : traité une fois. Réponses (code, explication) envoyées pendant le traitement de l'envoi de Meta, avant sa réponse 200 (comme le bot RUI : sur cPanel, le travail fait après la réponse peut être coupé) ; une même explication une fois par heure au plus.
 - Limites des demandes : 5 en 10 min et 20 par jour par numéro, 30 en 10 min par adresse IP.
 - `php bin/console app:diagnostic` lit le numéro chez Meta avec le jeton et vérifie que l'app est abonnée aux messages reçus (aucun message envoyé) ; `php bin/console app:whatsapp:abonner` fait cet abonnement s'il manque.
-- Journal : `var/log/whatsapp-AAAA-MM-JJ.log` (chaque étape, 30 jours, heure du Cameroun, jamais le code) ; `php bin/console app:whatsapp:journal` affiche les dernières lignes. Dépannage : `WHATSAPP_OTP.md` §10.
+- Journal : `var/log/whatsapp-AAAA-MM-JJ.log` (chaque étape, 30 jours, heure du Cameroun, jamais le code) ; `php bin/console app:whatsapp:journal` affiche les dernières lignes ; `php bin/console app:whatsapp:essai 6XXXXXXXX` envoie un message d'essai depuis le numéro de la boutique (écrire d'abord au numéro). Dépannage : `WHATSAPP_OTP.md` §10.
 - Essai sur le poste de développement : un tunnel HTTPS (`ngrok http 8000`), son nom dans `APP_DEV_HOSTS` (le mode développement est fermé aux autres adresses), son adresse dans la console Meta.
 
 ### Tâche planifiée (cPanel)

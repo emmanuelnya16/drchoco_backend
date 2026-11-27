@@ -10,8 +10,11 @@ use Symfony\Component\HttpKernel\Event\TerminateEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Réponses aux messages reçus, envoyées APRÈS la réponse faite à Meta : le webhook doit répondre vite (sinon Meta le
- * renvoie, puis coupe l'abonnement). Avec PHP-FPM ou LiteSpeed, la réponse est déjà partie quand elles s'envoient.
+ * Réponses aux messages reçus. Envoyées PENDANT le traitement de l'envoi de Meta, avant de lui répondre 200
+ * (WhatsappWebhook::handle) : sur un hébergement mutualisé (cPanel), le travail fait après la réponse (kernel.terminate)
+ * peut être interrompu sans trace. Délais courts (WhatsappCloudMessenger) : Meta reçoit sa réponse en quelques
+ * secondes au plus ; s'il renvoie le même message, il n'est pas traité deux fois.
+ * kernel.terminate reste un filet : envoie ce qui serait encore en attente.
  * Un échec d'envoi ne change rien à la connexion (journal seulement).
  */
 #[AsEventListener(event: KernelEvents::TERMINATE)]
@@ -48,20 +51,25 @@ final class WhatsappReplies
         $this->queued[] = ['to' => $to, 'text' => $text];
     }
 
-    public function __invoke(TerminateEvent $event): void
+    /** Envoie les réponses en attente (appelé à la fin du traitement de chaque envoi de Meta). */
+    public function sendQueued(): void
     {
         $queued = $this->queued;
         $this->queued = [];
-        if ($queued === []) {
-            return;
-        }
-        ignore_user_abort(true);
         foreach ($queued as $reply) {
             try {
                 $this->messenger->send($reply['to'], $reply['text']);
             } catch (\Throwable $e) {
                 $this->logger->error('Réponse non envoyée : {error}', ['error' => mb_substr($e::class . ' : ' . $e->getMessage(), 0, 300)]);
             }
+        }
+    }
+
+    public function __invoke(TerminateEvent $event): void
+    {
+        if ($this->queued !== []) {
+            ignore_user_abort(true);
+            $this->sendQueued();
         }
     }
 }

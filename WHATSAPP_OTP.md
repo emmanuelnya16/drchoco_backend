@@ -275,7 +275,7 @@ l'écran habituel du code à 6 chiffres :
 | Une demande = un code | Message renvoyé : « déjà envoyé juste au-dessus » ; même message transmis deux fois par Meta : traité une fois (wamid) | Pas de codes en rafale |
 | Après un code WhatsApp | « Recevoir un code par SMS » envoie le SMS tout de suite (pas d'attente de 60 s) | Le client n'a peut-être rien reçu |
 | Réglages | `WHATSAPP_TOKEN` devient **obligatoire** ; `GET /settings/public` donne `whatsappLogin: {number}` ou `null` (l'app ne propose alors que le SMS) ; `WHATSAPP_GRAPH_URL` (Meta par défaut) pour les essais avec un faux serveur | Sans jeton, impossible d'envoyer le code |
-| Réponses | Envoyées après la réponse faite à Meta ; une même explication ou aide une fois par heure au plus par expéditeur | Meta veut une réponse rapide ; pas de messages en rafale |
+| Réponses | Envoyées pendant le traitement de l'envoi de Meta, avant sa réponse 200 (délais courts) ; une même explication ou aide une fois par heure au plus par expéditeur | D'abord envoyées après la réponse (kernel.terminate) : sur l'hébergement cPanel, ce travail d'après-réponse peut être coupé sans trace ; le bot RUI, qui marche sur le même type d'hébergement, répond pendant le traitement (27/11/2026) |
 | Limites des demandes | 5 en 10 min et 20 par jour par numéro, 30 en 10 min par adresse IP | Comme la première version |
 
 `POST /auth/whatsapp/status` et la connexion automatique n'existent plus. Fichiers : `src/Auth/Whatsapp/`,
@@ -299,7 +299,11 @@ téléphone. Jamais le code ni le texte des messages ; numéros masqués (`+2376
 ```
 php bin/console app:whatsapp:journal              # 50 dernières lignes
 php bin/console app:whatsapp:journal --lignes=200
+php bin/console app:whatsapp:essai 690000001     # message d'essai depuis le numéro de la boutique
 ```
+
+`app:whatsapp:essai` : écrire d'abord au numéro de la boutique depuis ce téléphone (un message libre n'est accepté que
+dans les 24 h qui suivent un message du client) ; la commande affiche le refus de Meta s'il y en a un.
 
 Sans terminal : gestionnaire de fichiers de cPanel, dossier `var/log/`.
 

@@ -35,7 +35,7 @@ final class WhatsappCloudMessengerTest extends TestCase
 
         $lines = array_map(static fn ($record): string => $record->message, $journal->getRecords());
         self::assertSame('Réponse à +2376****0001 acceptée par Meta (la remise sur le téléphone suit dans le journal).', $lines[0]);
-        self::assertSame('Réponse à +2376****0001 REFUSÉE par Meta (HTTP 400) : erreur 131030 « (#131030) Recipient phone number not in allowed list » : Recipient phone number not in allowed list: Add recipient phone number to recipient list and try again.', $lines[1]);
+        self::assertSame('Réponse à +2376****0001 REFUSÉE par Meta (HTTP 400, erreur 131030 « (#131030) Recipient phone number not in allowed list » : Recipient phone number not in allowed list: Add recipient phone number to recipient list and try again.)', $lines[1]);
         self::assertStringNotContainsString('123456', implode("\n", $lines));
     }
 }

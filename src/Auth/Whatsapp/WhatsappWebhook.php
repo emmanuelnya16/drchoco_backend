@@ -131,6 +131,9 @@ final class WhatsappWebhook
         foreach ($this->textMessages($payload) as $message) {
             $this->process($message['id'], $message['from'], $message['body']);
         }
+        // Réponses envoyées maintenant, avant le 200 fait à Meta (comme le bot RUI) : après la réponse, l'hébergement
+        // peut couper le travail sans trace
+        $this->replies->sendQueued();
     }
 
     /**

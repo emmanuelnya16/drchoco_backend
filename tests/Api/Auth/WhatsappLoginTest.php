@@ -360,6 +360,21 @@ final class WhatsappLoginTest extends AccountTestCase
         self::assertSame('https://graph.facebook.com/v21.0/1/messages', $wrong->graphUrl('1/messages'));
     }
 
+    public function testTheReplyLeavesBeforeMetaGetsItsAnswer(): void
+    {
+        // Sur l'hébergement cPanel, le travail fait après la réponse (kernel.terminate) peut être coupé : la réponse
+        // part pendant le traitement de l'envoi de Meta, comme le bot RUI.
+        $reference = $this->start()['reference'];
+        $this->messenger()->reset();
+        $body = $this->messageBody(self::FROM, WhatsappConfig::messageFor($reference));
+        static::getContainer()->get(WhatsappWebhook::class)->handle($body, 'sha256=' . hash_hmac('sha256', $body, self::APP_SECRET));
+
+        $sent = $this->messenger()->sent;
+        self::assertCount(1, $sent, 'envoyée sans attendre kernel.terminate');
+        self::assertSame(self::FROM, $sent[0]['to']);
+        $this->codeIn($sent[0]['text']);
+    }
+
     public function testEachStepIsWrittenInTheWhatsappJournalWithoutTheCode(): void
     {
         $journal = static::getContainer()->get('test.whatsapp_log');
@@ -430,7 +445,12 @@ final class WhatsappLoginTest extends AccountTestCase
     /** Message texte reçu par la boutique, tel que Meta le transmet. Les réponses enregistrées repartent de zéro. */
     private function receive(string $from, string $text, ?string $messageId = null, ?string $signature = null): void
     {
-        $body = json_encode([
+        $this->post($this->messageBody($from, $text, $messageId), $signature);
+    }
+
+    private function messageBody(string $from, string $text, ?string $messageId = null): string
+    {
+        return json_encode([
             'object' => 'whatsapp_business_account',
             'entry'  => [[
                 'id'      => '1193091309714036',
@@ -451,7 +471,6 @@ final class WhatsappLoginTest extends AccountTestCase
                 ]],
             ]],
         ], \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
-        $this->post($body, $signature);
     }
 
     private function post(string $body, ?string $signature = null): void

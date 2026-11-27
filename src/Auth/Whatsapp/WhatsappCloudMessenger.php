@@ -22,8 +22,19 @@ final class WhatsappCloudMessenger implements WhatsappMessengerInterface
 
     public function send(string $to, string $text): bool
     {
+        return $this->deliver($to, $text) === null;
+    }
+
+    /**
+     * Envoie le message ; null si Meta l'accepte, sinon la raison (aussi écrite dans le journal WhatsApp).
+     * Utilisé tel quel par app:whatsapp:essai.
+     */
+    public function deliver(string $to, string $text): ?string
+    {
         if (!$this->config->canReply()) {
-            return false;
+            $this->logger->error('Réponse non envoyée : WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID est vide.');
+
+            return 'WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID vide';
         }
 
         try {
@@ -45,28 +56,35 @@ final class WhatsappCloudMessenger implements WhatsappMessengerInterface
                     'to' => PhoneNumber::mask('+' . ltrim($to, '+')),
                 ]);
 
-                return true;
+                return null;
             }
 
             $error = $response->toArray(false)['error'] ?? [];
             $details = \is_array($error) && \is_array($error['error_data'] ?? null) ? (string) ($error['error_data']['details'] ?? '') : '';
+            $reason = sprintf(
+                'HTTP %d, erreur %s%s « %s »%s',
+                $status,
+                \is_array($error) ? (string) ($error['code'] ?? '?') : '?',
+                \is_array($error) && isset($error['error_subcode']) ? '/' . $error['error_subcode'] : '',
+                \is_array($error) ? mb_substr((string) ($error['message'] ?? ''), 0, 200) : '',
+                $details !== '' ? ' : ' . mb_substr($details, 0, 200) : '',
+            );
             // 190 : jeton expiré ou faux ; 10 et 200 : permission manquante ; 100 : WHATSAPP_PHONE_NUMBER_ID faux ;
             // 131030 : destinataire hors de la liste des numéros de test ; 131047 : plus de 24 h depuis son message
-            $this->logger->error('Réponse à {to} REFUSÉE par Meta (HTTP {status}) : erreur {code}{subcode} « {message} »{details}', [
-                'to'      => PhoneNumber::mask('+' . ltrim($to, '+')),
-                'status'  => $status,
-                'code'    => \is_array($error) ? (string) ($error['code'] ?? '?') : '?',
-                'subcode' => \is_array($error) && isset($error['error_subcode']) ? '/' . $error['error_subcode'] : '',
-                'message' => \is_array($error) ? mb_substr((string) ($error['message'] ?? ''), 0, 200) : '',
-                'details' => $details !== '' ? ' : ' . mb_substr($details, 0, 200) : '',
+            $this->logger->error('Réponse à {to} REFUSÉE par Meta ({reason})', [
+                'to'     => PhoneNumber::mask('+' . ltrim($to, '+')),
+                'reason' => $reason,
             ]);
-        } catch (\Throwable $e) {
-            $this->logger->error('Réponse à {to} non envoyée : Meta injoignable ({error}).', [
-                'to'    => PhoneNumber::mask('+' . ltrim($to, '+')),
-                'error' => mb_substr($e::class . ' : ' . $e->getMessage(), 0, 300),
-            ]);
-        }
 
-        return false;
+            return $reason;
+        } catch (\Throwable $e) {
+            $reason = 'Meta injoignable : ' . mb_substr($e::class . ' : ' . $e->getMessage(), 0, 300);
+            $this->logger->error('Réponse à {to} non envoyée : {reason}', [
+                'to'     => PhoneNumber::mask('+' . ltrim($to, '+')),
+                'reason' => $reason,
+            ]);
+
+            return $reason;
+        }
     }
 }
