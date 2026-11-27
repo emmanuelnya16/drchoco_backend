@@ -55,6 +55,14 @@ services:
             $clientTtlDays: '%app.refresh.client_ttl_days%'
             $adminSessionHours: '%app.refresh.admin_session_hours%'
 
+    # Journal de la connexion par WhatsApp (var/log/whatsapp-AAAA-MM-JJ.log) : une phrase par ligne, lisible dans le
+    # gestionnaire de fichiers de cPanel. L'heure est celle du Cameroun (App\Auth\Whatsapp\WhatsappLogTime).
+    app.whatsapp_log_formatter:
+        class: Monolog\Formatter\LineFormatter
+        arguments:
+            $format: "[%%datetime%%] %%level_name%% : %%message%%\n"
+            $dateFormat: 'd/m/Y H:i:s'
+
 when@test:
     parameters:
         app.private_media_dir: '%kernel.project_dir%/var/test-private'
@@ -89,6 +97,10 @@ when@test:
         # Journal d'audit lu par les tests (App\Audit\AuditLog).
         test.audit_handler:
             alias: monolog.handler.audit
+            public: true
+        # Journal de la connexion par WhatsApp lu par les tests (App\Auth\Whatsapp, format app.whatsapp_log_formatter).
+        test.whatsapp_log:
+            alias: monolog.handler.whatsapp
             public: true
         # Accès direct aux services encore inutilisés par un contrôleur (tests uniquement).
         test.refresh_token_service:

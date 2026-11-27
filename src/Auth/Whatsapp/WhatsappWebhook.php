@@ -45,6 +45,8 @@ final class WhatsappWebhook
         private readonly EntityManagerInterface $em,
         private readonly WhatsappReplies $replies,
         private readonly ClockInterface $clock,
+        // Journal var/log/whatsapp-AAAA-MM-JJ.log : jamais le code, ni le texte des messages ; numéros masqués
+        #[Autowire(service: 'monolog.logger.whatsapp')]
         private readonly LoggerInterface $logger,
         #[Autowire(service: 'cache.app')]
         private readonly CacheItemPoolInterface $cache,
@@ -75,11 +77,24 @@ final class WhatsappWebhook
     /** Vérification de l'adresse par Meta (GET) : le défi à renvoyer, ou null si le jeton ne correspond pas. */
     public function verifySubscription(?string $mode, ?string $token, ?string $challenge): ?string
     {
-        if ($this->config->verifyToken === '' || $mode !== 'subscribe' || $token === null || $challenge === null) {
+        if ($mode !== 'subscribe' || $token === null || $challenge === null) {
+            $this->logger->info('Adresse de rappel ouverte sans les paramètres de Meta (navigateur ?) : 403.');
+
             return null;
         }
+        if ($this->config->verifyToken === '') {
+            $this->logger->error('Vérification de l’adresse de rappel par Meta refusée : WHATSAPP_VERIFY_TOKEN est vide dans .env.local.');
 
-        return hash_equals($this->config->verifyToken, $token) ? $challenge : null;
+            return null;
+        }
+        if (!hash_equals($this->config->verifyToken, $token)) {
+            $this->logger->warning('Vérification de l’adresse de rappel par Meta refusée : le « jeton de vérification » saisi chez Meta est différent de WHATSAPP_VERIFY_TOKEN.');
+
+            return null;
+        }
+        $this->logger->info('Adresse de rappel vérifiée par Meta (« Vérifier et enregistrer ») : OK.');
+
+        return $challenge;
     }
 
     /**
@@ -87,14 +102,20 @@ final class WhatsappWebhook
      */
     public function handle(string $rawBody, ?string $signature): void
     {
+        $this->logger->info('Envoi reçu de Meta ({bytes} octets).', ['bytes' => \strlen($rawBody)]);
         if ($this->config->appSecret === '') {
-            $this->logger->critical('Message WhatsApp reçu mais WHATSAPP_APP_SECRET est vide : impossible de vérifier qu’il vient de Meta.');
+            $this->logger->critical('Envoi refusé (503) : WHATSAPP_APP_SECRET est vide dans .env.local, impossible de vérifier qu’il vient de Meta.');
 
             throw new ApiException(503, 'WHATSAPP_UNAVAILABLE', 'Service momentanément indisponible.');
         }
+        if ($signature === null || trim($signature) === '') {
+            $this->logger->warning('Envoi refusé (401) : aucune signature X-Hub-Signature-256. Il ne vient pas de Meta.');
+
+            throw new ApiException(401, 'INVALID_SIGNATURE', 'Signature invalide.');
+        }
         $expected = 'sha256=' . hash_hmac('sha256', $rawBody, $this->config->appSecret);
-        if ($signature === null || !hash_equals($expected, strtolower(trim($signature)))) {
-            $this->logger->warning('Webhook WhatsApp refusé : signature absente ou fausse.');
+        if (!hash_equals($expected, strtolower(trim($signature)))) {
+            $this->logger->warning('Envoi refusé (401) : signature fausse. WHATSAPP_APP_SECRET ne correspond pas à la « Clé secrète » de l’app Meta (Paramètres de l’app > Général), ou l’envoi ne vient pas de Meta.');
 
             throw new ApiException(401, 'INVALID_SIGNATURE', 'Signature invalide.');
         }
@@ -102,7 +123,7 @@ final class WhatsappWebhook
         try {
             $payload = json_decode($rawBody, true, 32, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            $this->logger->warning('Webhook WhatsApp signé mais illisible : ignoré.');
+            $this->logger->warning('Envoi signé mais illisible (pas du JSON) : ignoré.');
 
             return;
         }
@@ -123,15 +144,31 @@ final class WhatsappWebhook
         foreach ((\is_array($payload) ? $payload['entry'] ?? [] : []) as $entry) {
             foreach ((\is_array($entry) ? $entry['changes'] ?? [] : []) as $change) {
                 if (!\is_array($change) || ($change['field'] ?? null) !== 'messages' || !\is_array($change['value'] ?? null)) {
+                    $this->logger->info('Notification Meta « {field} » ignorée (seul le champ « messages » est lu).', [
+                        'field' => \is_array($change) ? mb_substr((string) ($change['field'] ?? '?'), 0, 60) : '?',
+                    ]);
                     continue;
                 }
                 $value = $change['value'];
                 $phoneNumberId = (string) ($value['metadata']['phone_number_id'] ?? '');
                 if ($this->config->phoneNumberId !== '' && $phoneNumberId !== $this->config->phoneNumberId) {
-                    continue; // autre numéro du même compte Meta
+                    // Autre numéro du même compte Meta, ou WHATSAPP_PHONE_NUMBER_ID faux
+                    $this->logger->warning('Envoi ignoré : il concerne le numéro Meta {received}, alors que WHATSAPP_PHONE_NUMBER_ID vaut {configured}.', [
+                        'received'   => mb_substr($phoneNumberId, 0, 40),
+                        'configured' => $this->config->phoneNumberId,
+                    ]);
+                    continue;
+                }
+                $this->logStatuses($value['statuses'] ?? null);
+                foreach (\is_array($value['errors'] ?? null) ? $value['errors'] : [] as $error) {
+                    $this->logger->warning('Erreur signalée par Meta : {error}', ['error' => self::describeError($error)]);
                 }
                 foreach (\is_array($value['messages'] ?? null) ? $value['messages'] : [] as $message) {
                     if (!\is_array($message) || ($message['type'] ?? null) !== 'text') {
+                        $this->logger->info('Message de {from} ignoré : type « {type} » (seuls les messages texte sont lus).', [
+                            'from' => self::maskWa(\is_array($message) ? $message['from'] ?? null : null),
+                            'type' => \is_array($message) ? mb_substr((string) ($message['type'] ?? '?'), 0, 30) : '?',
+                        ]);
                         continue;
                     }
                     $id = $message['id'] ?? null;
@@ -151,18 +188,87 @@ final class WhatsappWebhook
     {
         $seen = $this->cache->getItem('wa-msg-' . hash('sha256', $messageId));
         if ($seen->isHit()) {
+            $this->logger->info('Message de {from} déjà traité (Meta l’a envoyé deux fois) : ignoré.', ['from' => self::maskWa($from)]);
+
             return;
         }
 
         $reference = $this->referenceIn($body);
+        if ($reference === null) {
+            $this->logger->info('Message texte de {from} sans référence de connexion : réponse d’aide.', ['from' => self::maskWa($from)]);
+        } else {
+            $this->logger->info('Message texte de {from} avec la référence {reference}.', [
+                'from'      => self::maskWa($from),
+                'reference' => $reference !== '' ? $reference : '(illisible)',
+            ]);
+        }
         $reply = $reference === null
             ? ['text' => self::REPLY_HELP, 'key' => 'help']
             : $this->em->wrapInTransaction(fn (): ?array => $this->answer($reference, $from, $messageId));
 
         $this->cache->save($seen->set(true)->expiresAfter(self::SEEN_TTL_SECONDS));
-        if ($reply !== null && $this->mayReply($from, $reply['key'])) {
-            $this->replies->queue($from, $reply['text']);
+        if ($reply === null) {
+            return;
         }
+        if ($this->mayReply($from, $reply['key'])) {
+            $this->replies->queue($from, $reply['text']);
+        } else {
+            $this->logger->info('Même réponse déjà envoyée à {from} il y a moins d’une heure : pas de nouvelle réponse.', ['from' => self::maskWa($from)]);
+        }
+    }
+
+    /** Accusés de Meta sur les réponses de la boutique : envoyée, remise, lue, ou échec (avec la raison). */
+    private function logStatuses(mixed $statuses): void
+    {
+        foreach (\is_array($statuses) ? $statuses : [] as $status) {
+            if (!\is_array($status)) {
+                continue;
+            }
+            $to = self::maskWa($status['recipient_id'] ?? null);
+            $state = (string) ($status['status'] ?? '?');
+            if ($state !== 'failed') {
+                $this->logger->info('Réponse à {to} : {status}.', [
+                    'to'     => $to,
+                    'status' => match ($state) {
+                        'sent'      => 'envoyée',
+                        'delivered' => 'remise sur le téléphone',
+                        'read'      => 'lue',
+                        default     => mb_substr($state, 0, 30),
+                    },
+                ]);
+                continue;
+            }
+            $errors = \is_array($status['errors'] ?? null) ? $status['errors'] : [];
+            $this->logger->warning('Réponse à {to} NON REMISE par Meta : {error}', [
+                'to'    => $to,
+                'error' => $errors === [] ? 'raison non précisée' : implode(' ; ', array_map(self::describeError(...), $errors)),
+            ]);
+        }
+    }
+
+    /** « 131047 Re-engagement message : détails » à partir d'une erreur de Meta. */
+    private static function describeError(mixed $error): string
+    {
+        if (!\is_array($error)) {
+            return '?';
+        }
+        $details = \is_array($error['error_data'] ?? null) ? (string) ($error['error_data']['details'] ?? '') : '';
+        $text = trim(sprintf(
+            '%s %s%s',
+            (string) ($error['code'] ?? ''),
+            (string) ($error['title'] ?? $error['message'] ?? ''),
+            $details !== '' ? ' : ' . $details : '',
+        ));
+
+        return mb_substr($text !== '' ? $text : '?', 0, 300);
+    }
+
+    /** Numéro WhatsApp tel que Meta le transmet (« 237690000001 »), masqué pour le journal : « +2376****0001 ». */
+    private static function maskWa(mixed $waId): string
+    {
+        $digits = preg_replace('/\D/', '', \is_scalar($waId) ? (string) $waId : '') ?? '';
+
+        return $digits === '' ? '(numéro inconnu)' : PhoneNumber::mask('+' . $digits);
     }
 
     /**
@@ -179,17 +285,30 @@ final class WhatsappWebhook
         $now = new \DateTimeImmutable('@' . $this->clock->now()->getTimestamp());
         $request = $this->requests->findByReferenceForUpdate($reference);
         if ($request !== null && $request->isCodeSent()) {
+            $this->logger->info('Référence {reference} : le code de cette demande a déjà été envoyé, rappel envoyé.', ['reference' => $reference]);
+
             return ['text' => self::REPLY_ALREADY_SENT, 'key' => 'sent|' . $reference];
         }
-        if ($request === null || !$request->isPending($now)) {
+        if ($request === null) {
+            $this->logger->warning('Référence {reference} inconnue : aucune demande enregistrée (l’app n’a pas appelé /api/auth/whatsapp/start sur cette API, ou référence mal recopiée). Aucun code.', [
+                'reference' => $reference !== '' ? $reference : '(illisible)',
+            ]);
+
+            return ['text' => self::REPLY_UNKNOWN, 'key' => 'unknown|' . $reference];
+        }
+        if (!$request->isPending($now)) {
+            $this->logger->info('Référence {reference} expirée (plus de 10 min) ou remplacée par une demande plus récente : aucun code.', ['reference' => $reference]);
+
             return ['text' => self::REPLY_UNKNOWN, 'key' => 'unknown|' . $reference];
         }
 
         $phone = $request->getPhone();
         if (PhoneNumber::normalizeCameroonMobile($from) !== $phone) {
             $request->markWrongSender($now);
-            $this->logger->info('Demande de code WhatsApp envoyée depuis un autre numéro que celui saisi ({phone}).', [
-                'phone' => PhoneNumber::mask($phone),
+            $this->logger->warning('Référence {reference} demandée pour {phone}, mais le message vient d’un autre WhatsApp ({from}) : aucun code, explication envoyée.', [
+                'reference' => $reference,
+                'phone'     => PhoneNumber::mask($phone),
+                'from'      => self::maskWa($from),
             ]);
 
             return ['text' => self::wrongSenderMessage($phone), 'key' => 'wrong|' . $reference];
@@ -201,11 +320,22 @@ final class WhatsappWebhook
             // Compte suspendu, trop de codes demandés, numéro verrouillé : la demande reste ouverte (nouvel essai
             // possible plus tard avec le même message).
             $text = $refused->getStatusCode() === 403 ? self::REPLY_BLOCKED : $refused->getMessage();
+            $this->logger->warning('Référence {reference} ({phone}) : code refusé ({status} : {reason}).', [
+                'reference' => $reference,
+                'phone'     => PhoneNumber::mask($phone),
+                'status'    => $refused->getStatusCode(),
+                'reason'    => $refused->getMessage(),
+            ]);
 
             return ['text' => $text, 'key' => 'refused|' . $reference];
         }
 
         $request->markCodeSent($now, $messageId);
+        $this->logger->info('Référence {reference} : code créé pour {phone} (valable {minutes} min), envoi de la réponse.', [
+            'reference' => $reference,
+            'phone'     => PhoneNumber::mask($phone),
+            'minutes'   => max(1, intdiv($issued['expiresIn'], 60)),
+        ]);
 
         return ['text' => self::codeMessage($issued['code'], $issued['expiresIn']), 'key' => null];
     }

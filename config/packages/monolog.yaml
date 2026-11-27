@@ -3,7 +3,22 @@ monolog:
         - deprecation
         - client_errors
         - audit
+        - whatsapp
     handlers:
+        # Connexion par WhatsApp (App\Auth\Whatsapp) : chaque étape (demande, message reçu de Meta, réponse envoyée ou
+        # refusée), lisible dans var/log/whatsapp-AAAA-MM-JJ.log, 30 jours, dans tous les environnements. Jamais le code
+        # ni le texte des messages ; numéros masqués. Lecture : php bin/console app:whatsapp:journal
+        whatsapp:
+            type: rotating_file
+            path: "%kernel.logs_dir%/whatsapp.log"
+            level: info
+            max_files: 30
+            channels: [whatsapp]
+            # « [27/11/2026 10:37:12] INFO : Message texte de +2376****1683 avec la référence V2ZX4A. » (heure du Cameroun)
+            formatter: app.whatsapp_log_formatter
+            process_psr_3_messages:
+                enabled: true
+                remove_used_context_fields: true
         # Actions sensibles de l'équipe (App\Audit\AuditLog) : journal dédié, 400 jours, dans tous les environnements.
         audit:
             type: rotating_file
@@ -47,6 +62,10 @@ when@test:
             audit:
                 type: test
                 channels: [audit]
+            # Journal WhatsApp des tests : gardé en mémoire (service test.whatsapp_log).
+            whatsapp:
+                type: test
+                channels: [whatsapp]
             nested:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"

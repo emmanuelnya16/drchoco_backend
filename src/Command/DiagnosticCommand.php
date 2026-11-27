@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Auth\SmsOtpSender;
 use App\Auth\Whatsapp\WhatsappConfig;
+use App\Auth\Whatsapp\WhatsappSubscription;
 use App\Kernel;
 use App\Seo\FrontIndex;
 use App\Seo\SiteUrl;
@@ -172,6 +173,10 @@ final class DiagnosticCommand extends Command
         }
         $rows[] = $this->whatsappRow($online);
         $failed = $failed || end($rows)[1] === 'ÉCHEC';
+        if ($whatsappReady) {
+            $rows[] = $this->whatsappSubscriptionRow();
+            $failed = $failed || end($rows)[1] === 'ÉCHEC';
+        }
         $otpIncomplete = $online && ($logMode || $this->webOtpHost === '');
         $failed = $failed || $otpIncomplete;
         $rows[] = [
@@ -263,6 +268,25 @@ final class DiagnosticCommand extends Command
         } catch (\Throwable $e) {
             return [$name, 'ÉCHEC', 'Meta injoignable : ' . $this->short($e)];
         }
+    }
+
+    /**
+     * Messages reçus : Meta ne les transmet à l'adresse de rappel que si l'app est abonnée au compte WhatsApp Business
+     * (WABA). Lecture seule, avec le jeton (GET /{WABA}/subscribed_apps).
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function whatsappSubscriptionRow(): array
+    {
+        $name = 'WhatsApp (messages reçus)';
+        $state = WhatsappSubscription::read($this->httpClient, $this->whatsapp);
+
+        return match ($state['status']) {
+            'subscribed'     => [$name, 'OK', 'app abonnée au compte WhatsApp (' . implode(', ', $state['apps']) . ') ; vérifier aussi chez Meta : champ « messages » abonné. Journal : php bin/console app:whatsapp:journal'],
+            'not_subscribed' => [$name, 'ÉCHEC', 'aucune app abonnée au compte WhatsApp : Meta ne transmet AUCUN message reçu. Corriger : php bin/console app:whatsapp:abonner'],
+            'no_account'     => [$name, 'À VÉRIFIER', 'WHATSAPP_BUSINESS_ACCOUNT_ID vide : abonnement non vérifié'],
+            default          => [$name, 'À VÉRIFIER', 'lecture impossible : ' . $state['detail']],
+        };
     }
 
     private function short(\Throwable $e): string

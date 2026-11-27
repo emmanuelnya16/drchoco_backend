@@ -288,3 +288,30 @@ tests `tests/Api/Auth/WhatsappLoginTest.php`. Côté app : `src/features/auth/co
 `php bin/console doctrine:migrations:migrate` et `php bin/console cache:clear` ; adresse de rappel
 `https://<api>/api/webhooks/whatsapp` (champ `messages`) ; publier l'app Meta (mode Live) ;
 `php bin/console app:diagnostic --production`.
+
+## 10. Journal et dépannage (27/11/2026)
+
+Chaque étape est écrite dans **`var/log/whatsapp-AAAA-MM-JJ.log`** (30 jours, heure du Cameroun, une phrase par
+ligne), en production comme en développement : demande de l'app, envoi reçu de Meta (ou refusé), message lu,
+référence trouvée ou non, code créé, réponse acceptée ou **refusée par Meta avec sa raison**, puis remise sur le
+téléphone. Jamais le code ni le texte des messages ; numéros masqués (`+2376****1683`).
+
+```
+php bin/console app:whatsapp:journal              # 50 dernières lignes
+php bin/console app:whatsapp:journal --lignes=200
+```
+
+Sans terminal : gestionnaire de fichiers de cPanel, dossier `var/log/`.
+
+| Ce que montre le journal après un message envoyé à la boutique | Cause | Que faire |
+|---|---|---|
+| Rien du tout (pas de « Envoi reçu de Meta ») | Meta ne transmet pas les messages | `php bin/console app:diagnostic` (ligne « WhatsApp (messages reçus) ») ; si l'app n'est pas abonnée : `php bin/console app:whatsapp:abonner` ; dans la console Meta : adresse de rappel vérifiée, champ `messages` abonné, app en mode Live |
+| « Vérification … refusée : le jeton de vérification … est différent » | `WHATSAPP_VERIFY_TOKEN` ≠ jeton saisi chez Meta | Recopier le même texte des deux côtés, puis « Vérifier et enregistrer » |
+| « Envoi refusé (401) : signature fausse » | `WHATSAPP_APP_SECRET` ≠ clé secrète de l'app Meta | Recopier la clé secrète (Paramètres de l'app > Général), `cache:clear` |
+| « Envoi ignoré : il concerne le numéro Meta … » | `WHATSAPP_PHONE_NUMBER_ID` faux | Recopier l'identifiant du numéro (WhatsApp > Configuration de l'API) |
+| « Référence … inconnue » | L'app n'a pas appelé `/auth/whatsapp/start` sur cette API | Vérifier l'adresse de l'API du front et la ligne « Demande de code par WhatsApp depuis l'app » |
+| « … vient d'un autre WhatsApp » | Message envoyé depuis un autre numéro que celui saisi | Normal (option A) : écrire depuis le WhatsApp du numéro saisi |
+| « REFUSÉE par Meta … erreur 190 » | Jeton expiré ou faux | Nouveau jeton permanent d'utilisateur système dans `WHATSAPP_TOKEN` |
+| « REFUSÉE par Meta … erreur 10 / 200 » | Permission manquante | Jeton avec `whatsapp_business_messaging` et `whatsapp_business_management` |
+| « REFUSÉE par Meta … erreur 131030 » | App en mode Développement : destinataire hors de la liste de test | Publier l'app (Live), ou ajouter le numéro à la liste de test |
+| « NON REMISE par Meta … 131047 » | Plus de 24 h depuis le message du client | Le client renvoie le message |

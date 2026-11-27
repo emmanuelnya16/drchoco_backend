@@ -360,6 +360,58 @@ final class WhatsappLoginTest extends AccountTestCase
         self::assertSame('https://graph.facebook.com/v21.0/1/messages', $wrong->graphUrl('1/messages'));
     }
 
+    public function testEachStepIsWrittenInTheWhatsappJournalWithoutTheCode(): void
+    {
+        $journal = static::getContainer()->get('test.whatsapp_log');
+        $journal->clear();
+        $journal->setSkipReset(true); // gardé d'une requête à l'autre
+
+        // Demande de l'app, message du bon WhatsApp, code envoyé
+        $start = $this->start();
+        $reference = $start['reference'];
+        $this->receive(self::FROM, WhatsappConfig::messageFor($reference));
+        $code = $this->codeIn($this->messenger()->sent[0]['text']);
+
+        // Message venu d'un autre WhatsApp
+        $other = $this->start('690000003')['reference'];
+        $this->receive('237690000002', WhatsappConfig::messageFor($other));
+        // Référence inconnue
+        $this->receive(self::FROM, 'Réf. ZZZZZZ');
+        // Signature fausse
+        $this->receive(self::FROM, 'Bonjour', null, 'sha256=' . str_repeat('0', 64));
+        // Réponse de la boutique non remise par Meta, envoi pour un autre numéro
+        $this->post(json_encode(['object' => 'whatsapp_business_account', 'entry' => [['id' => '1', 'changes' => [
+            ['field' => 'messages', 'value' => ['metadata' => ['phone_number_id' => self::PHONE_NUMBER_ID], 'statuses' => [
+                ['id' => 'wamid.a', 'status' => 'delivered', 'recipient_id' => self::FROM],
+                ['id' => 'wamid.b', 'status' => 'failed', 'recipient_id' => self::FROM, 'errors' => [['code' => 131047, 'title' => 'Re-engagement message', 'error_data' => ['details' => 'More than 24 hours have passed']]]],
+            ]]],
+            ['field' => 'messages', 'value' => ['metadata' => ['phone_number_id' => '999'], 'messages' => []]],
+        ]]]], \JSON_THROW_ON_ERROR));
+
+        $lines = array_map(static fn ($record): string => $record->message, $journal->getRecords());
+        $text = implode("\n", $lines);
+        foreach ([
+            "Demande de code par WhatsApp depuis l’app : +2376****0001, référence {$reference} (valable 10 min).",
+            'Envoi reçu de Meta (',
+            "Message texte de +2376****0001 avec la référence {$reference}.",
+            "Référence {$reference} : code créé pour +2376****0001 (valable 5 min), envoi de la réponse.",
+            "Référence {$other} demandée pour +2376****0003, mais le message vient d’un autre WhatsApp (+2376****0002) : aucun code",
+            'Référence ZZZZZZ inconnue : aucune demande enregistrée',
+            'Envoi refusé (401) : signature fausse.',
+            'Réponse à +2376****0001 : remise sur le téléphone.',
+            'Réponse à +2376****0001 NON REMISE par Meta : 131047 Re-engagement message : More than 24 hours have passed',
+            'Envoi ignoré : il concerne le numéro Meta 999, alors que WHATSAPP_PHONE_NUMBER_ID vaut ' . self::PHONE_NUMBER_ID . '.',
+        ] as $expected) {
+            self::assertStringContainsString($expected, $text);
+        }
+        // Jamais le code, ni le texte des messages, ni un numéro en clair
+        self::assertStringNotContainsString($code, $text);
+        self::assertStringNotContainsString('Je veux recevoir', $text);
+        self::assertStringNotContainsString('690000001', $text);
+        // Heure du Cameroun
+        self::assertSame('Africa/Douala', $journal->getRecords()[0]->datetime->getTimezone()->getName());
+    }
+
     // ── Aides ─────────────────────────────────────────────────────────────
 
     /** @return array<string, mixed> */

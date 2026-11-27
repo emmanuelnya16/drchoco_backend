@@ -20,6 +20,9 @@ final class WhatsappConfig
     /** Numéro WhatsApp de la boutique qui envoie les codes, au format +2376XXXXXXXX (null si absent ou invalide). */
     public readonly ?string $businessNumber;
 
+    /** Compte WhatsApp Business chez Meta (WABA) : abonnement de l'app aux messages reçus (app:diagnostic). */
+    public readonly string $businessAccountId;
+
     public function __construct(
         #[Autowire('%env(WHATSAPP_BUSINESS_NUMBER)%')]
         string $businessNumber,
@@ -36,8 +39,12 @@ final class WhatsappConfig
         // Adresse de l'API de Meta ; un faux serveur local seulement pour les essais de bout en bout
         #[Autowire('%env(WHATSAPP_GRAPH_URL)%')]
         private readonly string $graphBaseUrl = self::DEFAULT_GRAPH_URL,
+        // Facultatif : son absence ne casse rien (le diagnostic le signale)
+        #[Autowire('%env(default::WHATSAPP_BUSINESS_ACCOUNT_ID)%')]
+        ?string $businessAccountId = null,
     ) {
         $this->businessNumber = PhoneNumber::normalizeCameroonMobile($businessNumber);
+        $this->businessAccountId = trim((string) $businessAccountId);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Auth\Whatsapp;
 
+use App\Account\PhoneNumber;
 use App\Api\ApiException;
 use App\Api\ClientIp;
 use App\Auth\LoginOpener;
@@ -11,6 +12,7 @@ use App\Repository\WhatsappLoginRequestRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
@@ -43,6 +45,9 @@ final class WhatsappLogin
         private readonly RateLimiterFactoryInterface $startIpLimiter,
         #[Autowire('%kernel.secret%')]
         private readonly string $secret,
+        // Journal var/log/whatsapp-AAAA-MM-JJ.log
+        #[Autowire(service: 'monolog.logger.whatsapp')]
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
@@ -53,6 +58,8 @@ final class WhatsappLogin
     public function start(string $phone, ?string $reference, ?string $ip): array
     {
         if (!$this->config->isLoginReady()) {
+            $this->logger->error('Demande de code par WhatsApp refusée (503) : WHATSAPP_BUSINESS_NUMBER, WHATSAPP_APP_SECRET, WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID est vide.');
+
             throw new ApiException(503, 'WHATSAPP_UNAVAILABLE', 'Le code par WhatsApp est momentanément indisponible. Recevez-le par SMS.');
         }
 
@@ -88,6 +95,12 @@ final class WhatsappLogin
             throw new ApiException(409, 'REFERENCE_IN_USE', 'Cette référence est déjà prise. Recommencez.');
         }
 
+        $this->logger->info('Demande de code par WhatsApp depuis l’app : {phone}, référence {reference} (valable {minutes} min). En attente du message du client.', [
+            'phone'     => PhoneNumber::mask($phone),
+            'reference' => $reference,
+            'minutes'   => intdiv(self::TTL_SECONDS, 60),
+        ]);
+
         return [
             'reference'      => $reference,
             'waLink'         => $this->config->waLink($reference),
@@ -121,6 +134,8 @@ final class WhatsappLogin
 
     private function tooManyRequests(int $retryAfter): ApiException
     {
+        $this->logger->info('Demande de code par WhatsApp refusée : trop de demandes (nouvel essai dans {seconds} s).', ['seconds' => $retryAfter]);
+
         return ApiException::tooManyRequests(
             'TOO_MANY_WHATSAPP_REQUESTS',
             sprintf("Trop de demandes de code. Réessayez dans %d\u{00A0}min.", max(1, (int) ceil($retryAfter / 60))),
