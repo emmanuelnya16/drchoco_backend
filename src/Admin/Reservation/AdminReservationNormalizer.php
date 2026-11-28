@@ -52,6 +52,7 @@ final class AdminReservationNormalizer
             'updatedAt'        => ApiDate::format($r->getUpdatedAt()),
             'expiresAt'        => ApiDate::format($r->getExpiresAt()),
             'total'            => $r->getTotal(),
+            'coinsDiscount'    => $r->getCoinsDiscount(),
             'itemsCount'       => $r->itemsCount(),
             'firstItemSummary' => $summary,
             'receptionMode'    => $r->getReceptionMode(),
@@ -119,6 +120,9 @@ final class AdminReservationNormalizer
         }
         if ($r->getRefundSettledAt() !== null) {
             $data['refundSettledAt'] = ApiDate::format($r->getRefundSettledAt());
+        }
+        if ($r->getCoinsRefundedAt() !== null) {
+            $data['coinsRefundedAt'] = ApiDate::format($r->getCoinsRefundedAt());
         }
 
         return $data;

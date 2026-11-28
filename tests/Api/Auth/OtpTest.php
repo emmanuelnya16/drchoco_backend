@@ -59,10 +59,11 @@ final class OtpTest extends AccountTestCase
         $data = $this->verifyCode($this->sms()->lastCodeFor(self::PHONE));
 
         self::assertSame(200, $this->httpStatus());
-        self::assertSame(['accessToken', 'user', 'isNewUser'], array_keys($data));
+        self::assertSame(['accessToken', 'user', 'isNewUser', 'welcomeCoins'], array_keys($data));
         self::assertNotSame('', $data['accessToken']);
         self::assertTrue($data['isNewUser']);
-        self::assertSame(['id', 'phone', 'createdAt'], array_keys($data['user']), 'prénom, nom et ville omis tant qu’inconnus');
+        self::assertSame(['id', 'phone', 'createdAt', 'coins'], array_keys($data['user']), 'prénom, nom et ville omis tant qu’inconnus');
+        self::assertSame([100, 100], [$data['welcomeCoins'], $data['user']['coins']], 'pièces de bienvenue');
         self::assertIsString($data['user']['id']);
         self::assertSame(self::PHONE, $data['user']['phone']);
         self::assertSame(ApiDate::format($this->clock->now()), $data['user']['createdAt']);

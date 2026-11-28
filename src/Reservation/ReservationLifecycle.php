@@ -6,6 +6,7 @@ use App\Api\ApiException;
 use App\Entity\Reservation;
 use App\Entity\User;
 use App\Repository\ReservationRepository;
+use App\Wallet\CoinWallet;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,7 +18,7 @@ use Psr\Log\LoggerInterface;
  *
  * Chaque changement se fait sous verrou de la ligne, relue en base : la tâche planifiée, le client et la
  * boutique ne peuvent pas agir deux fois sur la même réservation. Le stock est remis en vente au passage
- * à « expirée » ou « annulée », donc une seule fois.
+ * à « expirée » ou « annulée », donc une seule fois ; les pièces du portefeuille utilisées sont rendues au même moment.
  */
 final class ReservationLifecycle
 {
@@ -27,6 +28,7 @@ final class ReservationLifecycle
         private readonly ReservationNotifier $notifier,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
+        private readonly CoinWallet $wallet,
     ) {}
 
     public function now(): \DateTimeImmutable
@@ -157,5 +159,8 @@ final class ReservationLifecycle
         foreach ($quantities as $variantId => $quantity) {
             $connection->executeStatement('UPDATE product_variants SET stock = stock + ? WHERE id = ?', [$quantity, $variantId]);
         }
+
+        // Pièces du portefeuille utilisées pour cette réservation : rendues au client (une seule fois)
+        $this->wallet->refund($reservation, $this->now());
     }
 }

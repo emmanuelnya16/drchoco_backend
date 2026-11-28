@@ -55,6 +55,10 @@ class User implements UserInterface
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastLoginAt = null;
 
+    // Portefeuille de pièces (App\Wallet\CoinWallet) : solde, l'historique est dans coin_movements.
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $coins = 0;
+
     public function __construct(?\DateTimeImmutable $createdAt = null)
     {
         $this->createdAt = $createdAt ?? new \DateTimeImmutable();
@@ -103,4 +107,8 @@ class User implements UserInterface
 
     public function getLastLoginAt(): ?\DateTimeImmutable { return $this->lastLoginAt; }
     public function setLastLoginAt(?\DateTimeImmutable $v): static { $this->lastLoginAt = $v; return $this; }
+
+    public function getCoins(): int { return $this->coins; }
+    /** Seulement par App\Wallet\CoinWallet, qui garde l'historique. */
+    public function setCoins(int $v): static { $this->coins = max(0, $v); return $this; }
 }

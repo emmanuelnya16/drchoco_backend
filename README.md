@@ -80,6 +80,13 @@ Sans `WHATSAPP_APP_SECRET` ou `WHATSAPP_TOKEN`, `GET /api/settings/public` répo
 
 Chaque heure : `php bin/console app:purge` (codes SMS et demandes WhatsApp de plus de 48 h, sessions finies, fichiers de verrou de `var/lock` inutilisés depuis 2 h, vieilles notifications, captures et photos de plus de 12 mois).
 
+## Portefeuille de pièces (27/11/2026)
+
+- **100 pièces** offertes à la création du compte (première connexion d'un numéro, SMS ou WhatsApp) : `welcomeCoins` dans la réponse de `POST /api/auth/otp/verify`. Les comptes créés avant ne reçoivent rien.
+- **1 pièce = 20 FCFA** de réduction sur le prix des articles d'une réservation (`useCoins: true`), jamais sur la livraison ; la réduction est retirée de `total` (montant à payer, code USSD). Rien à payer : la réservation est confirmée tout de suite.
+- Pièces **rendues** si la réservation expire ou est annulée (une seule fois, avec la remise en stock).
+- Solde : `users.coins` ; historique : table `coin_movements` (bienvenue, dépense, remboursement). Code : `src/Wallet/CoinWallet.php`. Migration `Version20261127200000`.
+
 ## Administration : comptes de l’équipe (P3)
 
 Trois rôles : **owner** (propriétaire) et **manager** (gérant) sont super admins ; **seller** (vendeur) est rattaché à Yaoundé ou à Douala et ne voit que sa ville (ses articles et ceux de sa ville sans vendeur). Les droits sont contrôlés par le serveur, pas seulement par le menu du front.

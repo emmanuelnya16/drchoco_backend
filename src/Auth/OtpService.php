@@ -161,7 +161,7 @@ final class OtpService
      * Tout se fait dans une seule transaction : si l'ouverture de la session échoue (panne de la base…),
      * le code n'est pas consommé et le client peut le saisir à nouveau.
      *
-     * @return array{user: User, isNewUser: bool, accessToken: string, cookie: Cookie}
+     * @return array{user: User, isNewUser: bool, welcomeCoins: int, accessToken: string, cookie: Cookie}
      *
      * @throws ApiException 403, 410, 422 ou 429
      */
@@ -182,7 +182,7 @@ final class OtpService
         }
     }
 
-    /** @return array{user: User, isNewUser: bool, accessToken: string, cookie: Cookie} */
+    /** @return array{user: User, isNewUser: bool, welcomeCoins: int, accessToken: string, cookie: Cookie} */
     private function verifyCode(string $phone, string $code, Request $request, LimiterInterface $verifyLimiter): array
     {
         $check = $verifyLimiter->consume(0); // lecture seule : aucun jeton pris

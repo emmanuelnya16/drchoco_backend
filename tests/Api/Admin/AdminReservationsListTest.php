@@ -42,7 +42,7 @@ final class AdminReservationsListTest extends AdminReservationTestCase
         self::assertSame([$yde, $dla], array_column($data['items'], 'ref'), 'preuve à vérifier d’abord');
 
         [$first, $second] = $data['items'];
-        self::assertSame(['ref', 'status', 'createdAt', 'updatedAt', 'expiresAt', 'total', 'itemsCount', 'firstItemSummary', 'receptionMode', 'city', 'shopCity', 'customer', 'operator', 'hasProof', 'hasPackagePhotos', 'refundDue'], array_keys($first));
+        self::assertSame(['ref', 'status', 'createdAt', 'updatedAt', 'expiresAt', 'total', 'coinsDiscount', 'itemsCount', 'firstItemSummary', 'receptionMode', 'city', 'shopCity', 'customer', 'operator', 'hasProof', 'hasPackagePhotos', 'refundDue'], array_keys($first));
         self::assertSame(['pending_validation', 'pickup', 'Yaoundé', 'Yaoundé', 'orange', true, false], [$first['status'], $first['receptionMode'], $first['city'], $first['shopCity'], $first['operator'], $first['hasProof'], $first['hasPackagePhotos']]);
         self::assertSame(['firstName' => 'Junior', 'lastName' => 'Mbarga', 'phone' => self::PHONE], $first['customer']);
         self::assertSame('Hoodie Barbelé Noir (S · Noir Charbon)', $first['firstItemSummary']);

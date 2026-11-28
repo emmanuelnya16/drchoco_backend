@@ -17,6 +17,7 @@ use App\Repository\DeliveryCityRepository;
 use App\Repository\ProductVariantRepository;
 use App\Repository\ReservationRepository;
 use App\Settings\PublicSettingsProvider;
+use App\Wallet\CoinWallet;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -60,6 +61,7 @@ final class ReservationCreator
         private readonly DeliveryOptions $delivery,
         private readonly PublicSettingsProvider $settings,
         private readonly ReservationNotifier $notifier,
+        private readonly CoinWallet $wallet,
         private readonly ClockInterface $clock,
         #[Autowire(service: 'limiter.reservation_create')]
         private readonly RateLimiterFactoryInterface $hourLimiter,
@@ -101,7 +103,12 @@ final class ReservationCreator
             }
         }
 
-        $plan['amounts'] = $this->amounts($lines, $found, (int) $plan['fee']);
+        // Pièces du portefeuille (« Utiliser mes pièces ») : réduction sur les articles, solde revérifié sous verrou
+        $useCoins = $body['useCoins'] ?? false;
+        if (!\is_bool($useCoins)) {
+            throw ApiException::validation(['useCoins' => 'Choix des pièces invalide.'], 'La demande est incomplète : rechargez la page puis réessayez.');
+        }
+        $plan['amounts'] = $this->amounts($lines, $found, (int) $plan['fee'], $useCoins ? $user->getCoins() : 0);
         $this->assertExpectedTotal($body, $plan['amounts'], $lines, $found);
 
         $now = $this->now();
@@ -141,10 +148,14 @@ final class ReservationCreator
     {
         $connection = $this->em->getConnection();
 
-        // Une demande à la fois par client : deux envois de la même clé ne créent jamais deux réservations.
-        $connection->fetchOne('SELECT id FROM users WHERE id = ? FOR UPDATE', [$user->getId()]);
+        // Une demande à la fois par client : deux envois de la même clé ne créent jamais deux réservations. Le solde de
+        // pièces relu sous ce verrou : pas de double dépense entre deux réservations simultanées.
+        $balance = (int) $connection->fetchOne('SELECT coins FROM users WHERE id = ? FOR UPDATE', [$user->getId()]);
         if (($replay = $this->replay($user, $key, $hash)) !== null) {
             return ['reservation' => $replay, 'replayed' => true];
+        }
+        if ($plan['amounts']['coinsUsed'] > $balance) {
+            throw new ApiException(409, 'COINS_CHANGED', 'Votre solde de pièces a changé. Vérifiez votre réservation puis confirmez à nouveau.', ['coins' => $balance]);
         }
         // Sous le verrou du client : le compte est juste même avec des demandes en parallèle.
         $this->assertWithinOpenLimits($user, $lines, $now);
@@ -177,6 +188,7 @@ final class ReservationCreator
         $this->em->persist($reservation);
         $this->em->flush();
         $reservation->setRef(sprintf('RES-%06d', $reservation->getId()));
+        $this->wallet->spend($user, $reservation, $balance, $now);
         $this->em->flush();
         foreach ($limiters as $limiter) {
             $limiter->consume();
@@ -312,22 +324,27 @@ final class ReservationCreator
      * @param array<string, array{variantId: string, quantity: int}> $lines
      * @param array<string, ProductVariant>                        $found
      *
-     * @return array{subtotal: int, deliveryFee: int, feePayment: string, total: int}
+     * @return array{subtotal: int, deliveryFee: int, feePayment: string, coinsUsed: int, coinsDiscount: int, total: int}
      */
-    private function amounts(array $lines, array $found, int $fee): array
+    private function amounts(array $lines, array $found, int $fee, int $coinsBalance = 0): array
     {
         $subtotal = 0;
         foreach ($lines as $id => $line) {
             $subtotal += $found[$id]->getProduct()->getPrice() * $line['quantity'];
         }
         $feePayment = (string) $this->settings->get()['deliveryFeePayment'];
+        // Pièces : 1 pièce = 20 FCFA, sur les articles seulement (Reservation::setAmounts)
+        $coins = CoinWallet::discountFor($subtotal, $coinsBalance);
+        $articles = $subtotal - $coins['discount'];
 
         return [
-            'subtotal'    => $subtotal,
-            'deliveryFee' => $fee,
-            'feePayment'  => $feePayment,
+            'subtotal'      => $subtotal,
+            'deliveryFee'   => $fee,
+            'feePayment'    => $feePayment,
+            'coinsUsed'     => $coins['coins'],
+            'coinsDiscount' => $coins['discount'],
             // Frais payés à la livraison : pas dans le montant à payer maintenant (Reservation::setAmounts).
-            'total'       => $feePayment === 'on_delivery' ? $subtotal : $subtotal + $fee,
+            'total'         => $feePayment === 'on_delivery' ? $articles : $articles + $fee,
         ];
     }
 
@@ -336,7 +353,7 @@ final class ReservationCreator
      * n'est réservé et l'app lui montre le nouveau montant. Champ absent : ancienne version de l'app.
      *
      * @param array<string, mixed>                                                                 $body
-     * @param array{subtotal: int, deliveryFee: int, feePayment: string, total: int}               $amounts
+     * @param array{subtotal: int, deliveryFee: int, feePayment: string, coinsUsed: int, coinsDiscount: int, total: int} $amounts
      * @param array<string, array{variantId: string, quantity: int}>                               $lines
      * @param array<string, ProductVariant>                                                        $found
      */
@@ -365,7 +382,7 @@ final class ReservationCreator
             409,
             'PRICE_CHANGED',
             sprintf('Le montant a changé : %s au lieu de %s. Vérifiez votre réservation puis confirmez à nouveau.', self::fcfa($amounts['total']), self::fcfa($expected)),
-            ['expectedTotal' => $expected, 'total' => $amounts['total'], 'subtotal' => $amounts['subtotal'], 'deliveryFee' => $amounts['deliveryFee'], 'items' => $items],
+            ['expectedTotal' => $expected, 'total' => $amounts['total'], 'subtotal' => $amounts['subtotal'], 'deliveryFee' => $amounts['deliveryFee'], 'coinsDiscount' => $amounts['coinsDiscount'], 'items' => $items],
         );
     }
 
@@ -564,12 +581,24 @@ final class ReservationCreator
         foreach ($lines as $id => $line) {
             $reservation->addItem(new ReservationItem($reservation, $position++, $found[$id], $line['quantity']));
         }
-        $reservation->setAmounts($plan['amounts']['subtotal'], $plan['amounts']['deliveryFee'], $plan['amounts']['feePayment']);
+        $reservation->setAmounts(
+            $plan['amounts']['subtotal'],
+            $plan['amounts']['deliveryFee'],
+            $plan['amounts']['feePayment'],
+            $plan['amounts']['coinsUsed'],
+            $plan['amounts']['coinsDiscount'],
+        );
 
         $note = $plan['mode'] === Reservation::MODE_PICKUP
             ? sprintf('Réservation enregistrée : retrait à la boutique de %s.', $shopCity)
             : 'Réservation enregistrée.';
         $reservation->record(Reservation::STATUS_RESERVED, Reservation::ACTOR_CLIENT, $note, $now);
+
+        // Rien à payer maintenant (articles entièrement réglés avec les pièces) : confirmée tout de suite
+        if ($reservation->getTotal() === 0 && $reservation->getCoinsUsed() > 0) {
+            $reservation->setPaidAt($now);
+            $reservation->record(Reservation::STATUS_CONFIRMED, Reservation::ACTOR_SYSTEM, 'Montant entièrement réglé avec vos pièces.', $now);
+        }
 
         return $reservation;
     }

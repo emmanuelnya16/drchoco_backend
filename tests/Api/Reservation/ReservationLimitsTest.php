@@ -21,7 +21,7 @@ final class ReservationLimitsTest extends ReservationTestCase
         $this->em()->clear();
         $data = $this->reserve($token, $body, 'cle-prix-change');
         self::assertSame([409, 'PRICE_CHANGED'], [$this->httpStatus(), $data['code']]);
-        self::assertSame(['expectedTotal' => 90000, 'total' => 104000, 'subtotal' => 104000, 'deliveryFee' => 0, 'items' => [['variantId' => self::YDE_VARIANT, 'unitPrice' => 52000]]], $data['details']);
+        self::assertSame(['expectedTotal' => 90000, 'total' => 104000, 'subtotal' => 104000, 'deliveryFee' => 0, 'coinsDiscount' => 0, 'items' => [['variantId' => self::YDE_VARIANT, 'unitPrice' => 52000]]], $data['details']);
         self::assertStringContainsString("104\u{202F}000\u{00A0}FCFA au lieu de 90\u{202F}000\u{00A0}FCFA", $data['message']);
         self::assertSame(4, $this->stock(self::YDE_VARIANT));
         self::assertSame(0, (int) $db->fetchOne('SELECT COUNT(*) FROM reservations'));

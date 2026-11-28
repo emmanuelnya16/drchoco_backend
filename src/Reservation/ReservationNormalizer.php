@@ -47,6 +47,12 @@ final class ReservationNormalizer
                 'phone'     => $r->getCustomerPhone(),
             ],
         ];
+        // Pièces du portefeuille utilisées : réduction déjà retirée de `total` (champs absents sans pièces)
+        if ($r->getCoinsUsed() > 0) {
+            $data['coinsUsed'] = $r->getCoinsUsed();
+            $data['coinsDiscount'] = $r->getCoinsDiscount();
+            $data['amount']['coinsDiscount'] = $r->getCoinsDiscount();
+        }
 
         if ($r->isPickup()) {
             $data['pickupShop'] = $r->getPickupShop();

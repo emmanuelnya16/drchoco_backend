@@ -56,6 +56,8 @@ final class OtpController
             'accessToken' => $result['accessToken'],
             'user'        => $this->normalizer->user($result['user']),
             'isNewUser'   => $result['isNewUser'],
+            // Pièces offertes à la création du compte (0 sinon) : l'app fête l'arrivée du client
+            'welcomeCoins' => $result['welcomeCoins'],
         ]);
         $response->headers->setCookie($result['cookie']);
 

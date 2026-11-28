@@ -131,6 +131,17 @@ class Reservation
     #[ORM\Column(type: 'integer')]
     private int $total = 0;
 
+    // Pièces du portefeuille utilisées (App\Wallet\CoinWallet) et réduction en FCFA, déjà retirée de `total`
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $coinsUsed = 0;
+
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $coinsDiscount = 0;
+
+    // Pièces rendues au client (réservation expirée ou annulée) : une seule fois
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $coinsRefundedAt = null;
+
     #[ORM\Column(type: 'string', length: 12)]
     private string $deliveryFeePayment = 'upfront';
 
@@ -317,16 +328,27 @@ class Reservation
     public function getDeliveryFee(): int { return $this->deliveryFee; }
     public function getTotal(): int { return $this->total; }
     public function getDeliveryFeePayment(): string { return $this->deliveryFeePayment; }
-    public function setAmounts(int $subtotal, int $deliveryFee, string $feePayment): static
+    /**
+     * `total` : montant à payer maintenant. Frais payés à la livraison : il n'en tient pas compte (contrat §10.1).
+     * Réduction des pièces : sur les articles seulement, jamais sur les frais de livraison.
+     */
+    public function setAmounts(int $subtotal, int $deliveryFee, string $feePayment, int $coinsUsed = 0, int $coinsDiscount = 0): static
     {
         $this->subtotal = $subtotal;
         $this->deliveryFee = $deliveryFee;
         $this->deliveryFeePayment = $feePayment === 'on_delivery' ? 'on_delivery' : 'upfront';
-        // Frais payés à la livraison : le montant à payer maintenant n'en tient pas compte (contrat §10.1).
-        $this->total = $this->deliveryFeePayment === 'upfront' ? $subtotal + $deliveryFee : $subtotal;
+        $this->coinsDiscount = max(0, min($coinsDiscount, $subtotal));
+        $this->coinsUsed = $this->coinsDiscount > 0 ? max(0, $coinsUsed) : 0;
+        $articles = $subtotal - $this->coinsDiscount;
+        $this->total = $this->deliveryFeePayment === 'upfront' ? $articles + $deliveryFee : $articles;
 
         return $this;
     }
+
+    public function getCoinsUsed(): int { return $this->coinsUsed; }
+    public function getCoinsDiscount(): int { return $this->coinsDiscount; }
+    public function getCoinsRefundedAt(): ?\DateTimeImmutable { return $this->coinsRefundedAt; }
+    public function setCoinsRefundedAt(?\DateTimeImmutable $v): static { $this->coinsRefundedAt = $v; return $this; }
 
     public function getHoldHours(): int { return $this->holdHours; }
     public function getExpiresAt(): \DateTimeImmutable { return $this->expiresAt; }

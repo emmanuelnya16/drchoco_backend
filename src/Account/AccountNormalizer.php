@@ -25,6 +25,8 @@ final class AccountNormalizer
             }
         }
         $data['createdAt'] = ApiDate::format($user->getCreatedAt());
+        // Portefeuille de pièces (App\Wallet\CoinWallet)
+        $data['coins'] = $user->getCoins();
 
         return $data;
     }

@@ -146,6 +146,8 @@ final class AdminNormalizer
             'status'             => $user->getStatus(),
             'reservationsCount'  => $stats['count'] ?? 0,
             'confirmedTotalFcfa' => $stats['paid'] ?? 0,
+            // Portefeuille de pièces (App\Wallet\CoinWallet)
+            'coins'              => $user->getCoins(),
             'lastActivityAt'     => ApiDate::format($lastActivity),
             'addresses'          => array_map($this->accounts->address(...), $addresses),
             'reservations'       => $reservations,

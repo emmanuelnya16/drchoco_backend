@@ -25,7 +25,7 @@ final class ProfileTest extends AccountTestCase
         $data = $this->api('GET', '/api/me', $token);
 
         self::assertSame(200, $this->httpStatus());
-        self::assertSame(['id', 'phone', 'createdAt'], array_keys($data));
+        self::assertSame(['id', 'phone', 'createdAt', 'coins'], array_keys($data));
         $cacheControl = (string) $this->header('Cache-Control');
         self::assertStringContainsString('private', $cacheControl);
         self::assertStringContainsString('no-cache', $cacheControl);

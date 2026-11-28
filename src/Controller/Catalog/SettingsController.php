@@ -5,6 +5,7 @@ namespace App\Controller\Catalog;
 use App\Api\ApiJson;
 use App\Auth\Whatsapp\WhatsappConfig;
 use App\Settings\PublicSettingsProvider;
+use App\Wallet\CoinWallet;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -22,6 +23,8 @@ final class SettingsController
     {
         return ApiJson::publicRevalidated($request, $settings->get() + [
             'whatsappLogin' => $whatsapp->isLoginReady() ? ['number' => (string) $whatsapp->businessNumber] : null,
+            // Portefeuille de pièces : valeur d'une pièce en FCFA et pièces offertes à la création du compte
+            'coins'         => ['valueFcfa' => CoinWallet::COIN_VALUE_FCFA, 'welcomeBonus' => CoinWallet::WELCOME_BONUS],
         ]);
     }
 }

@@ -74,7 +74,7 @@ final class DirectoryTest extends AdminTestCase
         $item = $data['items'][1];
         self::assertSame([
             'id', 'phone', 'firstName', 'lastName', 'fullName', 'city', 'status', 'reservationsCount',
-            'confirmedTotalFcfa', 'lastActivityAt', 'addresses', 'reservations',
+            'confirmedTotalFcfa', 'coins', 'lastActivityAt', 'addresses', 'reservations',
         ], array_keys($item));
         self::assertSame('Bastos', $item['addresses'][0]['district']);
         self::assertSame([], $item['reservations']);

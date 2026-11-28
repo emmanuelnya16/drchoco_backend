@@ -27,7 +27,7 @@ final class SettingsAdminTest extends AdminTestCase
     private function publicSettings(): array
     {
         $settings = $this->getJson('/api/settings/public');
-        unset($settings['whatsappLogin']);
+        unset($settings['whatsappLogin'], $settings['coins']);
 
         return $settings;
     }
