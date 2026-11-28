@@ -45,6 +45,14 @@ class Reservation
     /** Annulables par le client lui-même (contrat §10.8). */
     public const CLIENT_CANCELLABLE = [self::STATUS_RESERVED, self::STATUS_PAYMENT_REJECTED, self::STATUS_PENDING_VALIDATION, self::STATUS_CONFIRMED];
 
+    /**
+     * Le client peut confirmer avoir reçu son colis (« J'ai bien reçu mon colis ») : colis prêt, remis à l'agence, en
+     * route, ou déjà marqué remis par la boutique. Le statut ne change pas : la boutique confirme elle-même la remise.
+     */
+    public const CLIENT_RECEIPT_STATUSES = [
+        self::STATUS_READY_FOR_PICKUP, self::STATUS_HANDED_TO_AGENCY, self::STATUS_IN_DELIVERY, self::STATUS_DELIVERED, self::STATUS_PICKED_UP,
+    ];
+
     /** Paiement validé par la boutique (chiffre « confirmé » des clients et du tableau de bord). */
     public const PAID_STATUSES = [
         self::STATUS_CONFIRMED, self::STATUS_PREPARING, self::STATUS_HANDED_TO_AGENCY, self::STATUS_READY_FOR_PICKUP,
@@ -176,6 +184,10 @@ class Reservation
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $packageReadyAt = null;
 
+    /** Réception du colis confirmée par le client ; la remise reste à confirmer par la boutique (statut inchangé). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $customerReceivedAt = null;
+
     #[ORM\Column(type: 'string', length: 64)]
     private string $idempotencyKey;
 
@@ -244,6 +256,23 @@ class Reservation
 
         return $this->status === self::STATUS_CANCELLED && $this->refundSettledAt === null
             && ($this->paidAt !== null || ($last instanceof ReservationProof && $last->getStatus() === ReservationProof::STATUS_PENDING));
+    }
+
+    /** « J'ai bien reçu mon colis » encore possible : colis remis ou en route, pas encore confirmé par le client. */
+    public function canClientConfirmReceipt(): bool
+    {
+        return $this->customerReceivedAt === null && \in_array($this->status, self::CLIENT_RECEIPT_STATUSES, true);
+    }
+
+    public function getCustomerReceivedAt(): ?\DateTimeImmutable { return $this->customerReceivedAt; }
+
+    /** Réception confirmée par le client : remonte la réservation dans la liste de l'équipe, statut inchangé. */
+    public function confirmReceiptByClient(\DateTimeImmutable $now): static
+    {
+        $this->customerReceivedAt = $now;
+        $this->updatedAt = $now;
+
+        return $this;
     }
 
     public function getRefundSettledAt(): ?\DateTimeImmutable { return $this->refundSettledAt; }

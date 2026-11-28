@@ -47,6 +47,13 @@ final class ReservationNormalizer
                 'phone'     => $r->getCustomerPhone(),
             ],
         ];
+        // « J'ai bien reçu mon colis » : bouton proposé au client, puis date de sa confirmation (champs absents sinon)
+        if ($r->canClientConfirmReceipt()) {
+            $data['canConfirmReceipt'] = true;
+        }
+        if ($r->getCustomerReceivedAt() !== null) {
+            $data['customerReceivedAt'] = ApiDate::format($r->getCustomerReceivedAt());
+        }
         // Pièces du portefeuille utilisées : réduction déjà retirée de `total` (champs absents sans pièces)
         if ($r->getCoinsUsed() > 0) {
             $data['coinsUsed'] = $r->getCoinsUsed();

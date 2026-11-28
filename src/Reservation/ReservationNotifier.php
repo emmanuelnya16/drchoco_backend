@@ -18,7 +18,8 @@ use Psr\Log\LoggerInterface;
  * Événements des réservations : écrits dans le journal de l'application et, depuis la P7, notifications push
  * mises en file (ReservationPushMessages pour les textes, PushQueue pour la file) :
  *  - équipe : nouvelle réservation (super admins et vendeurs concernés), preuve reçue (super admins),
- *    annulation par le client d'une réservation payée ou dont la preuve attendait (super admins) ;
+ *    annulation par le client d'une réservation payée ou dont la preuve attendait (super admins), colis reçu selon le
+ *    client, remise encore à confirmer (super admins et vendeurs concernés) ;
  *  - client : paiement validé ou rejeté, colis prêt (avec sa photo), en route, livré ou retiré, bientôt expirée,
  *    annulée par la boutique.
  * Appelé après l'enregistrement : une panne ici n'annule jamais l'action.
@@ -64,6 +65,15 @@ class ReservationNotifier
             $this->toTeam($r, fn () => $r->getPaidAt() !== null
                 ? $this->messages->cancelledByClientAfterPayment($r)
                 : $this->messages->cancelledByClientWithProof($r));
+        }
+    }
+
+    /** « J'ai bien reçu mon colis » : l'équipe (et le vendeur concerné) confirme à son tour, si ce n'est pas déjà fait. */
+    public function receivedByClient(Reservation $r): void
+    {
+        $this->log('Réception du colis confirmée par le client', $r);
+        if (!$r->isFinal()) {
+            $this->toTeam($r, fn () => $this->messages->receivedByClient($r), withSellers: true);
         }
     }
 

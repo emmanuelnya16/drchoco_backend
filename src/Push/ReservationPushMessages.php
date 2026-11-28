@@ -47,6 +47,13 @@ final class ReservationPushMessages
         return $this->team($r, 'reservation_cancelled', 'Réservation annulée par le client', sprintf('%s · preuve de paiement envoyée (%s) : à vérifier puis rembourser.', $r->getRef(), self::fcfa($r->getTotal())), PushMessage::URGENCY_HIGH);
     }
 
+    public function receivedByClient(Reservation $r): PushMessage
+    {
+        $action = $r->isPickup() ? 'confirmez le retrait' : 'confirmez la livraison';
+
+        return $this->team($r, 'package_received', 'Colis reçu par le client', sprintf('%s · %s confirme avoir reçu son colis : %s.', $r->getRef(), $this->customer($r), $action));
+    }
+
     // --- Client ---
 
     public function paymentValidated(Reservation $r): PushMessage

@@ -152,6 +152,19 @@ final class ReservationController
         return ApiJson::noStore(['status' => $reservation->getStatus(), 'reservation' => $this->detail($reservation)]);
     }
 
+    /**
+     * POST /api/reservations/{ref}/received — « J'ai bien reçu mon colis » : date notée, statut inchangé (la boutique
+     * confirme le retrait ou la livraison). 200 aussi la seconde fois ; 422 RECEIPT_NOT_ALLOWED avant la remise du colis.
+     */
+    #[Route('/reservations/{ref}/received', name: 'api_reservations_received', methods: ['POST'])]
+    public function received(string $ref, #[CurrentUser] User $user): JsonResponse
+    {
+        $reservation = $this->owned($user, $ref);
+        $this->lifecycle->confirmReceiptByClient($reservation);
+
+        return ApiJson::noStore(['status' => $reservation->getStatus(), 'reservation' => $this->detail($reservation)]);
+    }
+
     private function owned(User $user, string $ref): Reservation
     {
         return $this->reservations->findOwned($user, $ref)

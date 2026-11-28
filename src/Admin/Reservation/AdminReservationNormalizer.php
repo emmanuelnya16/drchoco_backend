@@ -71,6 +71,10 @@ final class AdminReservationNormalizer
         $row['hasProof'] = $proof !== null;
         $row['hasPackagePhotos'] = $r->getPackageReadyAt() !== null;
         $row['refundDue'] = $r->isRefundDue();
+        // Le client a confirmé la réception (« J'ai bien reçu mon colis ») : repère dans la liste
+        if ($r->getCustomerReceivedAt() !== null) {
+            $row['customerReceivedAt'] = ApiDate::format($r->getCustomerReceivedAt());
+        }
 
         return $row;
     }
@@ -84,6 +88,7 @@ final class AdminReservationNormalizer
     public function detail(Reservation $r, \DateTimeImmutable $now, bool $superAdmin): array
     {
         $data = $this->client->detail($r, $now);
+        unset($data['canConfirmReceipt']); // bouton du client seulement
         $data['refundDue'] = $r->isRefundDue();
         $currentPrices = $superAdmin ? $this->products->prices(array_map(fn (ReservationItem $i) => $i->getProductId(), array_values($r->getItems()->toArray()))) : [];
 

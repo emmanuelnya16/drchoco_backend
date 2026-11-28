@@ -99,6 +99,29 @@ final class ReservationLifecycle
     }
 
     /**
+     * POST /reservations/{ref}/received (client) : « J'ai bien reçu mon colis ». Seule la date est notée, le statut ne
+     * change pas : la boutique confirme elle-même le retrait ou la livraison. Sans effet la seconde fois.
+     */
+    public function confirmReceiptByClient(Reservation $reservation): void
+    {
+        $first = $this->locked($reservation, function (Reservation $r, \DateTimeImmutable $now): bool {
+            if ($r->getCustomerReceivedAt() !== null) {
+                return false;
+            }
+            if (!$r->canClientConfirmReceipt()) {
+                throw new ApiException(422, 'RECEIPT_NOT_ALLOWED', 'Votre colis n’est pas encore prêt : vous pourrez confirmer sa réception quand la boutique l’aura remis.', ['status' => $r->getStatus()]);
+            }
+            $r->confirmReceiptByClient($now);
+
+            return true;
+        });
+
+        if ($first) {
+            $this->notifier->receivedByClient($reservation);
+        }
+    }
+
+    /**
      * Exécute `$change` sur la réservation relue sous verrou, dans une transaction, puis enregistre.
      * `commitOnError` : une expiration constatée en chemin est gardée même si l'action est refusée ensuite.
      *

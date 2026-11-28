@@ -87,6 +87,11 @@ Chaque heure : `php bin/console app:purge` (codes SMS et demandes WhatsApp de pl
 - Pièces **rendues** si la réservation expire ou est annulée (une seule fois, avec la remise en stock).
 - Solde : `users.coins` ; historique : table `coin_movements` (bienvenue, dépense, remboursement). Code : `src/Wallet/CoinWallet.php`. Migration `Version20261127200000`.
 
+## « J'ai bien reçu mon colis » (28/11/2026)
+
+- `POST /api/reservations/{ref}/received` (client) : colis prêt, remis à l'agence, en route ou déjà remis → date notée (`customer_received_at`, migration `Version20261128100000`). **Le statut ne change pas** : la boutique confirme toujours le retrait ou la livraison. Sans effet la seconde fois ; avant la remise : `422 RECEIPT_NOT_ALLOWED`.
+- Fiche client : `canConfirmReceipt` (bouton) puis `customerReceivedAt` ; équipe : `customerReceivedAt` dans les lignes et la fiche, notification `package_received` aux super admins et au vendeur concerné tant que la réservation n'est pas clôturée.
+
 ## Administration : comptes de l’équipe (P3)
 
 Trois rôles : **owner** (propriétaire) et **manager** (gérant) sont super admins ; **seller** (vendeur) est rattaché à Yaoundé ou à Douala et ne voit que sa ville (ses articles et ceux de sa ville sans vendeur). Les droits sont contrôlés par le serveur, pas seulement par le menu du front.
